@@ -1,6 +1,6 @@
 {
   "name": "sprecolo",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Generatore parametrico di oggetti per la stampa 3D, nel browser: contenitori Gridfinity, cassettiere, basi, rack per telefoni e vasi. Esporta 3MF e STL.",
   "scripts": {
