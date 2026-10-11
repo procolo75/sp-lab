@@ -1,13 +1,20 @@
 {
-  "name": "sprecolo",
-  "version": "1.0.0",
+  "name": "sp-lab",
+  "version": "1.4.0",
   "private": true,
-  "description": "Generatore parametrico di oggetti per la stampa 3D, nel browser: contenitori Gridfinity, cassettiere, basi, rack per telefoni e vasi. Esporta 3MF e STL.",
+  "description": "Generatore parametrico di oggetti per la stampa 3D, nel browser: palle piatte e decorazioni di Natale multicolore, reggimensole, ganci, contenitori Gridfinity, cassettiere, basi, rack per telefoni, vasi, viti, bulloni e perni. Esporta 3MF e STL.",
   "scripts": {
-    "build": "python3 build.py"
+    "build": "python3 build.py",
+    "fonts": "node tools/make-fonts.mjs"
   },
   "dependencies": {
     "manifold-3d": "3.5.4",
     "three": "0.147.0"
+  },
+  "devDependencies": {
+    "opentype.js": "1.3.4",
+    "@fontsource/fredoka": "5.0.0",
+    "@fontsource/pacifico": "5.0.0",
+    "@fontsource/mountains-of-christmas": "5.0.0"
   }
 }

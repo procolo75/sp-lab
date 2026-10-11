@@ -13,12 +13,18 @@ parts = [
   rd(nm+'three/examples/js/controls/OrbitControls.js'),
   man,
   'window.__MANIFOLD_WASM__="%s";' % wasm,
+  rd('src/fonts.js'),
   rd('src/geom.js'),
+  rd('src/natale.js'),
+  rd('src/supporti.js'),
   rd('src/app.js'),
 ]
 def tag(js): return '<script>\n' + js.replace('</script', '<\\/script') + '\n</script>'
 vendor = '\n'.join(tag(p) for p in parts)
-page = rd('src/page.html').replace('<!--VENDOR-->', vendor)
-full = '<!doctype html>\n<html lang="it">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n</head>\n<body>\n' + page + '\n</body>\n</html>\n'
+logo_sp, logo_volto = rd('assets/logo-sp.svg'), rd('assets/logo-volto.svg')
+page = rd('src/page.html').replace('<!--VENDOR-->', vendor).replace('<!--LOGO_SP-->', logo_sp).replace('<!--LOGO_VOLTO-->', logo_volto)
+# icona della scheda: il monogramma SP in blu
+icon = 'data:image/svg+xml;base64,' + base64.b64encode(logo_sp.replace('currentColor', '#1f5fbf').encode()).decode()
+full = '<!doctype html>\n<html lang="it">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n<link rel="icon" type="image/svg+xml" href="' + icon + '">\n</head>\n<body>\n' + page + '\n</body>\n</html>\n'
 open('index.html','w').write(full)  # pagina unica, funziona offline
 print(len(page)//1024, 'KB')

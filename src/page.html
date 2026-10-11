@@ -1,4 +1,4 @@
-<title>Sprecolo</title>
+<title>SP Lab</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap">
 <style>
@@ -39,7 +39,14 @@ button { font: inherit; color: inherit; }
 
 .app { height: 100%; display: grid; grid-template-rows: auto 1fr; }
 header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
-.brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; color: inherit; text-decoration: none; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; color: inherit; text-decoration: none; }
+.brand .logo { width: 40px; height: 33px; flex: none; color: var(--accent); }
+.brand .logo svg, .sig .face svg { display: block; width: 100%; height: 100%; }
+.brand .names { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+/* firma in fondo alla pagina iniziale */
+.sig { display: flex; align-items: center; justify-content: center; gap: 12px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+.sig .face { width: 30px; height: 44px; color: var(--ink); opacity: .85; flex: none; }
+.sig b { color: var(--ink); font-weight: 600; }
 .brand h1 { margin: 0; font: 700 22px/1 var(--f-head); letter-spacing: .01em; }
 .brand .tagline { font: italic 400 13px/1.2 var(--f-ui); color: var(--muted); }
 .crumbs { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-right: auto; padding-left: 14px; border-left: 1px solid var(--line); min-width: 0; }
@@ -50,10 +57,11 @@ header .actions { margin-left: auto; }
 .home-in { max-width: 1080px; margin: 0 auto; padding: 28px 16px 48px; display: grid; gap: 28px; }
 .lead { margin: 0; font-size: 16px; color: var(--muted); max-width: 60ch; }
 .lead b { color: var(--ink); }
-#cats { display: grid; gap: 32px; }
-.cat { display: grid; gap: 12px; }
-.cat h2 { margin: 0; font: 600 11px/1 var(--f-ui); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+#cats { display: grid; }
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 900px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .cards { grid-template-columns: minmax(0, 1fr); } }
+.card .kicker { font: 600 10px/1 var(--f-ui); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
 .card { display: grid; grid-template-rows: auto 1fr; text-align: left; border: 1px solid var(--line); background: var(--panel); border-radius: 12px; overflow: hidden; cursor: pointer; padding: 0; transition: border-color .15s, transform .15s; }
 .card:hover { border-color: var(--accent); transform: translateY(-2px); }
 .card .thumb { aspect-ratio: 3 / 2; background: var(--bg); display: grid; place-items: center; border-bottom: 1px solid var(--line); }
@@ -97,6 +105,10 @@ input[type=checkbox][role=switch]::after { content: ""; position: absolute; top:
 input[type=checkbox][role=switch]:checked { background: var(--accent); }
 input[type=checkbox][role=switch]:checked::after { transform: translateX(16px); }
 .row.sel { grid-template-columns: 1fr; padding-block: 4px; }
+input[type=color] { width: 46px; height: 28px; padding: 2px; border: 1px solid var(--line); border-radius: 7px; background: var(--field); cursor: pointer; }
+input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+input[type=color]::-webkit-color-swatch { border: 0; border-radius: 4px; }
+select.txt { font-family: var(--f-ui); cursor: pointer; }
 .txt { width: 100%; border: 1px solid var(--line); border-radius: 7px; background: var(--field); color: var(--ink); font: 500 14px var(--f-num); padding: 7px 10px; }
 .seg { display: flex; flex-wrap: wrap; gap: 4px; }
 .seg button { border: 1px solid var(--line); background: var(--field); border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 13px; }
@@ -138,7 +150,7 @@ dl#info dd { margin: 0; font: 500 12px var(--f-num); font-variant-numeric: tabul
   .hint { display: none; }
   dl#info div:nth-child(n+3) { display: none; }
   .ov-info { left: 12px; bottom: 12px; }
-  .brand { flex-direction: column; gap: 3px; align-items: flex-start; }
+  .brand .names { flex-direction: column; gap: 3px; align-items: flex-start; }
   .brand .tagline { font-size: 12px; }
   .crumbs { padding-left: 0; border-left: 0; }
 }
@@ -147,7 +159,7 @@ dl#info dd { margin: 0; font: 500 12px var(--f-num); font-variant-numeric: tabul
 
 <div class="app">
   <header>
-    <a class="brand" href="#" id="brand" aria-label="Sprecolo, torna alla pagina iniziale"><h1>Sprecolo</h1><span class="tagline">il talento sprecato della stampa 3D</span></a>
+    <a class="brand" href="#" id="brand" aria-label="SP Lab, torna alla pagina iniziale"><span class="logo" aria-hidden="true"><!--LOGO_SP--></span><span class="names"><h1>SP Lab</h1><span class="tagline">generatore parametrico per la stampa 3D</span></span></a>
     <div class="crumbs" id="crumbs" hidden>
       <button class="btn back" id="back" type="button">← Tutti</button>
       <strong id="groupTitle"></strong>
@@ -162,6 +174,7 @@ dl#info dd { margin: 0; font: 500 12px var(--f-num); font-variant-numeric: tabul
     <div class="home-in">
       <p class="lead">Scegli cosa stampare, regola le misure e scarica il file <b>3MF</b> pronto per lo slicer.</p>
       <div id="cats"></div>
+      <footer class="sig"><span class="face" aria-hidden="true"><!--LOGO_VOLTO--></span><span>Funziona offline, nel browser</span></footer>
     </div>
   </section>
   <main id="genView" hidden>

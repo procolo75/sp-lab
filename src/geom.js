@@ -1,4 +1,4 @@
-// Motore geometrico Gridfinity: contenitori, basi, cassettiere.
+// Motore geometrico: Gridfinity (contenitori, basi, cassettiere), rack, vasi, viti, bulloni e perni.
 // Coordinate: x = larghezza, y = profondità (fronte verso -y), z = altezza. Unità: mm.
 (function (root) {
   const GF = {
@@ -556,21 +556,350 @@
       return { parts, info };
     }
 
+    // ============ VITERIA: viti, bulloni, perni ============
+    // Filetto metrico ISO (60°): sezione trasversale estrusa con torsione = elica esatta.
+    // Tabella ISO, passo grosso: [passo, chiave esagono, h testa esag., h dado, Ø testa cil., h testa cil., brugola cil., brugola svasata, Ø rondella, sp. rondella]
+    const ISO = {
+      M3: [0.5, 5.5, 2, 2.4, 5.5, 3, 2.5, 2, 7, 0.5],
+      M4: [0.7, 7, 2.8, 3.2, 7, 4, 3, 2.5, 9, 0.8],
+      M5: [0.8, 8, 3.5, 4.7, 8.5, 5, 4, 3, 10, 1],
+      M6: [1, 10, 4, 5.2, 10, 6, 5, 4, 12, 1.6],
+      M8: [1.25, 13, 5.3, 6.8, 13, 8, 6, 5, 16, 1.6],
+      M10: [1.5, 16, 6.4, 8.4, 16, 10, 8, 6, 20, 2],
+      M12: [1.75, 18, 7.5, 10.8, 18, 12, 10, 8, 24, 2.5],
+      M16: [2, 24, 10, 14.8, 24, 16, 14, 10, 30, 3],
+      M20: [2.5, 30, 12.5, 18, 30, 20, 17, 12, 37, 3],
+      M24: [3, 36, 15, 21.5, 36, 24, 19, 14, 44, 4],
+      M30: [3.5, 46, 18.7, 25.6, 45, 30, 22, 17, 56, 4],
+    };
+    function threadSpec(p) {
+      if (p.misura !== 'custom' && ISO[p.misura]) {
+        const [P, s, k, m, dk, kc, sk, sks, dw, hw] = ISO[p.misura];
+        return { name: p.misura, D: parseFloat(p.misura.slice(1)), P, s, k, m, dk, kc, sk, sks, dw, hw };
+      }
+      const D = p.diam, P = Math.min(p.passo, D / 4);
+      const h5 = (v) => Math.round(v * 2) / 2;
+      return { name: `M${fmt(D)}`, D, P, s: h5(1.55 * D + 0.6), k: 0.65 * D, m: 0.85 * D, dk: h5(1.5 * D + 0.5), kc: D, sk: h5(0.8 * D), sks: h5(0.6 * D), dw: h5(2 * D + 0.5), hw: Math.max(0.5, Math.round(1.6 * D) / 10) };
+    }
+    const SQ3 = Math.sqrt(3);
+    const T_DEPTH = 0.5413;  // profondità del filetto / passo (profilo base ISO)
+    const segFor = (D) => Math.max(32, Math.min(72, 2 * Math.round(D * 2)));
+    // sezione del filetto a z = 0; c = scostamento sui fianchi (negativo = vite più piccola, positivo = foro più grande)
+    function threadSection(D, P, c, N, left) {
+      const Rmaj = D / 2, h = T_DEPTH * P;
+      const crest = Rmaj + c, root = Rmaj - h + c;
+      const r = (u) => { const t = Math.abs(u - P / 2); return Math.min(crest, Math.max(root, Rmaj + 2 * c - SQ3 * (t - P / 16))); };
+      const us = [];
+      for (let i = 0; i < N; i++) us.push(P * i / N);
+      const t1 = P / 16 + c / SQ3, t2 = P / 16 + (h + c) / SQ3;
+      for (const t of [t1, t2]) if (t > 0 && t < P / 2) us.push(P / 2 - t, P / 2 + t);
+      const pts = us.map(u => { const a = (left ? 1 : -1) * 2 * Math.PI * u / P; const R = r(u); return [Math.atan2(Math.sin(a), Math.cos(a)), R]; });
+      pts.sort((a, b) => a[0] - b[0]);
+      const out = [];
+      for (const [a, R] of pts) { if (out.length && Math.abs(a - out[out.length - 1][2]) < 1e-7) continue; out.push([R * Math.cos(a), R * Math.sin(a), a]); }
+      return out.map(([x, y]) => [x, y]);
+    }
+    // barra filettata da z = 0 a z = len; la fase è la stessa per ogni z multiplo del passo
+    function threadRod(sp, len, c, left) {
+      const N = segFor(sp.D), turns = len / sp.P;
+      const cs = reg(CrossSection.ofPolygons([threadSection(sp.D, sp.P, c, N, left)]));
+      return reg(cs.extrude(len, Math.max(1, Math.ceil(turns * N)), (left ? -360 : 360) * turns));
+    }
+    const coneZ = (r0, r1, z0, z1, seg = 48) => reg(reg(Manifold.cylinder(z1 - z0, r0, r1, seg)).translate([0, 0, z0]));
+    const cylY = (x, z, r, y0, y1, seg = 32) => reg(reg(reg(Manifold.cylinder(y1 - y0, r, r, seg)).rotate([-90, 0, 0])).translate([x, y0, z]));
+    // prisma esagonale (chiave s) con smussi a 30° sulle facce scelte
+    function hexPrism(s, z0, z1, top = true, bot = true) {
+      const R = s / SQ3, h = z1 - z0;
+      const prism = reg(reg(Manifold.cylinder(h, R, R, 6)).translate([0, 0, z0]));
+      const r0 = 0.95 * s / 2, dz = Math.min(h / 3, (R + 0.1 - r0) / SQ3);
+      const ch = Manifold.hull([
+        bot ? cylZ(r0, z0, z0 + 0.01, 0, 0, 48) : cylZ(R + 0.1, z0, z0 + 0.01, 0, 0, 48),
+        cylZ(R + 0.1, z0 + (bot ? dz : 0), z1 - (top ? dz : 0), 0, 0, 48),
+        top ? cylZ(r0, z1 - 0.01, z1, 0, 0, 48) : cylZ(R + 0.1, z1 - 0.01, z1, 0, 0, 48),
+      ]);
+      return reg(prism.intersect(reg(ch)));
+    }
+    // cilindro con bordi smussati
+    function roundCyl(r, z0, z1, chT, chB, seg = 64) {
+      const parts = [cylZ(r, z0 + chB, z1 - chT, 0, 0, seg)];
+      if (chB > 0) parts.push(cylZ(r - chB, z0, z0 + 0.01, 0, 0, seg));
+      else parts.push(cylZ(r, z0, z0 + 0.01, 0, 0, seg));
+      if (chT > 0) parts.push(cylZ(r - chT, z1 - 0.01, z1, 0, 0, seg));
+      else parts.push(cylZ(r, z1 - 0.01, z1, 0, 0, seg));
+      return hullPts(parts);
+    }
+    // cilindro zigrinato per teste e dadi da girare a mano
+    function knurled(dk, z0, z1) {
+      const R = dk / 2, n = Math.max(12, Math.round(Math.PI * dk / 3)), rn = Math.min(1.2, Math.PI * dk / n * 0.22);
+      const notches = [];
+      // tacche centrate appena fuori dal bordo e sfasate rispetto ai vertici del cerchio: niente punti coincidenti
+      for (let i = 0; i < n; i++) { const a = 2 * Math.PI * (i + 0.37) / n, rc = R + rn * 0.3; notches.push(csCircle(rc * Math.cos(a), rc * Math.sin(a), rn, 16)); }
+      const cs = csSub(csCircle(0, 0, R, 96), csUnion(notches));
+      const k = reg(reg(cs.extrude(z1 - z0)).translate([0, 0, z0]));
+      const ch = Math.min(0.8, (z1 - z0) / 4);
+      return reg(k.intersect(roundCyl(R + 0.1, z0, z1, ch + 0.1, ch + 0.1, 90)));   // 90 lati: non allineati al cerchio da 96
+    }
+    // taglio piatto per stampare sdraiato: tiene y >= -y0 (e y <= y0 se both)
+    const flatCut = (m, y0, both) => reg(m.intersect(box(-1e3, -y0, -1e3, 1e3, both ? y0 : 1e3, 1e3)));
+    const HEADS = { esagonale: 'esagonale', cilindrica: 'cilindrica', svasata: 'svasata', zigrinata: 'zigrinata', nessuna: 'senza testa' };
+
+    // misure della testa: standard ISO oppure scelte a mano (w = chiave o diametro, h = altezza)
+    function headStd(sp, testa) {
+      const D = sp.D;
+      if (testa === 'esagonale') return { w: sp.s, h: sp.k };
+      if (testa === 'cilindrica') return { w: sp.dk, h: sp.kc };
+      if (testa === 'svasata') return { w: 2 * D, h: D / 2 };
+      if (testa === 'zigrinata') return { w: Math.max(2.5 * D, D + 8), h: Math.max(0.8 * D, 5) };
+      return { w: 0, h: 0 };
+    }
+    function headDims(sp, p) {
+      const std = headStd(sp, p.testa), D = sp.D;
+      if (!p.testaSu || p.testa === 'nessuna') return std;
+      let w = p.testaL, h = p.testaH, note = '';
+      const minW = p.testa === 'esagonale' ? D + 2 : p.testa === 'svasata' ? D + 2 : D + 1.6;
+      if (w < minW) { w = minW; note = `Testa allargata a ${fmt(w)} mm: deve essere più larga del gambo`; }
+      if (p.testa === 'svasata') h = (w - D) / 2;   // svasatura a 90°: l'altezza segue il diametro
+      return { w, h: Math.max(1, h), note };
+    }
+
+    // vite verticale: punta a z = 0, testa in alto
+    function screwSolid(sp, p) {
+      const D = sp.D, P = sp.P, g = p.gioco, c = -g / 2, left = !!p.sinistro;
+      const Rmaj = D / 2 + c, Rmin = D / 2 - T_DEPTH * P + c;
+      let L = p.lunghezza;
+      const testa = p.testa;
+      const notes = [];
+      // testa
+      let zH = L, zTop = L, head = null, drive = null, headTxt = '', minY = 0;
+      const hd = headDims(sp, p), dkS = hd.w, khS = hd.h;
+      if (hd.note) notes.push(hd.note);
+      if (testa === 'svasata') { if (L < khS + 2 * P + 1) { L = khS + 2 * P + 1; notes.push(`Lunghezza portata a ${fmt(L)} mm: la testa svasata è alta ${fmt(khS)} mm`); } zH = L - khS; zTop = L; }
+      else if (testa !== 'nessuna') zTop = L + hd.h;
+      // gambo: parte filettata dalla punta, poi liscia fino alla testa
+      const Lt = p.filettata > 0 ? Math.min(p.filettata, zH) : zH;
+      const rodLen = Lt < zH ? Lt : (testa === 'nessuna' ? zH : zH + 0.5);
+      let rod = threadRod(sp, rodLen, c, left);
+      // smusso in punta (e in cima se è una barra senza testa)
+      const r0 = Math.max(0.4, Rmin - 0.3);
+      rod = reg(rod.intersect(coneZ(r0, r0 + rodLen + 2, 0, rodLen + 2, segFor(D))));
+      if (testa === 'nessuna') rod = reg(rod.intersect(coneZ(r0 + rodLen + 2, r0, -2, rodLen, segFor(D))));
+      const shank = [rod];
+      if (Lt < zH) shank.push(cylZ(Rmaj, Lt - 0.01, zH + 0.5, 0, 0, segFor(D)));
+      if (testa === 'esagonale') { head = hexPrism(hd.w, L, zTop, true, false); headTxt = `esagonale, chiave ${fmt(hd.w)} × ${fmt(hd.h)} mm`; }
+      else if (testa === 'cilindrica') { head = roundCyl(hd.w / 2, L, zTop, Math.min(0.1 * D + 0.2, 1.2, hd.h / 3), 0.2); headTxt = `cilindrica Ø ${fmt(hd.w)} × ${fmt(hd.h)} mm`; }
+      else if (testa === 'svasata') { head = union([coneZ(D / 2 + c, dkS / 2, zH, L - 0.2), cylZ(dkS / 2, L - 0.21, L, 0, 0, 64)]); headTxt = `svasata 90°, Ø ${fmt(dkS)} mm`; }
+      else if (testa === 'zigrinata') { head = knurled(hd.w, L, zTop); headTxt = `zigrinata Ø ${fmt(hd.w)} × ${fmt(hd.h)} mm`; }
+      else headTxt = 'nessuna (grano / barra filettata)';
+      let m = union(head ? [...shank, head] : shank);
+      // impronta
+      const hasDrive = testa === 'cilindrica' || testa === 'svasata' || testa === 'nessuna';
+      if (hasDrive && p.impronta !== 'nessuna') {
+        const hH = testa === 'cilindrica' ? hd.h : testa === 'svasata' ? khS : 0;
+        if (p.impronta === 'brugola') {
+          // impronta: mai più larga della testa (lascia almeno 1,2 mm di parete)
+          const sk = Math.max(1, Math.min(testa === 'cilindrica' ? sp.sk : sp.sks, testa === 'nessuna' ? D * 0.6 : (testa === 'svasata' ? D : hd.w) - 2.4));
+          const depth = testa === 'cilindrica' ? Math.min(0.6 * hd.h, hd.h + 0.6 * D) : testa === 'svasata' ? Math.min(0.5 * D, zTop - 1) : Math.min(0.6 * D, zTop * 0.4);
+          const R = (sk + 0.15) / SQ3;
+          drive = union([reg(reg(Manifold.cylinder(depth + 1, R, R, 6)).translate([0, 0, zTop - depth])), coneZ(R, R + 1.2, zTop - 0.01, zTop + 1.19, 6)]);
+          headTxt += `, brugola ${fmt(sk)} mm`;
+          minY = (sk + 0.15) / 2 + 0.5;  // il piatto non deve aprire l'impronta
+        } else {
+          const w = 0.16 * D + 0.4, depth = testa === 'nessuna' ? 0.45 * D : Math.max(0.45 * hH, 0.3 * D);
+          drive = box(-D * 2, -w / 2, zTop - depth, D * 2, w / 2, zTop + 1);
+          headTxt += ', taglio';
+        }
+        m = sub(m, drive);
+      }
+      return { m, L, zH, zTop, Lt, headTxt, notes, Rmaj, Rmin, minY };
+    }
+    function printScrew(m, p, D, headDown, minY) {
+      if (p.stampa === 'sdraiata') { const y0 = Math.max(D / 2 - Math.max(0.4, 0.1 * D), minY || 0); const f = flatCut(m, y0); return { m: f, print: reg(f.rotate([90, 0, 0])) }; }
+      return { m, print: headDown ? reg(m.rotate([180, 0, 0])) : m };
+    }
+    function threadInfo(sp, p) {
+      const info = [['Filetto', `${sp.name} × ${fmtP(sp.P)}${p.sinistro ? ' sinistro' : ''}`]];
+      return info;
+    }
+    function smallNote(sp, info) {
+      if (sp.D < 6) info.push(['Nota', 'Filetto piccolo: può venire impreciso e rompersi facilmente. Stampa con strati sottili (0,12 mm), oppure usa una vite di metallo.']);
+    }
+
+    function screw(p) {
+      const sp = threadSpec(p);
+      const s = screwSolid(sp, p);
+      const { m, print } = printScrew(s.m, p, sp.D, p.testa !== 'nessuna', s.minY);
+      const info = threadInfo(sp, p);
+      info.push(['Lunghezza', `${fmt(s.L)} mm${p.testa === 'svasata' ? ' (testa compresa)' : ''}`]);
+      info.push(['Parte filettata', s.Lt >= s.zH - 0.01 ? 'tutta' : `${fmt(s.Lt)} mm`]);
+      info.push(['Testa', s.headTxt]);
+      info.push(['Ø esterno / nocciolo', `${fmt(2 * s.Rmaj)} / ${fmt(2 * s.Rmin)} mm`]);
+      info.push(['Stampa', p.stampa === 'sdraiata' ? 'sdraiata sul lato piatto (più robusta)' : (p.testa === 'nessuna' ? 'in piedi' : 'in piedi, testa in basso')]);
+      smallNote(sp, info);
+      for (const n of s.notes) info.push(['Nota', n]);
+      const name = `Vite ${sp.name}x${fmt(s.L)} ${HEADS[p.testa] || ''}`.trim();
+      return { parts: [{ name, m, role: 'body', print }], info };
+    }
+
+    // dado con filetto interno; base a z = 0, fase allineata alla vite (posizionarlo a multipli del passo)
+    function nutSolid(sp, p, kind, mh) {
+      const D = sp.D, P = sp.P, c = p.gioco / 2, left = !!p.sinistro;
+      let body, txt;
+      if (kind === 'zigrinato') { const dk = Math.max(1.7 * sp.s, D + 8); body = knurled(dk, 0, mh); txt = `zigrinato Ø ${fmt(dk)} × ${fmt(mh)} mm`; }
+      else if (kind === 'alette') {
+        const rh = Math.max(D, D / 2 + 2.4), tw = Math.max(2, 0.35 * D), rw = Math.max(2, 0.6 * D);
+        const span = Math.max(4.9 * D, 2 * rh + 4 * rw), Hw = Math.max(2.5 * D, mh + 2 * rw);
+        const hub = roundCyl(rh, 0, mh, 0.6, 0.4);
+        // alette verso il basso: la faccia piana del mozzo (z = mh) va contro il pezzo
+        const wing = (sx) => hullPts([box(sx > 0 ? 0.6 * rh : -rh, -tw / 2, 0, sx > 0 ? rh : -0.6 * rh, tw / 2, mh), cylY(sx * (span / 2 - rw), mh - Hw + rw, rw, -tw / 2, tw / 2, 32)]);
+        body = union([hub, wing(1), wing(-1)]);
+        txt = `ad alette, apertura ${fmt(span)} mm`;
+      } else { body = hexPrism(sp.s, 0, mh); txt = `esagonale, chiave ${fmt(sp.s)} mm`; }
+      const hole = [reg(threadRod(sp, mh + 2 * P, c, left).translate([0, 0, -P]))];
+      const Rmin = D / 2 - T_DEPTH * P + c, Rc = D / 2 + c + 0.3;
+      hole.push(coneZ(Rc + 1, Rmin - 0.01, -1, Rc - Rmin, segFor(D)));
+      hole.push(coneZ(Rmin - 0.01, Rc + 1, mh - (Rc - Rmin), mh + 1, segFor(D)));
+      const m = sub(body, union(hole));
+      return { m, txt, print: kind === 'alette' ? reg(m.rotate([180, 0, 0])) : m };
+    }
+    function washerSolid(sp, p) {
+      const d1 = sp.D * 1.06 + 0.3 + p.gioco;
+      return { m: sub(roundCyl(sp.dw / 2, 0, sp.hw, 0.2, 0), cylZ(d1 / 2, -1, sp.hw + 1, 0, 0, 64)), d1 };
+    }
+
+    function bolt(p) {
+      const sp = threadSpec(p), P = sp.P;
+      const s = screwSolid(sp, p);
+      const sc = printScrew(s.m, p, sp.D, true, s.minY);
+      const parts = [{ name: `Vite ${sp.name}x${fmt(s.L)}`, m: sc.m, role: 'body', print: sc.print }];
+      const info = threadInfo(sp, p);
+      info.push(['Vite', `${fmt(s.L)} mm, filettata ${s.Lt >= s.zH - 0.01 ? 'tutta' : fmt(s.Lt) + ' mm'}`]);
+      info.push(['Testa', s.headTxt]);
+      const mh = sp.m * (p.dadoAlto ? 1.5 : 1);
+      const nut = nutSolid(sp, p, p.dado, mh);
+      const nw = Math.max(0, Math.min(2, parseInt(p.rondelle, 10) || 0));
+      const ws = nw ? washerSolid(sp, p) : null;
+      // posizione nel montaggio: dado sulla parte filettata, a un multiplo del passo
+      const room = s.Lt - mh - (nw > 1 ? sp.hw : 0);
+      const zN = Math.max(0, Math.floor(Math.min(room, Math.max(2 * P, 0.2 * s.L)) / P) * P);
+      if (room < 0) info.push(['Nota', 'Parte filettata più corta del dado: allunga la filettatura']);
+      parts.push({ name: `Dado ${sp.name}`, m: nut.m, print: nut.print, role: 'pin', at: [0, 0, zN] });
+      info.push(['Dado', nut.txt]);
+      if (nw) {
+        const underHead = p.testa !== 'svasata';
+        if (underHead) parts.push({ name: 'Rondella 1', m: ws.m, role: 'pin', at: [0, 0, s.zH - sp.hw] });
+        if (nw > 1 || !underHead) parts.push({ name: `Rondella ${underHead ? 2 : 1}`, m: ws.m, role: 'pin', at: [0, 0, zN + mh] });
+        info.push(['Rondella', `Ø ${fmt(sp.dw)} / ${fmt(ws.d1)} × ${fmt(sp.hw)} mm`]);
+      }
+      const grip = (s.zH - (nw && p.testa !== 'svasata' ? sp.hw : 0)) - (zN + mh + (nw > 1 || (nw && p.testa === 'svasata') ? sp.hw : 0));
+      if (grip > 0.5) info.push(['Spessore serrabile', `fino a ${fmt(grip)} mm`]);
+      info.push(['Gioco filetto', `${fmt(p.gioco)} mm`]);
+      smallNote(sp, info);
+      for (const n of s.notes) info.push(['Nota', n]);
+      return { parts, info };
+    }
+
+    // ---- perni ----
+    function pin(p) {
+      const d = p.diam, r = d / 2, tol = p.tolleranza, seg = Math.max(40, Math.min(96, Math.round(d * 6)));
+      const parts = [], info = [];
+      const plateSide = () => Math.max(2.4 * d + 8, d + 14);
+      const hole = (t) => {   // piastrina di prova con foro
+        const a = plateSide(), rh = r + tol / 2;
+        return sub(slab(a, a, 3, 0, t), union([cylZ(rh, -1, t + 1, 0, 0, seg), coneZ(rh + 1.6, rh, -1, 0.6, seg), coneZ(rh, rh + 1.6, t - 0.6, t + 1, seg)]));
+      };
+      let m, z0 = 0, headDown = false, name, ext = 0;
+      if (p.tipo === 'scatto') {
+        const g = p.presa, lip = Math.max(0.4, 0.06 * d), lb = Math.max(2.5, 0.7 * d);
+        const w = Math.max(1.2, 2 * lip + 0.6, 0.25 * d);
+        const sl = Math.min(g + lb - 1, lb + Math.max(0.8 * g, 2 * d));
+        const half = () => {
+          let h = union([cylZ(r, -0.01, g + 0.05, 0, 0, seg), coneZ(r + lip, r * 0.82, g, g + lb, seg)]);
+          const zs = g + lb - sl;
+          h = sub(h, union([box(-w / 2, -d, zs + w / 2, w / 2, d, g + lb + 1), cylY(0, zs + w / 2, w / 2, -d, d, 24)]));
+          return h;
+        };
+        const doppio = p.estremita === 'doppio';
+        let hh = 0;
+        if (doppio) m = union([half(), reg(half().rotate([180, 0, 0]))]);
+        else { hh = Math.max(1.6, 0.3 * d); m = union([half(), roundCyl(0.8 * d + 1, -hh, 0, 0.4, 0.4, seg)]); }
+        m = flatCut(m, 0.8 * r, true);
+        z0 = doppio ? g + lb : hh;
+        m = reg(m.translate([0, 0, z0]));
+        ext = doppio ? 2 * (g + lb) : g + lb + hh;
+        name = `Perno a scatto Ø${fmt(d)}`;
+        parts.push({ name, m, role: 'body', print: reg(m.rotate([90, 0, 0])) });
+        if (p.prova) {
+          const pl = hole(g);
+          const a = plateSide(), x0 = a / 2 + 0.8 * d + 8;
+          parts.push({ name: doppio ? 'Piastrina di prova 1' : 'Piastrina di prova', m: pl, role: 'inner', at: [x0, 0, 0] });
+          if (doppio) parts.push({ name: 'Piastrina di prova 2', m: pl, role: 'inner', at: [x0 + a + 6, 0, 0] });
+        }
+        info.push(['Perno', `Ø ${fmt(d)} × ${fmt(ext)} mm${doppio ? ', doppio' : ', con testa'}`]);
+        info.push(['Foro nei pezzi', `Ø ${fmt(d + tol)} mm`]);
+        info.push(['Spessore da attraversare', `${fmt(g)} mm${doppio ? ' per lato' : ''}`]);
+        info.push(['Dentino', `${fmt(lip)} mm, fessura ${fmt(w)} × ${fmt(sl)} mm`]);
+        info.push(['Stampa', 'sdraiato sul lato piatto (già orientato)']);
+        if (sl < 1.2 * d) info.push(['Nota', 'Fessura corta: il perno sarà duro. Aumenta lo spessore o riduci il diametro']);
+        return { parts, info };
+      }
+      const L = p.lunghezza, ch = p.smusso ? Math.max(0.3, 0.1 * d) : 0;
+      if (p.tipo === 'testa') {
+        const rh = Math.max(0.8 * d + 1, r + 1.5), hh = Math.max(1.6, 0.35 * d);
+        m = union([roundCyl(r, 0, L + 0.01, 0, ch, seg), roundCyl(rh, L, L + hh, Math.min(0.6, hh / 3), 0.2, seg)]);
+        ext = L + hh; headDown = true;
+        info.push(['Perno', `Ø ${fmt(d)} × ${fmt(L)} mm, testa Ø ${fmt(2 * rh)} × ${fmt(hh)} mm`]);
+        if (p.coppiglia) {
+          const dh = Math.max(1.6, Math.round(0.25 * d * 2) / 2), zc = dh / 2 + Math.max(1.5, dh);
+          if (zc + dh < L - 2) { m = sub(m, cylY(0, zc, dh / 2, -d, d, 24)); info.push(['Foro coppiglia', `Ø ${fmt(dh)} mm a ${fmt(zc)} mm dalla punta`]); }
+        }
+        name = `Perno con testa Ø${fmt(d)}x${fmt(L)}`;
+      } else {
+        m = roundCyl(r, 0, L, ch, ch, seg);
+        ext = L;
+        info.push(['Spina', `Ø ${fmt(d)} × ${fmt(L)} mm`]);
+        name = `Spina Ø${fmt(d)}x${fmt(L)}`;
+      }
+      let print;
+      if (p.stampa === 'sdraiata') { m = flatCut(m, r - Math.max(0.3, 0.1 * d)); print = reg(m.rotate([90, 0, 0])); }
+      else print = headDown ? reg(m.rotate([180, 0, 0])) : m;
+      parts.push({ name, m, role: 'body', print });
+      info.push(['Foro consigliato', `Ø ${fmt(d + tol)} mm (scorrevole)`]);
+      if (p.prova) {
+        const t = Math.max(3, Math.min(10, 0.35 * L));
+        parts.push({ name: 'Piastrina di prova', m: hole(t), role: 'inner', at: [plateSide() / 2 + 0.8 * d + 8, 0, 0] });
+      }
+      info.push(['Stampa', p.stampa === 'sdraiata' ? 'sdraiato sul lato piatto (più robusto)' : 'in piedi']);
+      return { parts, info };
+    }
+
+    function fmtP(v) { return (Math.round(v * 100) / 100).toString().replace('.', ','); }
     function fmt(v) { return (Math.round(v * 10) / 10).toString().replace('.', ','); }
 
     // estrai mesh (Float32Array posizioni, Uint32Array triangoli)
     function meshOf(m) {
       const mesh = m.getMesh();
-      const np = mesh.numProp;
-      const n = mesh.vertProperties.length / np;
-      const pos = new Float32Array(n * 3);
-      for (let i = 0; i < n; i++) { pos[i * 3] = mesh.vertProperties[i * np]; pos[i * 3 + 1] = mesh.vertProperties[i * np + 1]; pos[i * 3 + 2] = mesh.vertProperties[i * np + 2]; }
-      return { pos, tri: new Uint32Array(mesh.triVerts) };
+      mesh.merge();   // unisce i vertici doppi indicati da Manifold: mesh chiusa anche per gli slicer
+      const np = mesh.numProp, tv = mesh.triVerts;
+      // tengo solo i vertici usati, rinumerati
+      const map = new Int32Array(mesh.vertProperties.length / np).fill(-1), pos = [];
+      const tri = new Uint32Array(tv.length);
+      for (let i = 0; i < tv.length; i++) {
+        const v = tv[i];
+        if (map[v] < 0) { map[v] = pos.length / 3; pos.push(mesh.vertProperties[v * np], mesh.vertProperties[v * np + 1], mesh.vertProperties[v * np + 2]); }
+        tri[i] = map[v];
+      }
+      return { pos: new Float32Array(pos), tri };
     }
+
+    // estensioni (altri file, es. natale.js): ricevono gli strumenti del motore e restituiscono { tipo: funzione }
+    const H = { Manifold, CrossSection, reg, union, sub, box, cylZ, coneZ, cylY, hullPts, slab, rr, fmt, knurled, roundCyl,
+      csPoly, csCircle, csRect, csUnion, csSub };
+    const EXT = {};
+    for (const f of (root.SPRECOLO_EXT || [])) Object.assign(EXT, f(H));
 
     function build(kind, p) {
       try {
-        const res = kind === 'bin' ? bin(p) : kind === 'base' ? baseplate(p) : kind === 'rack' ? rack(p) : kind === 'vaso' ? pot(p) : cabinet(p);
+        const res = EXT[kind] ? EXT[kind](p) : kind === 'bin' ? bin(p) : kind === 'base' ? baseplate(p) : kind === 'rack' ? rack(p) : kind === 'vaso' ? pot(p) : kind === 'vite' ? screw(p) : kind === 'bullone' ? bolt(p) : kind === 'perno' ? pin(p) : cabinet(p);
         if (p.__check) {
           res.check = [];
           const placed = res.parts.map(q => q.at ? reg(q.m.translate(q.at)) : q.m);
@@ -607,7 +936,7 @@
       } finally { cleanup(); }
     }
 
-    return { build, GF };
+    return { build, GF, headStd: (p, testa) => headStd(threadSpec(p), testa) };
   }
 
   if (typeof module !== 'undefined' && module.exports) module.exports = { createGeom };

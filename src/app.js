@@ -13,6 +13,92 @@
     { sec: 'Dimensioni', id: 'gridY', label: 'Profondità', type: 'int', min: 1, max: 10, def: defY, unit: '× 42 mm' },
     ...(withU ? [{ sec: 'Dimensioni', id: 'altU', label: 'Altezza', type: 'int', min: 2, max: 30, def: defU, unit: '× 7 mm' }] : []),
   ];
+
+  // ---- viteria ----
+  const SIZES = ['M3', 'M4', 'M5', 'M6', 'M8', 'M10', 'M12', 'M16', 'M20', 'M24', 'M30'];
+  const threadP = (defL) => [
+    { sec: 'Misura', id: 'misura', label: 'Filetto metrico', type: 'select', def: 'M8', options: [...SIZES.map(s => [s, s]), ['custom', 'Altro']], help: 'Passo grosso ISO. Con "Altro" scegli diametro e passo.', onSet: (k, v) => headFill(k, v) },
+    { sec: 'Misura', id: 'diam', label: 'Diametro', type: 'num', min: 3, max: 60, step: 0.5, def: 8, unit: 'mm', show: p => p.misura === 'custom' },
+    { sec: 'Misura', id: 'passo', label: 'Passo', type: 'num', min: 0.35, max: 6, step: 0.05, def: 1.25, unit: 'mm', show: p => p.misura === 'custom', help: 'Distanza tra due creste del filetto.' },
+    { sec: 'Misura', id: 'lunghezza', label: 'Lunghezza', type: 'num', min: 4, max: 300, step: 1, def: defL, unit: 'mm', help: 'Misurata sotto la testa, come per le viti vere. Per la svasata comprende la testa.' },
+    { sec: 'Misura', id: 'filettata', label: 'Lunghezza filettata', type: 'num', min: 0, max: 300, step: 1, def: 0, unit: 'mm', help: '0 = filettata tutta. Il resto del gambo resta liscio.' },
+  ];
+  // a "Su misura" acceso (o cambiando testa/filetto) i campi ripartono dalle misure standard
+  const headFill = (_, v) => (v.testaSu && G && v.testa !== 'nessuna') ? (({ w, h }) => ({ testaL: +w.toFixed(1), testaH: +h.toFixed(1) }))(G.headStd(v, v.testa)) : null;
+  const headP = (opts, def) => [
+    { sec: 'Testa', id: 'testa', label: 'Testa', type: 'select', def, options: opts, onSet: headFill },
+    { sec: 'Testa', id: 'testaSu', label: 'Misure testa su misura', type: 'bool', def: false, show: p => p.testa !== 'nessuna', onSet: headFill, help: 'Spento = misure standard ISO. Acceso parti da quelle e le cambi.' },
+    { sec: 'Testa', id: 'testaL', label: 'Larghezza testa', type: 'num', min: 3, max: 120, step: 0.5, def: 13, unit: 'mm', show: p => p.testaSu && p.testa !== 'nessuna', help: 'Esagonale: misura della chiave. Le altre: diametro.' },
+    { sec: 'Testa', id: 'testaH', label: 'Altezza testa', type: 'num', min: 1, max: 60, step: 0.5, def: 5.5, unit: 'mm', show: p => p.testaSu && !['nessuna', 'svasata'].includes(p.testa), },
+    { sec: 'Testa', id: 'impronta', label: 'Impronta', type: 'select', def: 'brugola', options: [['brugola', 'Esagono incassato'], ['taglio', 'Taglio'], ['nessuna', 'Nessuna']], show: p => ['cilindrica', 'svasata', 'nessuna'].includes(p.testa) },
+  ];
+  const HEAD_OPTS = [['esagonale', 'Esagonale'], ['cilindrica', 'Cilindrica'], ['svasata', 'Svasata'], ['zigrinata', 'Zigrinata a mano']];
+  const threadTail = (printOpts) => [
+    { sec: 'Filetto', id: 'gioco', label: 'Gioco filetto', type: 'num', min: 0, max: 0.8, step: 0.05, def: 0.3, unit: 'mm', help: 'Spazio tra i fianchi di vite e dado. Se il dado è duro aumentalo, se balla riducilo.' },
+    { sec: 'Filetto', id: 'sinistro', label: 'Filetto sinistro', type: 'bool', def: false, help: 'Si avvita in senso antiorario.' },
+    { sec: 'Stampa', id: 'stampa', label: 'Orientamento vite', type: 'select', def: 'piedi', options: printOpts, help: 'In piedi il filetto viene più preciso. Sdraiata (con un lato piatto) la vite è molto più resistente a trazione e flessione.' },
+  ];
+  const SCREW_PRINT = [['piedi', 'In piedi'], ['sdraiata', 'Sdraiata']];
+
+  // ---- Natale ----
+  const PALETTES = {
+    rossoro: { col1: '#b3202a', col2: '#e3b341', col3: '#ffffff' },
+    verde: { col1: '#1f6b3a', col2: '#c62828', col3: '#ffffff' },
+    bianco: { col1: '#f4f4f2', col2: '#b8bcc2', col3: '#c62828' },
+    blu: { col1: '#1d4e89', col2: '#c9ced6', col3: '#ffffff' },
+    legno: { col1: '#c8a36a', col2: '#7a4a24', col3: '#2b2b2b' },
+  };
+  const colorsP = (labels) => [
+    { sec: 'Colori', id: 'tavolozza', label: 'Abbinamenti pronti', type: 'select', def: 'rossoro', options: [['rossoro', 'Rosso e oro'], ['verde', 'Verde e rosso'], ['bianco', 'Bianco e argento'], ['blu', 'Blu e argento'], ['legno', 'Legno']], onSet: (k) => PALETTES[k],
+      help: 'Nel 3MF ogni colore è una parte separata dello stesso oggetto: nello slicer dai un filamento a ciascuna.' },
+    ...labels.map((l, i) => ({ sec: 'Colori', id: 'col' + (i + 1), label: l, type: 'color', def: PALETTES.rossoro['col' + (i + 1)] })),
+  ];
+  // spessori allineati agli strati: multipli di 0,2 e di 0,28 (primo strato a 0,28)
+  const LAYER_STOPS = (() => { const v = new Set(); for (const h of [0.2, 0.28]) for (let k = 1; k * h <= 12.01; k++) v.add(+(k * h).toFixed(2)); return [...v].sort((a, b) => a - b); })();
+  const layerP = (o) => Object.assign({ type: 'num', stops: LAYER_STOPS.filter(x => x >= o.min - 1e-6 && x <= o.max + 1e-6), step: 0.01, unit: 'mm' }, o);
+  const FONT_OPTS = [['tondo', 'Tondo'], ['corsivo', 'Corsivo'], ['natalizio', 'Natalizio']];
+  const textP = (d1, d2, font, cap, show) => [
+    { sec: 'Scritta', id: 'scritta', label: 'Riga 1', type: 'text', def: d1, placeholder: 'es. un nome', show },
+    { sec: 'Scritta', id: 'scritta2', label: 'Riga 2', type: 'text', def: d2, placeholder: 'facoltativa', show },
+    { sec: 'Scritta', id: 'carattere', label: 'Carattere', type: 'select', def: font, options: FONT_OPTS, show },
+    { sec: 'Scritta', id: 'altTesto', label: 'Altezza lettere', type: 'num', min: 3, max: 40, step: 0.5, def: cap, unit: 'mm', help: 'Altezza delle maiuscole. Se la scritta non ci sta viene ridotta da sola.', show },
+    { sec: 'Scritta', id: 'rilievoTesto', label: 'Rilievo scritta', type: 'num', min: 0.4, max: 4, step: 0.2, def: 1.4, unit: 'mm', show: p => (!show || show(p)) && (p.stile === undefined || p.stile === 'rilievo') && p.stileTesto !== 'traforata' },
+  ];
+  // pallina: fino a quattro scritte, ognuna con testo, lato, altezza e dimensione
+  const ballTextP = (defs) => defs.flatMap(([txt, lato, quota, cap], k) => {
+    const i = k + 1, sec = `Scritta ${i}`, has = (p) => String(p[i === 1 ? 'scritta' : 'scritta' + i] || '').trim() !== '';
+    return [
+      { sec, id: i === 1 ? 'scritta' : 'scritta' + i, label: 'Testo', type: 'text', def: txt, placeholder: i === 1 ? 'es. un nome' : 'facoltativa' },
+      { sec, id: 'lato' + i, label: 'Lato', type: 'int', min: 0, max: 345, step: 15, def: lato, unit: '°', show: has, wrap: true, help: i === 1 ? '0° davanti, 90° a destra, 180° dietro, 270° a sinistra.' : undefined },
+      { sec, id: 'quota' + i, label: 'Altezza', type: 'int', min: -85, max: 85, step: 5, def: quota, unit: '%', show: has, help: i === 1 ? '0 = a metà pallina, valori positivi verso l\'alto, negativi verso il basso.' : undefined },
+      { sec, id: i === 1 ? 'altTesto' : 'altTesto' + i, label: 'Altezza lettere', type: 'num', min: 3, max: 40, step: 0.5, def: cap, unit: 'mm', show: has },
+    ];
+  });
+  // motivi delle decorazioni piatte, divisi per gruppo nel menu
+  const SHAPE_OPTS = [
+    ['nome', 'Solo il nome', 'Con il nome'], ['medaglione', 'Medaglione', 'Con il nome'], ['targhetta', 'Targhetta', 'Con il nome'],
+    ['stella', 'Stella', 'Classici'], ['albero', 'Albero', 'Classici'], ['fiocco', 'Fiocco di neve', 'Classici'], ['pallina', 'Pallina', 'Classici'], ['campana', 'Campana', 'Classici'],
+    ['campanelle', 'Campanelle', 'Classici'], ['cometa', 'Stella cometa', 'Classici'], ['cuore', 'Cuore', 'Classici'], ['luna', 'Luna', 'Classici'], ['candela', 'Candela', 'Classici'],
+    ['ghirlanda', 'Ghirlanda', 'Natura'], ['agrifoglio', 'Agrifoglio', 'Natura'], ['poinsettia', 'Stella di Natale (fiore)', 'Natura'],
+    ['babbo', 'Babbo Natale', 'Personaggi'], ['cappello', 'Cappello di Babbo Natale', 'Personaggi'], ['gnomo', 'Gnomo', 'Personaggi'], ['omino', 'Omino di pan di zenzero', 'Personaggi'],
+    ['pupazzo', 'Pupazzo di neve', 'Personaggi'], ['angelo', 'Angelo', 'Personaggi'], ['renna', 'Renna', 'Personaggi'], ['pinguino', 'Pinguino', 'Personaggi'],
+    ['calza', 'Calza', 'Oggetti'], ['muffola', 'Muffola', 'Oggetti'], ['maglione', 'Maglione', 'Oggetti'], ['regalo', 'Regalo', 'Oggetti'], ['nastro', 'Fiocco', 'Oggetti'],
+    ['bastoncino', 'Bastoncino di zucchero', 'Oggetti'], ['casetta', 'Casetta', 'Oggetti'], ['slitta', 'Slitta', 'Oggetti'], ['globo', 'Palla di neve', 'Oggetti'],
+  ];
+  // disegni della palla piatta
+  const PALLA_OPTS = [
+    ['fiocchi', 'Fiocchi di neve', 'Sfondi'], ['stelle', 'Stelle', 'Sfondi'], ['cuori', 'Cuori', 'Sfondi'], ['pois', 'Pois', 'Sfondi'],
+    ['righe', 'Righe a bastoncino', 'Sfondi'], ['spicchi', 'Spicchi', 'Sfondi'], ['onde', 'Onde', 'Sfondi'], ['zigzag', 'Zig-zag', 'Sfondi'], ['nordico', 'Maglione nordico', 'Sfondi'],
+    ['ghirlanda', 'Ghirlanda sul bordo', 'Natura'], ['agrifoglio', 'Agrifoglio', 'Natura'],
+    ['cielo', 'Cielo stellato con luna', 'Scene'], ['bosco', 'Bosco innevato', 'Scene'], ['paese', 'Paesino con casette', 'Scene'], ['slitta', 'Luna con la slitta', 'Scene'], ['regali', 'Regali', 'Scene'],
+    ['motivo', 'Personaggio (scegli sotto)', 'Personaggi'], ['nessuno', 'Solo il nome', 'Solo il nome'],
+  ];
+  const shapeP = (sec, defH) => [
+    { sec, id: 'forma', label: 'Motivo', type: 'select', menu: true, def: 'stella', options: SHAPE_OPTS, help: 'Con "Solo il nome" la decorazione è la scritta stessa, con il contorno che unisce le lettere.' },
+    { sec, id: 'punte', label: 'Punte', type: 'int', min: 4, max: 12, def: 5, show: p => p.forma === 'stella' },
+    { sec, id: 'variante', label: 'Variante', type: 'int', min: 1, max: 999, def: 7, show: p => p.forma === 'fiocco', help: 'Ogni numero disegna un fiocco diverso.' },
+    { sec, id: 'altezza', label: 'Altezza', type: 'num', min: 25, max: 250, step: 1, def: defH, unit: 'mm', show: p => p.forma !== 'nome' },
+  ];
   const MODES = {
     bin: {
       label: 'Contenitore',
@@ -107,6 +193,227 @@
         { sec: 'Tipo', id: 'troppoPieno', label: 'Foro di troppo pieno', type: 'bool', def: true, show: p => p.tipo === 'autoirrigante', help: 'Impedisce che l\'acqua salga fino alla terra.' },
       ],
     },
+    pallina: {
+      label: 'Pallina',
+      params: [
+        { sec: 'Forma', id: 'forma', label: 'Forma', type: 'select', def: 'sfera', options: [['sfera', 'Sfera'], ['goccia', 'Goccia'], ['oliva', 'Oliva'], ['cipolla', 'Cipolla']] },
+        { sec: 'Forma', id: 'diametro', label: 'Diametro', type: 'num', min: 40, max: 140, step: 1, def: 70, unit: 'mm' },
+        { sec: 'Forma', id: 'spessore', label: 'Spessore guscio', type: 'num', min: 0.8, max: 3, step: 0.2, def: 1.2, unit: 'mm' },
+        { sec: 'Forma', id: 'sfaccettata', label: 'Sfaccettata (low poly)', type: 'bool', def: false },
+        { sec: 'Decorazione', id: 'decorazione', label: 'Decorazione', type: 'select', def: 'stelle', options: [['nessuna', 'Nessuna'], ['spicchi', 'Spicchi'], ['anelli', 'Anelli'], ['puntini', 'Puntini'], ['stelle', 'Stelle'], ['traforata', 'Stelle traforate']],
+          help: 'Le traforate sono buchi: con un LED dentro la pallina si illumina.' },
+        { sec: 'Decorazione', id: 'numero', label: 'Quantità', type: 'int', min: 2, max: 24, def: 8, show: p => p.decorazione !== 'nessuna', help: 'Spicchi o anelli in tutto; per puntini e stelle quanti per giro.' },
+        { sec: 'Decorazione', id: 'rilievo', label: 'Rilievo', type: 'num', min: 0.4, max: 3, step: 0.2, def: 1, unit: 'mm', show: p => !['nessuna', 'traforata'].includes(p.decorazione) },
+        ...ballTextP([['Buon Natale', 0, 0, 9], ['', 0, -35, 8], ['', 180, 0, 9], ['', 180, -35, 8]]),
+        { sec: 'Scritte', id: 'carattere', label: 'Carattere', type: 'select', def: 'natalizio', options: FONT_OPTS },
+        { sec: 'Scritte', id: 'stileTesto', label: 'Stile', type: 'select', def: 'rilievo', options: [['rilievo', 'In rilievo'], ['traforata', 'Traforata']], help: 'Traforata: le lettere sono buchi nel guscio, con un LED dentro si illuminano.' },
+        { sec: 'Scritte', id: 'rilievoTesto', label: 'Rilievo scritte', type: 'num', min: 0.4, max: 4, step: 0.2, def: 1.4, unit: 'mm', show: p => p.stileTesto !== 'traforata' },
+        { sec: 'Montaggio', id: 'costruzione', label: 'Costruzione', type: 'select', def: 'meta', options: [['meta', 'Due metà'], ['intera', 'Intera']], help: 'Due metà: si stampano senza supporti e si incollano su un anello. Intera: serve il supporto sotto.' },
+        { sec: 'Montaggio', id: 'appendino', label: 'Appendino', type: 'select', def: 'cappuccio', options: [['cappuccio', 'Cappuccio'], ['occhiello', 'Occhiello']], help: 'Il cappuccio è un pezzo a parte, con il foro per il nastro.' },
+        { sec: 'Montaggio', id: 'tolleranza', label: 'Tolleranza', type: 'num', min: 0, max: 0.8, step: 0.05, def: 0.2, unit: 'mm' },
+        ...colorsP(['Colore 1 · pallina', 'Colore 2 · decorazioni e cappuccio', 'Colore 3 · scritta']),
+      ],
+    },
+    piatto: {
+      label: 'Decorazione',
+      params: [
+        ...shapeP('Forma', 75),
+        layerP({ sec: 'Forma', id: 'spessore', label: 'Spessore', min: 1.6, max: 8, def: 3, help: 'I valori seguono gli strati: multipli di 0,2 e di 0,28 mm.' }),
+        { sec: 'Forma', id: 'decorazioni', label: 'Decorazioni a colori', type: 'bool', def: true, help: 'Palline sull\'albero, cappello del pupazzo, fiocco della campana, righe del bastoncino…' },
+        { sec: 'Forma', id: 'bordo', label: 'Bordo', type: 'bool', def: true },
+        { sec: 'Forma', id: 'bordoL', label: 'Larghezza bordo', type: 'num', min: 0.8, max: 5, step: 0.2, def: 1.6, unit: 'mm', show: p => p.bordo },
+        layerP({ sec: 'Forma', id: 'rilievo', label: 'Rilievo decorazioni', min: 0.2, max: 3, def: 0.8, help: 'A filo è quanto entrano le decorazioni nel pezzo.' }),
+        ...textP('Giulia', '', 'corsivo', 9),
+        { sec: 'Scritta', id: 'stile', label: 'Stile', type: 'select', def: 'rilievo', options: [['rilievo', 'In rilievo'], ['filo', 'A filo'], ['inciso', 'Incisa'], ['traforata', 'Traforata']],
+          help: 'In rilievo va bene anche con una stampante a un colore. A filo la superficie resta piana (serve una multicolore). Traforata: le lettere sono buchi, con ponticelli che tengono l\'interno di o, a, e.' },
+        layerP({ sec: 'Scritta', id: 'profTesto', label: 'Spessore scritta', min: 0.2, max: 8, def: 0.84, show: p => p.stile === 'filo' || p.stile === 'inciso',
+          help: 'Quanto entra la scritta nel pezzo: multipli di 0,2 o di 0,28 mm (0,28 · 0,56 · 0,84 · 1,12…). A filo, se è pari allo spessore, la scritta attraversa tutto e si vede dai due lati.' }),
+        { sec: 'Appendere', id: 'appendino', label: 'Appendino', type: 'select', def: 'occhiello', options: [['occhiello', 'Occhiello'], ['foro', 'Foro'], ['nessuno', 'Nessuno']] },
+        { sec: 'Appendere', id: 'supporto', label: 'Supporto da tavolo', type: 'bool', def: false, help: 'Base con fessura: la decorazione sta in piedi. Perfetto come segnaposto.' },
+        { sec: 'Appendere', id: 'tolleranza', label: 'Gioco fessura', type: 'num', min: 0, max: 1, step: 0.05, def: 0.3, unit: 'mm', show: p => p.supporto },
+        ...colorsP(['Colore 1 · base', 'Colore 2 · decorazioni e bordo', 'Colore 3 · scritta']),
+      ],
+    },
+    palla: {
+      label: 'Palla piatta',
+      params: [
+        { sec: 'Forma', id: 'diametro', label: 'Diametro', type: 'num', min: 40, max: 160, step: 1, def: 80, unit: 'mm' },
+        layerP({ sec: 'Forma', id: 'spessore', label: 'Spessore', min: 1.6, max: 8, def: 3, help: 'I valori seguono gli strati: multipli di 0,2 e di 0,28 mm.' }),
+        { sec: 'Forma', id: 'cappuccio', label: 'Cappuccio a colori', type: 'bool', def: true, help: 'Il cappuccio in alto, con le scanalature, nel colore 2.' },
+        { sec: 'Forma', id: 'bordo', label: 'Bordo', type: 'bool', def: true },
+        { sec: 'Forma', id: 'bordoL', label: 'Larghezza bordo', type: 'num', min: 0.8, max: 5, step: 0.2, def: 1.6, unit: 'mm', show: p => p.bordo },
+        layerP({ sec: 'Forma', id: 'rilievo', label: 'Rilievo disegni', min: 0.2, max: 3, def: 0.8, help: 'A filo è quanto entrano i disegni nel pezzo.' }),
+        { sec: 'Disegno', id: 'disegno', label: 'Disegno', type: 'select', menu: true, def: 'fiocchi', options: PALLA_OPTS },
+        { sec: 'Disegno', id: 'motivo', label: 'Personaggio', type: 'select', menu: true, def: 'pupazzo', options: SHAPE_OPTS.filter(o => !['nome', 'medaglione', 'targhetta'].includes(o[0])), show: p => p.disegno === 'motivo' },
+        { sec: 'Disegno', id: 'quantita', label: 'Quantità', type: 'int', min: 3, max: 40, def: 14, show: p => !['spicchi', 'onde', 'zigzag', 'nordico', 'ghirlanda', 'nessuno'].includes(p.disegno), help: 'Quanti fiocchi, stelle o cuori.' },
+        { sec: 'Disegno', id: 'variante', label: 'Variante', type: 'int', min: 1, max: 999, def: 7, show: p => p.disegno !== 'nessuno', help: 'Ogni numero sparge i disegni in modo diverso.' },
+        { sec: 'Disegno', id: 'fascia', label: 'Fascia dietro il nome', type: 'bool', def: false, help: 'Una striscia nel colore 2 attraversa la palla e il nome ci sta sopra.' },
+        ...textP('Giulia', '', 'corsivo', 12),
+        { sec: 'Scritta', id: 'stile', label: 'Stile', type: 'select', def: 'rilievo', options: [['rilievo', 'In rilievo'], ['filo', 'A filo'], ['inciso', 'Incisa'], ['traforata', 'Traforata']],
+          help: 'In rilievo va bene anche con una stampante a un colore. A filo la superficie resta piana (serve una multicolore).' },
+        layerP({ sec: 'Scritta', id: 'profTesto', label: 'Spessore scritta', min: 0.2, max: 8, def: 0.84, show: p => p.stile === 'filo' || p.stile === 'inciso',
+          help: 'Quanto entra la scritta nel pezzo: multipli di 0,2 o di 0,28 mm (0,28 · 0,56 · 0,84 · 1,12…). A filo, se è pari allo spessore, la scritta si vede dai due lati.' }),
+        { sec: 'Appendere', id: 'appendino', label: 'Appendino', type: 'select', def: 'occhiello', options: [['occhiello', 'Occhiello'], ['foro', 'Foro'], ['nessuno', 'Nessuno']] },
+        { sec: 'Appendere', id: 'supporto', label: 'Supporto da tavolo', type: 'bool', def: false, help: 'Base con fessura: la palla sta in piedi, come segnaposto.' },
+        { sec: 'Appendere', id: 'tolleranza', label: 'Gioco fessura', type: 'num', min: 0, max: 1, step: 0.05, def: 0.3, unit: 'mm', show: p => p.supporto },
+        ...colorsP(['Colore 1 · palla', 'Colore 2 · cappuccio, disegni, bordo', 'Colore 3 · scritta e dettagli']),
+      ],
+    },
+    albero: {
+      label: 'Albero',
+      params: [
+        { sec: 'Stile', id: 'stile', label: 'Stile', type: 'select', def: 'spirale', options: [['spirale', 'A spirale'], ['strati', 'A strati'], ['incastro', 'Da incastrare']],
+          help: 'A spirale e a strati si stampano in piedi. Da incastrare: due sagome piatte che si infilano a croce.' },
+        { sec: 'Misure', id: 'altezza', label: 'Altezza', type: 'num', min: 60, max: 300, step: 1, def: 140, unit: 'mm' },
+        { sec: 'Misure', id: 'diametro', label: 'Diametro', type: 'num', min: 30, max: 220, step: 1, def: 90, unit: 'mm', show: p => p.stile !== 'incastro' },
+        { sec: 'Misure', id: 'punte', label: 'Punte', type: 'int', min: 3, max: 12, def: 6, show: p => p.stile !== 'incastro' },
+        { sec: 'Misure', id: 'torsione', label: 'Torsione', type: 'num', min: 0, max: 720, step: 15, def: 120, unit: '°', show: p => p.stile !== 'incastro' },
+        { sec: 'Misure', id: 'strati', label: 'Strati', type: 'int', min: 3, max: 30, def: 10, show: p => p.stile === 'strati' },
+        { sec: 'Misure', id: 'alterna', label: 'Strati a colori alterni', type: 'bool', def: true, show: p => p.stile === 'strati' },
+        { sec: 'Misure', id: 'spessore', label: 'Spessore sagome', type: 'num', min: 1.6, max: 5, step: 0.2, def: 2.4, unit: 'mm', show: p => p.stile === 'incastro' },
+        { sec: 'Misure', id: 'tolleranza', label: 'Gioco fessure', type: 'num', min: 0, max: 1, step: 0.05, def: 0.3, unit: 'mm', show: p => p.stile === 'incastro' },
+        { sec: 'Misure', id: 'decorazioni', label: 'Palline e stella a colori', type: 'bool', def: true, show: p => p.stile === 'incastro' },
+        { sec: 'Misure', id: 'rilievo', label: 'Rilievo decorazioni', type: 'num', min: 0.4, max: 3, step: 0.2, def: 0.8, unit: 'mm', show: p => p.stile === 'incastro' && p.decorazioni },
+        { sec: 'Extra', id: 'stella', label: 'Stella in cima', type: 'bool', def: true, show: p => p.stile !== 'incastro' },
+        { sec: 'Extra', id: 'base', label: 'Base con scritta', type: 'bool', def: true, show: p => p.stile !== 'incastro' },
+        ...textP('Buon Natale', '', 'corsivo', 7, p => p.stile !== 'incastro' && p.base),
+        ...colorsP(['Colore 1 · albero', 'Colore 2 · stella, palline, scritta', 'Colore 3 · base']),
+      ],
+    },
+    stella: {
+      label: 'Stella',
+      params: [
+        { sec: 'Stella', id: 'uso', label: 'Uso', type: 'select', def: 'puntale', options: [['puntale', 'Puntale per l\'albero'], ['pendente', 'Da appendere']] },
+        { sec: 'Stella', id: 'diametro', label: 'Diametro', type: 'num', min: 30, max: 220, step: 1, def: 110, unit: 'mm' },
+        { sec: 'Stella', id: 'punte', label: 'Punte', type: 'int', min: 4, max: 12, def: 5 },
+        { sec: 'Stella', id: 'rapporto', label: 'Larghezza punte', type: 'num', min: 25, max: 70, step: 1, def: 42, unit: '%', help: 'Basso = punte sottili, alto = stella paffuta.' },
+        { sec: 'Stella', id: 'spessore', label: 'Spessore', type: 'num', min: 8, max: 50, step: 1, def: 22, unit: '%' },
+        { sec: 'Attacco', id: 'attacco', label: 'Diametro cima dell\'albero', type: 'num', min: 6, max: 40, step: 0.5, def: 20, unit: 'mm', show: p => p.uso === 'puntale', help: 'Misura il ramo in cima: il tubo si stringe verso l\'alto e si adatta.' },
+        { sec: 'Attacco', id: 'lunghezzaAttacco', label: 'Lunghezza tubo', type: 'num', min: 15, max: 90, step: 1, def: 40, unit: 'mm', show: p => p.uso === 'puntale' },
+        { sec: 'Attacco', id: 'tolleranza', label: 'Tolleranza', type: 'num', min: 0, max: 1, step: 0.05, def: 0.3, unit: 'mm', show: p => p.uso === 'puntale' },
+        { sec: 'Colori', id: 'col1', label: 'Colore', type: 'color', def: '#e3b341' },
+      ],
+    },
+    lanterna: {
+      label: 'Lanterna',
+      params: [
+        { sec: 'Forma', id: 'forma', label: 'Forma', type: 'select', def: 'tonda', options: [['tonda', 'Tonda'], ['esagonale', 'Esagonale']] },
+        { sec: 'Forma', id: 'diametro', label: 'Diametro', type: 'num', min: 60, max: 180, step: 1, def: 80, unit: 'mm' },
+        { sec: 'Forma', id: 'altezza', label: 'Altezza', type: 'num', min: 60, max: 250, step: 1, def: 110, unit: 'mm' },
+        { sec: 'Forma', id: 'parete', label: 'Parete', type: 'num', min: 1.2, max: 4, step: 0.4, def: 2, unit: 'mm' },
+        { sec: 'Motivi', id: 'disegno', label: 'Motivo traforato', type: 'select', def: 'stelle', options: [['stelle', 'Stelle'], ['fiocchi', 'Fiocchi di neve'], ['alberi', 'Alberi'], ['cuori', 'Cuori']] },
+        { sec: 'Motivi', id: 'motivo', label: 'Dimensione', type: 'num', min: 8, max: 45, step: 1, def: 18, unit: 'mm' },
+        { sec: 'Motivi', id: 'righe', label: 'Righe', type: 'int', min: 1, max: 8, def: 3 },
+        { sec: 'Motivi', id: 'perRiga', label: 'Per riga', type: 'int', min: 3, max: 24, def: 7, help: 'Nella esagonale si arrotonda a uno per faccia.' },
+        ...textP('Buone Feste', '', 'natalizio', 8),
+        { sec: 'Scritta', id: 'stileTesto', label: 'Stile', type: 'select', def: 'rilievo', options: [['rilievo', 'In rilievo'], ['traforata', 'Traforata']], help: 'Traforata: la luce del lumino passa attraverso le lettere.' },
+        { sec: 'Lumino', id: 'tolleranza', label: 'Gioco lumino', type: 'num', min: 0, max: 2, step: 0.1, def: 0.6, unit: 'mm', help: 'Per lumini LED da 38 mm.' },
+        ...colorsP(['Colore 1 · lanterna', 'Colore 2 · scritta']),
+      ],
+    },
+    formina: {
+      label: 'Formina',
+      params: [
+        ...shapeP('Forma', 70),
+        { sec: 'Formina', id: 'profondita', label: 'Altezza taglio', type: 'num', min: 8, max: 30, step: 1, def: 14, unit: 'mm' },
+        { sec: 'Formina', id: 'lama', label: 'Spessore lama', type: 'num', min: 0.4, max: 2, step: 0.2, def: 0.8, unit: 'mm', help: 'Due linee con ugello 0,4 mm: abbastanza sottile per tagliare.' },
+        { sec: 'Formina', id: 'flangia', label: 'Bordo per premere', type: 'num', min: 2, max: 10, step: 0.5, def: 4, unit: 'mm' },
+        { sec: 'Timbro', id: 'timbro', label: 'Timbro per decorare', type: 'bool', def: true, help: 'Una piastrina che entra nella formina e stampa disegni e scritta sul biscotto.' },
+        { sec: 'Timbro', id: 'decorazioni', label: 'Disegni sul timbro', type: 'bool', def: true, show: p => p.timbro },
+        ...textP('', '', 'tondo', 8, p => p.timbro || p.forma === 'nome').filter(q => q.id !== 'rilievoTesto'),
+        { sec: 'Timbro', id: 'tolleranza', label: 'Gioco timbro', type: 'num', min: 0, max: 1.5, step: 0.1, def: 0.4, unit: 'mm', show: p => p.timbro },
+        ...colorsP(['Colore 1 · formina', 'Colore 2 · timbro']),
+      ],
+    },
+    mensola: {
+      label: 'Reggimensola',
+      params: [
+        { sec: 'Forma', id: 'tipo', label: 'Rinforzo', type: 'select', menu: true, def: 'triangolo', options: [['triangolo', 'Triangolo pieno'], ['alleggerito', 'Triangolo traforato'], ['diagonale', 'Puntone diagonale'], ['curvo', 'Raccordo curvo'], ['arco', 'Arco'], ['nessuno', 'Nessuno (squadra a L)']],
+          help: 'Il triangolo pieno è il più robusto. Senza rinforzo va bene solo per pesi leggeri.' },
+        { sec: 'Misure', id: 'profondita', label: 'Profondità (sotto la mensola)', type: 'num', min: 40, max: 400, step: 5, def: 150, unit: 'mm', help: 'Di solito 2/3 della profondità della mensola, o tutta.' },
+        { sec: 'Misure', id: 'altezza', label: 'Altezza (sul muro)', type: 'num', min: 30, max: 400, step: 5, def: 120, unit: 'mm' },
+        { sec: 'Misure', id: 'larghezza', label: 'Larghezza', type: 'num', min: 10, max: 80, step: 1, def: 25, unit: 'mm' },
+        { sec: 'Misure', id: 'spessore', label: 'Spessore', type: 'num', min: 3, max: 15, step: 0.5, def: 7, unit: 'mm' },
+        { sec: 'Misure', id: 'rinforzo', label: 'Estensione rinforzo', type: 'int', min: 30, max: 100, step: 5, def: 75, unit: '%', show: p => p.tipo !== 'nessuno', help: 'Quanta parte dei due bracci copre il rinforzo. Sotto resta lo spazio per le viti al muro.' },
+        { sec: 'Misure', id: 'labbro', label: 'Labbro in punta', type: 'num', min: 0, max: 20, step: 1, def: 0, unit: 'mm', help: 'Un dentino sulla punta che impedisce alla mensola di scivolare (ottimo per il vetro). 0 = nessuno.' },
+        { sec: 'Viti', id: 'foriMuro', label: 'Viti al muro', type: 'int', min: 0, max: 4, def: 2 },
+        { sec: 'Viti', id: 'foriMensola', label: 'Viti sotto la mensola', type: 'int', min: 0, max: 4, def: 1 },
+        { sec: 'Viti', id: 'vite', label: 'Diametro vite', type: 'num', min: 2.5, max: 8, step: 0.5, def: 4, unit: 'mm' },
+        { sec: 'Viti', id: 'svasati', label: 'Fori svasati', type: 'bool', def: true, help: 'Per viti a testa piana: la testa resta a filo.' },
+        { sec: 'Stampa', id: 'copie', label: 'Quante', type: 'int', min: 1, max: 8, def: 2 },
+      ],
+    },
+    gancio: {
+      label: 'Gancio',
+      params: [
+        { sec: 'Tipo', id: 'tipo', label: 'Tipo', type: 'select', menu: true, def: 'muro', options: [['muro', 'A muro (anche appendiabiti)'], ['porta', 'Sopra porta o anta'], ['tubo', 'Per tubo o bastone'], ['esse', 'A S']] },
+        { sec: 'Gancio', id: 'numero', label: 'Numero di ganci', type: 'int', min: 1, max: 10, def: 1, show: p => p.tipo === 'muro' || p.tipo === 'porta' },
+        { sec: 'Gancio', id: 'interasse', label: 'Distanza tra i ganci', type: 'num', min: 15, max: 200, step: 1, def: 60, unit: 'mm', show: p => (p.tipo === 'muro' || p.tipo === 'porta') && p.numero > 1 },
+        { sec: 'Gancio', id: 'larghezza', label: 'Larghezza gancio', type: 'num', min: 6, max: 60, step: 1, def: 15, unit: 'mm' },
+        { sec: 'Gancio', id: 'spessoreG', label: 'Spessore gancio', type: 'num', min: 2.5, max: 15, step: 0.5, def: 6, unit: 'mm' },
+        { sec: 'Gancio', id: 'sporgenza', label: 'Sporgenza', type: 'num', min: 8, max: 150, step: 1, def: 40, unit: 'mm', show: p => p.tipo !== 'esse', help: 'Quanto esce il gancio prima di curvare.' },
+        { sec: 'Gancio', id: 'raggio', label: 'Raggio curva', type: 'num', min: 3, max: 40, step: 0.5, def: 10, unit: 'mm', show: p => p.tipo !== 'esse' },
+        { sec: 'Gancio', id: 'punta', label: 'Altezza punta', type: 'num', min: 4, max: 80, step: 1, def: 18, unit: 'mm', show: p => p.tipo !== 'esse', help: 'Quanto sale la punta: più alta, meno le cose scivolano via.' },
+        { sec: 'Gancio', id: 'inclinazione', label: 'Inclinazione', type: 'int', min: 0, max: 45, step: 5, def: 0, unit: '°', show: p => p.tipo === 'muro' || p.tipo === 'porta', help: 'Il braccio sale verso l\'alto.' },
+        { sec: 'Gancio', id: 'aperturaSopra', label: 'Apertura sopra', type: 'num', min: 8, max: 100, step: 1, def: 25, unit: 'mm', show: p => p.tipo === 'esse' },
+        { sec: 'Gancio', id: 'aperturaSotto', label: 'Apertura sotto', type: 'num', min: 8, max: 100, step: 1, def: 30, unit: 'mm', show: p => p.tipo === 'esse' },
+        { sec: 'Gancio', id: 'gambo', label: 'Lunghezza gambo', type: 'num', min: 0, max: 200, step: 1, def: 30, unit: 'mm', show: p => p.tipo === 'esse' || p.tipo === 'tubo' },
+        { sec: 'Gancio', id: 'pomello', label: 'Pallino in punta', type: 'bool', def: true, help: 'Punta arrotondata: non graffia e non strappa i vestiti.' },
+        { sec: 'Piastra', id: 'altezzaP', label: 'Altezza piastra', type: 'num', min: 15, max: 200, step: 1, def: 50, unit: 'mm', show: p => p.tipo === 'muro' },
+        { sec: 'Piastra', id: 'spessoreP', label: 'Spessore piastra', type: 'num', min: 2, max: 12, step: 0.5, def: 5, unit: 'mm', show: p => p.tipo === 'muro' },
+        { sec: 'Piastra', id: 'fissaggio', label: 'Fissaggio', type: 'select', def: 'viti', options: [['viti', 'Viti'], ['biadesivo', 'Biadesivo'], ['magneti', 'Magneti']], show: p => p.tipo === 'muro' },
+        { sec: 'Piastra', id: 'viti', label: 'Viti', type: 'int', min: 1, max: 8, def: 2, show: p => p.tipo === 'muro' && p.fissaggio === 'viti' },
+        { sec: 'Piastra', id: 'vite', label: 'Diametro vite', type: 'num', min: 2.5, max: 8, step: 0.5, def: 4, unit: 'mm', show: p => p.tipo === 'muro' && p.fissaggio === 'viti' },
+        { sec: 'Piastra', id: 'svasati', label: 'Fori svasati', type: 'bool', def: true, show: p => p.tipo === 'muro' && p.fissaggio === 'viti' },
+        { sec: 'Piastra', id: 'numMag', label: 'Magneti', type: 'int', min: 1, max: 8, def: 2, show: p => p.tipo === 'muro' && p.fissaggio === 'magneti' },
+        { sec: 'Piastra', id: 'magnete', label: 'Diametro magnete', type: 'num', min: 4, max: 25, step: 0.5, def: 10, unit: 'mm', show: p => p.tipo === 'muro' && p.fissaggio === 'magneti' },
+        { sec: 'Piastra', id: 'magneteH', label: 'Altezza magnete', type: 'num', min: 1, max: 6, step: 0.5, def: 3, unit: 'mm', show: p => p.tipo === 'muro' && p.fissaggio === 'magneti' },
+        { sec: 'Porta', id: 'porta', label: 'Spessore porta o anta', type: 'num', min: 5, max: 70, step: 0.5, def: 40, unit: 'mm', show: p => p.tipo === 'porta', help: 'Misuralo con il metro in cima alla porta. Funziona anche sul bordo di una mensola o di un\'anta.' },
+        { sec: 'Porta', id: 'ponte', label: 'Spessore sopra la porta', type: 'num', min: 1.2, max: 6, step: 0.2, def: 2.4, unit: 'mm', show: p => p.tipo === 'porta', help: 'Deve passare nella fessura tra porta e telaio.' },
+        { sec: 'Porta', id: 'esterno', label: 'Lato esterno', type: 'num', min: 8, max: 120, step: 1, def: 25, unit: 'mm', show: p => p.tipo === 'porta', help: 'Quanto scende dal lato opposto ai ganci.' },
+        { sec: 'Porta', id: 'interno', label: 'Lato dei ganci', type: 'num', min: 15, max: 300, step: 1, def: 70, unit: 'mm', show: p => p.tipo === 'porta' },
+        { sec: 'Tubo', id: 'tubo', label: 'Diametro tubo', type: 'num', min: 6, max: 60, step: 0.5, def: 25, unit: 'mm', show: p => p.tipo === 'tubo' },
+        { sec: 'Tubo', id: 'apertura', label: 'Apertura', type: 'int', min: 60, max: 98, step: 1, def: 85, unit: '%', show: p => p.tipo === 'tubo', help: 'Larghezza dell\'imbocco rispetto al tubo: più bassa, più forte lo scatto.' },
+        { sec: 'Stampa', id: 'tolleranza', label: 'Gioco', type: 'num', min: 0, max: 2, step: 0.1, def: 0.4, unit: 'mm', show: p => p.tipo === 'porta' || p.tipo === 'tubo' || (p.tipo === 'muro' && p.fissaggio === 'magneti') },
+        { sec: 'Stampa', id: 'stampa', label: 'Orientamento', type: 'select', def: 'fianco', options: [['fianco', 'Sul fianco'], ['schiena', 'Sulla schiena']], show: p => p.tipo === 'muro',
+          help: 'Sul fianco gli strati seguono la curva: il gancio è molto più robusto. Sulla schiena è più comodo con tanti ganci.' },
+      ],
+    },
+    vite: {
+      label: 'Vite',
+      params: [
+        ...threadP(30),
+        ...headP([...HEAD_OPTS, ['nessuna', 'Senza testa']], 'esagonale'),
+        ...threadTail(SCREW_PRINT),
+      ],
+    },
+    bullone: {
+      label: 'Bullone',
+      params: [
+        ...threadP(40),
+        ...headP(HEAD_OPTS, 'esagonale'),
+        { sec: 'Dado e rondelle', id: 'dado', label: 'Dado', type: 'select', def: 'esagonale', options: [['esagonale', 'Esagonale'], ['zigrinato', 'Zigrinato'], ['alette', 'Ad alette']] },
+        { sec: 'Dado e rondelle', id: 'dadoAlto', label: 'Dado alto', type: 'bool', def: false, help: 'Una volta e mezza l\'altezza normale: più filetti in presa, più resistente.' },
+        { sec: 'Dado e rondelle', id: 'rondelle', label: 'Rondelle', type: 'select', def: '1', options: [['0', 'Nessuna'], ['1', 'Una'], ['2', 'Due']] },
+        ...threadTail(SCREW_PRINT),
+      ],
+    },
+    perno: {
+      label: 'Perno',
+      params: [
+        { sec: 'Tipo', id: 'tipo', label: 'Tipo di perno', type: 'select', def: 'scatto', options: [['scatto', 'A scatto'], ['cilindrico', 'Spina liscia'], ['testa', 'Con testa']],
+          help: 'A scatto: si infila nel foro e si aggancia da solo, per unire due pezzi stampati. Spina: perno di centraggio. Con testa: cerniere e snodi.' },
+        { sec: 'Tipo', id: 'estremita', label: 'Estremità', type: 'select', def: 'doppio', options: [['doppio', 'Doppio (unisce due pezzi)'], ['testa', 'Con testa']], show: p => p.tipo === 'scatto' },
+        { sec: 'Misure', id: 'diam', label: 'Diametro', type: 'num', min: 3, max: 30, step: 0.5, def: 8, unit: 'mm' },
+        { sec: 'Misure', id: 'presa', label: 'Spessore da attraversare', type: 'num', min: 1, max: 60, step: 0.5, def: 6, unit: 'mm', show: p => p.tipo === 'scatto', help: 'Spessore del pezzo nel foro (per il doppio: di ciascun pezzo). Il dentino si aggancia sull\'altra faccia.' },
+        { sec: 'Misure', id: 'lunghezza', label: 'Lunghezza', type: 'num', min: 4, max: 300, step: 1, def: 30, unit: 'mm', show: p => p.tipo !== 'scatto' },
+        { sec: 'Misure', id: 'smusso', label: 'Estremità smussate', type: 'bool', def: true, show: p => p.tipo !== 'scatto' },
+        { sec: 'Misure', id: 'coppiglia', label: 'Foro per coppiglia', type: 'bool', def: true, show: p => p.tipo === 'testa' },
+        { sec: 'Prova', id: 'tolleranza', label: 'Tolleranza stampante', type: 'num', min: 0, max: 1, step: 0.05, def: 0.3, unit: 'mm', help: 'Gioco tra perno e foro: decide il foro consigliato e quello della piastrina.' },
+        { sec: 'Prova', id: 'prova', label: 'Piastrina di prova', type: 'bool', def: true, help: 'Pezzo piccolo con il foro giusto, per provare l\'incastro prima di stampare il progetto vero.' },
+        { sec: 'Stampa', id: 'stampa', label: 'Orientamento', type: 'select', def: 'sdraiata', options: [['sdraiata', 'Sdraiato'], ['piedi', 'In piedi']], show: p => p.tipo !== 'scatto', help: 'Sdraiato (con un lato piatto) gli strati corrono lungo il perno: molto più robusto.' },
+      ],
+    },
     base: {
       label: 'Base',
       params: [
@@ -119,9 +426,12 @@
 
   // ================= GRUPPI (pagina iniziale) =================
   const GROUPS = [
+    { id: 'natale', title: 'Natale', cat: 'Feste', desc: 'Palline, palle piatte con disegni e nome, decorazioni con il nome, alberi, stelle puntale, lanterne e formine per biscotti. Fino a tre colori.', modes: ['pallina', 'palla', 'piatto', 'albero', 'stella', 'lanterna', 'formina'], thumb: 'pallina' },
     { id: 'gridfinity', title: 'Gridfinity', cat: 'Organizzazione', desc: 'Contenitori impilabili, cassettiere con cassetti e basi a griglia da 42 mm.', modes: ['bin', 'cab', 'base'], thumb: 'cab' },
     { id: 'rack', title: 'Rack telefoni', cat: 'Organizzazione', desc: 'Rack a fessure per riporre telefoni e tablet, anche di spessori diversi.', modes: ['rack'], thumb: 'rack' },
     { id: 'vasi', title: 'Vasi', cat: 'Casa e giardino', desc: 'Vasi e fioriere per aromatiche, normali con sottovaso o autoirriganti.', modes: ['vaso'], thumb: 'vaso' },
+    { id: 'supporti', title: 'Reggimensole e ganci', cat: 'Casa e giardino', desc: 'Squadre per mensole con rinforzo e viti, ganci a muro, appendiabiti, ganci sopra porta, per tubi e a S.', modes: ['mensola', 'gancio'], thumb: 'gancio' },
+    { id: 'viteria', title: 'Viti e bulloni', cat: 'Meccanica', desc: 'Viti e bulloni con filetto metrico ISO, dadi, rondelle e perni a scatto.', modes: ['vite', 'bullone', 'perno'], thumb: 'bullone' },
   ];
   const groupOf = (mode) => GROUPS.find(g => g.modes.includes(mode)) || GROUPS[0];
 
@@ -159,7 +469,11 @@
       const row = document.createElement('div');
       row.className = 'row'; row.dataset.id = p.id;
       const idAttr = `p-${mode}-${p.id}`;
-      if (p.type === 'bool') {
+      if (p.type === 'color') {
+        row.classList.add('bool');
+        row.innerHTML = `<label for="${idAttr}">${p.label}</label><input type="color" id="${idAttr}" value="${esc(v[p.id])}">`;
+        row.querySelector('input').addEventListener('input', (e) => set(p, e.target.value, true));
+      } else if (p.type === 'bool') {
         row.classList.add('bool');
         row.innerHTML = `<label for="${idAttr}">${p.label}</label><input type="checkbox" role="switch" id="${idAttr}" ${v[p.id] ? 'checked' : ''}>`;
         row.querySelector('input').addEventListener('change', (e) => set(p, e.target.checked));
@@ -168,28 +482,39 @@
         row.innerHTML = `<label for="${idAttr}">${p.label}</label><input class="txt" type="text" id="${idAttr}" value="${esc(v[p.id] || '')}" placeholder="${esc(p.placeholder || '')}" autocomplete="off">`;
         const ti = row.querySelector('input');
         ti.addEventListener('input', () => set(p, ti.value, true));
+      } else if (p.type === 'select' && p.menu) {
+        // elenco lungo: menu a tendina con i gruppi
+        row.classList.add('sel');
+        const groups = [...new Set(p.options.map(o => o[2] || ''))];
+        row.innerHTML = `<label for="${idAttr}">${p.label}</label><select class="txt" id="${idAttr}">${groups.map(g => `${g ? `<optgroup label="${esc(g)}">` : ''}${p.options.filter(o => (o[2] || '') === g).map(([k, l]) => `<option value="${k}"${v[p.id] === k ? ' selected' : ''}>${esc(l)}</option>`).join('')}${g ? '</optgroup>' : ''}`).join('')}</select>`;
+        row.querySelector('select').addEventListener('change', (e) => set(p, e.target.value));
       } else if (p.type === 'select') {
         row.classList.add('sel');
         row.innerHTML = `<label for="${idAttr}">${p.label}</label><div class="seg" id="${idAttr}" role="radiogroup">${p.options.map(([k, l]) => `<button type="button" role="radio" aria-checked="${v[p.id] === k}" data-k="${k}">${l}</button>`).join('')}</div>`;
         row.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { set(p, b.dataset.k); row.querySelectorAll('button').forEach(x => x.setAttribute('aria-checked', x === b)); }));
       } else {
-        const step = p.type === 'int' ? 1 : p.step;
+        const step = p.type === 'int' ? (p.step || 1) : p.step, stops = p.stops;
+        const show = (n) => (stops ? String(+(+n).toFixed(2)) : fmtNum(n, step));
         row.innerHTML = `<label for="${idAttr}">${p.label}</label>
-          <div class="num"><button type="button" class="dec" aria-label="Diminuisci ${p.label}">−</button><input id="${idAttr}" type="number" inputmode="decimal" min="${p.min}" max="${p.max}" step="${step}" value="${fmtNum(v[p.id], step)}"><button type="button" class="inc" aria-label="Aumenta ${p.label}">+</button></div>
+          <div class="num"><button type="button" class="dec" aria-label="Diminuisci ${p.label}">−</button><input id="${idAttr}" type="number" inputmode="decimal" min="${p.min}" max="${p.max}" step="${stops ? 'any' : step}" value="${show(v[p.id])}"><button type="button" class="inc" aria-label="Aumenta ${p.label}">+</button></div>
           ${p.unit ? `<span class="unit">${p.unit}</span>` : '<span class="unit"></span>'}`;
         const inp = row.querySelector('input');
         const commit = (val) => {
           let n = parseFloat(String(val).replace(',', '.'));
           if (!isFinite(n)) n = p.def;
+          if (p.wrap) n = ((Math.round(n / step) * step) % 360 + 360) % 360;   // angoli: dopo 345° torna a 0°
           n = Math.min(p.max, Math.max(p.min, n));
-          if (p.type === 'int') n = Math.round(n); else n = Math.round(n / step) * step;
+          if (stops) n = stops.reduce((a, b) => (Math.abs(b - n) < Math.abs(a - n) ? b : a));
+          else n = Math.round(n / step) * step;
           n = +n.toFixed(4);
-          inp.value = fmtNum(n, step); set(p, n);
+          inp.value = show(n); set(p, n);
         };
+        // con i valori a strati, − e + passano al valore vicino dell'elenco
+        const near = (dir) => { const c = values(state.mode)[p.id]; if (!stops) return c + dir * step; const l = dir > 0 ? stops.find(x => x > c + 1e-6) : [...stops].reverse().find(x => x < c - 1e-6); return l === undefined ? c : l; };
         inp.addEventListener('change', () => commit(inp.value));
         inp.addEventListener('input', () => { const n = parseFloat(inp.value); if (isFinite(n) && n >= p.min && n <= p.max) set(p, p.type === 'int' ? Math.round(n) : n, true); });
-        row.querySelector('.dec').addEventListener('click', () => commit(values(state.mode)[p.id] - step));
-        row.querySelector('.inc').addEventListener('click', () => commit(values(state.mode)[p.id] + step));
+        row.querySelector('.dec').addEventListener('click', () => commit(near(-1)));
+        row.querySelector('.inc').addEventListener('click', () => commit(near(1)));
       }
       if (p.help) { const h = document.createElement('p'); h.className = 'help'; h.textContent = p.help; row.appendChild(h); }
       sections.get(p.sec).appendChild(row);
@@ -205,6 +530,8 @@
       const row = panel.querySelector(`.row[data-id="${p.id}"]`);
       if (row) row.hidden = p.show ? !p.show(v) : false;
     }
+    // nasconde le sezioni senza parametri visibili
+    panel.querySelectorAll('details.sec').forEach(d => { d.hidden = ![...d.querySelectorAll('.row')].some(r => !r.hidden); });
   }
   function set(p, val, soft) {
     (state.values[state.mode] ||= {})[p.id] = val;
@@ -248,6 +575,15 @@
     mats[role].clippingPlanes = clipList(); mats[role].side = sectionOn ? THREE.DoubleSide : THREE.FrontSide; mats[role].needsUpdate = true;
     return mats[role];
   }
+  // pezzi con un colore proprio (Natale): un materiale per colore
+  function materialFor(part) {
+    if (!part.color) return material(part.role);
+    const k = 'c' + part.color;
+    if (!mats[k]) mats[k] = new THREE.MeshStandardMaterial({ color: part.color, roughness: 0.55, metalness: 0.0 });
+    mats[k].color.set(part.color);
+    mats[k].clippingPlanes = clipList(); mats[k].side = sectionOn ? THREE.DoubleSide : THREE.FrontSide; mats[k].needsUpdate = true;
+    return mats[k];
+  }
   function edgesMat() { return new THREE.LineBasicMaterial({ color: cssVar('--edge') || '#3b4148', transparent: true, opacity: 0.35, clippingPlanes: clipList() }); }
 
   function makeGrid(w, d) {
@@ -262,6 +598,7 @@
     scene.add(gridObj);
   }
 
+  const capGeo = new THREE.PlaneGeometry(1, 1);
   const geoCache = new WeakMap();
   function geomFor(mesh) {
     if (geoCache.has(mesh)) return geoCache.get(mesh);
@@ -276,15 +613,29 @@
   let current = null;  // ultimo risultato
   const real = (parts) => parts.filter(p => p.role !== 'ghost');
   let fitted = null;
+  let capIndex = 0, caps = [];
   function showResult(res) {
-    for (const c of [...modelGroup.children]) { modelGroup.remove(c); }
+    for (const c of [...modelGroup.children]) { modelGroup.remove(c); if (c.userData.cap) c.material.dispose(); }
+    capIndex = 0; caps = [];
     current = res;
     let bb = new THREE.Box3(), bbAll = new THREE.Box3();
     for (const part of res.parts) {
       const { flat, edges } = geomFor(part.mesh);
       const grp = new THREE.Group();
-      grp.add(new THREE.Mesh(flat, material(part.role)));
+      const main = new THREE.Mesh(flat, materialFor(part));
+      grp.add(main);
       if (part.role !== 'ghost') grp.add(new THREE.LineSegments(edges, edgesMat()));
+      // sezione: maschera stencil dell'interno del pezzo, poi un tappo colorato sul piano di taglio
+      if (sectionOn && part.role !== 'ghost') {
+        const k = capIndex++;
+        main.renderOrder = 1000;
+        for (const [side, op] of [[THREE.BackSide, THREE.IncrementWrapStencilOp], [THREE.FrontSide, THREE.DecrementWrapStencilOp]]) {
+          const m = new THREE.Mesh(flat, new THREE.MeshBasicMaterial({ side, clippingPlanes: [clipPlane], colorWrite: false, depthWrite: false, depthTest: false,
+            stencilWrite: true, stencilFunc: THREE.AlwaysStencilFunc, stencilFail: op, stencilZFail: op, stencilZPass: op }));
+          m.renderOrder = k * 3 + 1; grp.add(m);
+        }
+        caps.push({ k, part });
+      }
       grp.userData.part = part;
       if (part.at) grp.position.set(part.at[0], part.at[1], part.at[2]);
       if (part.pivot) {
@@ -296,10 +647,20 @@
     }
     applyOpen();
     modelGroup.updateMatrixWorld(true); bbAll.setFromObject(modelGroup);
+    // tappi: un piano y = 0 per pezzo, disegnato solo dove la maschera stencil dice "dentro"
+    const span = Math.max(10, bbAll.getSize(new THREE.Vector3()).length() * 2), ctr = bbAll.getCenter(new THREE.Vector3());
+    for (const { k, part } of caps) {
+      const cap = new THREE.Mesh(capGeo, new THREE.MeshStandardMaterial({ color: materialFor(part).color, roughness: 0.8, metalness: 0, side: THREE.DoubleSide,
+        stencilWrite: true, stencilRef: 0, stencilFunc: THREE.NotEqualStencilFunc, stencilFail: THREE.ReplaceStencilOp, stencilZFail: THREE.ReplaceStencilOp, stencilZPass: THREE.ReplaceStencilOp }));
+      cap.rotation.x = Math.PI / 2; cap.position.set(ctr.x, 0, ctr.z); cap.scale.set(span, span, 1);
+      cap.renderOrder = k * 3 + 2; cap.userData.cap = true;
+      cap.onAfterRender = (r) => r.clearStencil();
+      modelGroup.add(cap);
+    }
     const size = bb.getSize(new THREE.Vector3());
     makeGrid(size.x, size.y);
     const key = state.mode;
-    if (!fitted || fitted.key !== key || size.length() > fitted.len * 1.3 || size.length() < fitted.len / 1.5) { fitView(bbAll); fitted = { key, len: size.length() }; }
+    if (!fitted || fitted.key !== key || size.length() > fitted.len * 1.3 || size.length() < fitted.len / 1.5) { fitView(bbAll, res.view); fitted = { key, len: size.length() }; }
     // info
     const info = $('#info');
     info.innerHTML = res.info.map(([k, v]) => {
@@ -310,7 +671,8 @@
     info.innerHTML += `<div><dt>Volume materiale</dt><dd>${vol.toFixed(1).replace('.', ',')} cm³</dd></div>`;
     const rp = real(res.parts), bad = rp.find(p => p.mesh.status !== 'NoError');
     const ghosts = res.parts.length - rp.length;
-    setStatus(bad ? 'Geometria con errori: prova a cambiare i valori' : (rp.length === 1 ? '1 pezzo pronto' : `${rp.length} pezzi pronti`) + (ghosts ? ' · in azzurro i dispositivi di esempio' : ''), bad ? 'err' : 'ok');
+    const nU = printUnits(res.parts).length, nC = new Set(rp.map(p => p.color).filter(Boolean)).size;
+    setStatus(bad ? 'Geometria con errori: prova a cambiare i valori' : (nU === 1 ? '1 pezzo pronto' : `${nU} pezzi pronti`) + (nC > 1 ? ` · ${nC} colori` : '') + (ghosts ? ' · in azzurro gli oggetti di esempio' : ''), bad ? 'err' : 'ok');
   }
   function applyOpen() {
     for (const grp of modelGroup.children) {
@@ -319,11 +681,11 @@
       if (grp.userData.isPivot) grp.rotation.x = -state.open * 115 * Math.PI / 180;
     }
   }
-  function fitView(bb) {
+  function fitView(bb, view) {
     const c = bb.getCenter(new THREE.Vector3()); const r = bb.getSize(new THREE.Vector3()).length() / 2;
     controls.target.copy(c);
     const dist = r / Math.sin((camera.fov * Math.PI / 180) / 2) * 1.05;
-    const dir = new THREE.Vector3(-0.55, -0.95, 0.75).normalize();
+    const dir = new THREE.Vector3(...(view || [-0.55, -0.95, 0.75])).normalize();
     camera.position.copy(c).addScaledVector(dir, dist);
     camera.near = Math.max(0.5, dist / 100); camera.far = dist * 20; camera.updateProjectionMatrix();
     controls.update();
@@ -350,42 +712,68 @@
   }
 
   // ================= EXPORT =================
+  // pezzi da stampare: le parti con lo stesso `group` formano un solo oggetto (multicolore), le altre vanno da sole
+  function printUnits(parts) {
+    const units = [], byKey = new Map();
+    for (const p of real(parts)) {
+      const key = p.group || p;
+      if (!byKey.has(key)) { const u = { name: p.group || p.name, members: [] }; byKey.set(key, u); units.push(u); }
+      byKey.get(key).members.push({ part: p, mesh: p.printMesh || p.mesh });
+    }
+    for (const u of units) {
+      u.min = [Infinity, Infinity, Infinity]; u.max = [-Infinity, -Infinity, -Infinity];
+      for (const { mesh } of u.members) for (let i = 0; i < 3; i++) { u.min[i] = Math.min(u.min[i], mesh.min[i]); u.max[i] = Math.max(u.max[i], mesh.max[i]); }
+    }
+    return units;
+  }
   function layoutForPrint(parts) {
-    parts = real(parts);
-    // corpo in origine, cassetti in fila a destra (si possono riordinare nello slicer)
-    const gap = 6; const out = [];
-    const M = (p) => p.printMesh || p.mesh;
-    let body = parts.find(p => p.role === 'body');
-    const bm = M(body), bw = bm.max[0] - bm.min[0];
-    out.push({ part: body, mesh: bm, tx: -bm.min[0], ty: -bm.min[1], tz: -bm.min[2] });
+    // primo pezzo in origine, gli altri in fila a destra (si possono riordinare nello slicer)
+    const units = printUnits(parts), gap = 6;
+    const first = units[0], bw = first.max[0] - first.min[0];
+    first.tx = -first.min[0]; first.ty = -first.min[1]; first.tz = -first.min[2];
     let x = bw + gap * 2, y = 0, rowH = 0; const maxW = Math.max(bw * 2.2, 260);
-    for (const p of parts) {
-      if (p === body) continue;
-      const m = M(p), w = m.max[0] - m.min[0], d = m.max[1] - m.min[1];
+    for (const u of units.slice(1)) {
+      const w = u.max[0] - u.min[0], d = u.max[1] - u.min[1];
       if (x + w > maxW && x > bw + gap * 2) { x = bw + gap * 2; y += rowH + gap; rowH = 0; }
-      out.push({ part: p, mesh: m, tx: x - m.min[0], ty: y - m.min[1], tz: -m.min[2] });
+      u.tx = x - u.min[0]; u.ty = y - u.min[1]; u.tz = -u.min[2];
       x += w + gap; rowH = Math.max(rowH, d);
     }
-    return out;
+    return units;
   }
   const n4 = (v) => { const s = (Math.round(v * 10000) / 10000).toString(); return s === '-0' ? '0' : s; };
+  const hex8 = (c) => (/^#[0-9a-f]{6}$/i.test(c) ? c.toUpperCase() + 'FF' : '#808080FF');
   function build3MF(res, title) {
-    const items = layoutForPrint(res.parts);
-    let objs = '', build = '';
-    items.forEach((it, i) => {
-      const { pos, tri } = it.mesh; const id = i + 1;
+    const units = layoutForPrint(res.parts);
+    // colori come materiali base: gli slicer li mostrano e li propongono come filamenti
+    const colors = [...new Set(units.flatMap(u => u.members.map(m => m.part.color)).filter(Boolean))];
+    let id = colors.length ? 1 : 0, objs = '', build = '';
+    const mats = colors.length ? `<basematerials id="1">${colors.map((c, i) => `<base name="Colore ${i + 1}" displaycolor="${hex8(c)}"/>`).join('')}</basematerials>\n` : '';
+    const meshObj = (part, mesh) => {
+      const oid = ++id, { pos, tri } = mesh;
       const v = []; for (let k = 0; k < pos.length; k += 3) v.push(`<vertex x="${n4(pos[k])}" y="${n4(pos[k + 1])}" z="${n4(pos[k + 2])}"/>`);
       const t = []; for (let k = 0; k < tri.length; k += 3) t.push(`<triangle v1="${tri[k]}" v2="${tri[k + 1]}" v3="${tri[k + 2]}"/>`);
-      objs += `<object id="${id}" name="${esc(it.part.name)}" type="model"><mesh><vertices>${v.join('')}</vertices><triangles>${t.join('')}</triangles></mesh></object>\n`;
-      build += `<item objectid="${id}" transform="1 0 0 0 1 0 0 0 1 ${n4(it.tx)} ${n4(it.ty)} ${n4(it.tz)}"/>\n`;
-    });
+      const ci = colors.indexOf(part.color);
+      objs += `<object id="${oid}" name="${esc(part.name)}" type="model"${ci >= 0 ? ` pid="1" pindex="${ci}"` : ''}><mesh><vertices>${v.join('')}</vertices><triangles>${t.join('')}</triangles></mesh></object>\n`;
+      return oid;
+    };
+    for (const u of units) {
+      let oid;
+      if (u.members.length === 1) oid = meshObj(u.members[0].part, u.members[0].mesh);
+      else {
+        // oggetto con più parti: lo slicer lo apre come un solo pezzo e assegni un filamento a ogni parte
+        const ids = u.members.map(m => meshObj(m.part, m.mesh));
+        oid = ++id;
+        objs += `<object id="${oid}" name="${esc(u.name)}" type="model"><components>${ids.map(c => `<component objectid="${c}"/>`).join('')}</components></object>\n`;
+      }
+      build += `<item objectid="${oid}" transform="1 0 0 0 1 0 0 0 1 ${n4(u.tx)} ${n4(u.ty)} ${n4(u.tz)}"/>\n`;
+    }
     const model = `<?xml version="1.0" encoding="UTF-8"?>
 <model unit="millimeter" xml:lang="it-IT" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
 <metadata name="Title">${esc(title)}</metadata>
-<metadata name="Application">Generatore progetti 3D</metadata>
+<metadata name="Application">SP Lab</metadata>
 <metadata name="CreationDate">${new Date().toISOString().slice(0, 10)}</metadata>
 <resources>
-${objs}</resources>
+${mats}${objs}</resources>
 <build>
 ${build}</build>
 </model>`;
@@ -396,10 +784,11 @@ ${build}</build>
     return zip([['[Content_Types].xml', ct], ['_rels/.rels', rels], ['3D/3dmodel.model', model]]);
   }
   function buildSTL(res) {
-    const items = layoutForPrint(res.parts);
+    // STL: un solo colore, tutte le parti insieme
+    const items = layoutForPrint(res.parts).flatMap(u => u.members.map(m => ({ mesh: m.mesh, tx: u.tx, ty: u.ty, tz: u.tz })));
     let ntri = 0; for (const it of items) ntri += it.mesh.tri.length / 3;
     const buf = new ArrayBuffer(84 + ntri * 50); const dv = new DataView(buf);
-    const hdr = 'Generatore progetti 3D'; for (let i = 0; i < hdr.length; i++) dv.setUint8(i, hdr.charCodeAt(i));
+    const hdr = 'SP Lab'; for (let i = 0; i < hdr.length; i++) dv.setUint8(i, hdr.charCodeAt(i));
     dv.setUint32(80, ntri, true); let o = 84;
     for (const it of items) {
       const { pos, tri } = it.mesh;
@@ -447,8 +836,23 @@ ${build}</build>
 
   function fileBase() {
     const v = values(state.mode);
-    const s = state.mode === 'bin' ? `contenitore_${v.gridX}x${v.gridY}x${v.altU}` : state.mode === 'vaso' ? `vaso_${v.forma}_${Math.round(v.larghezza)}x${Math.round(v.altezza)}_${v.tipo}` : state.mode === 'rack' ? `rack_${String(v.spessoriLista || '').trim() ? 'misto' : v.fessure + 'x' + v.spessore + 'mm'}_${v.base}` : state.mode === 'cab' ? `cassettiera_${v.gridX}x${v.gridY}x${v.altU}_${v.righe * v.colonne}cassetti` : `base_${v.gridX}x${v.gridY}`;
-    return s;
+    const s = state.mode === 'bin' ? `contenitore_${v.gridX}x${v.gridY}x${v.altU}` : state.mode === 'vaso' ? `vaso_${v.forma}_${Math.round(v.larghezza)}x${Math.round(v.altezza)}_${v.tipo}` : state.mode === 'rack' ? `rack_${String(v.spessoriLista || '').trim() ? 'misto' : v.fessure + 'x' + v.spessore + 'mm'}_${v.base}` : state.mode === 'cab' ? `cassettiera_${v.gridX}x${v.gridY}x${v.altU}_${v.righe * v.colonne}cassetti` : state.mode === 'base' ? `base_${v.gridX}x${v.gridY}` : null;
+    if (s) return s;
+    const slug = (x) => String(x || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24);
+    const nm = slug(v.scritta) ? '_' + slug(v.scritta) : '';
+    if (state.mode === 'pallina') return `pallina_${v.forma}_${v.diametro}mm${nm}`;
+    if (state.mode === 'piatto') return `decorazione_${v.forma}${nm}`;
+    if (state.mode === 'palla') return `palla-piatta_${v.disegno}${nm}`;
+    if (state.mode === 'albero') return `albero_${v.stile}_${v.altezza}mm`;
+    if (state.mode === 'stella') return `stella_${v.uso}_${v.diametro}mm`;
+    if (state.mode === 'lanterna') return `lanterna_${v.forma}_${v.disegno}`;
+    if (state.mode === 'formina') return `formina_${v.forma}${v.timbro && nm ? nm : ''}`;
+    const mis = v.misura === 'custom' ? `M${String(v.diam).replace('.', ',')}x${String(v.passo).replace('.', ',')}` : v.misura;
+    if (state.mode === 'mensola') return `reggimensola_${v.profondita}x${v.altezza}_${v.tipo}`;
+    if (state.mode === 'gancio') return `gancio_${v.tipo}${v.tipo === 'muro' || v.tipo === 'porta' ? '_' + v.numero : ''}`;
+    if (state.mode === 'vite') return `vite_${mis}x${v.lunghezza}_${v.testa}`;
+    if (state.mode === 'bullone') return `bullone_${mis}x${v.lunghezza}_dado-${v.dado}`;
+    return v.tipo === 'scatto' ? `perno_scatto_${v.diam}mm_${v.estremita}` : `perno_${v.tipo}_${v.diam}x${v.lunghezza}`;
   }
   let downloadsCap;
   const inArtifact = !!window.claude && typeof window.claude.use === 'function';
@@ -485,12 +889,17 @@ ${build}</build>
     tabs.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => go(t.dataset.mode)));
   }
   const hashFor = (mode) => { const g = groupOf(mode); return g.modes.length > 1 && mode !== g.modes[0] ? `${g.id}-${mode}` : g.id; };
-  function go(mode) { if (location.hash.slice(1) !== hashFor(mode)) location.hash = hashFor(mode); else route(); }
+  let wanted = null;  // scheda scelta: la prima di un gruppo ha come indirizzo quello del gruppo
+  function go(mode) { wanted = mode; if (location.hash.slice(1) !== hashFor(mode)) location.hash = hashFor(mode); else route(); }
   let inHome = true;
   function route() {
     const h = location.hash.slice(1);
     let mode = null;
-    for (const g of GROUPS) { if (h === g.id) mode = (groupOf(state.mode) === g ? state.mode : g.modes[0]); for (const m of g.modes) if (h === `${g.id}-${m}`) mode = m; }
+    for (const g of GROUPS) {
+      if (h === g.id) mode = wanted && g.modes.includes(wanted) ? wanted : g.modes[0];
+      for (const m of g.modes) if (h === `${g.id}-${m}`) mode = m;
+    }
+    wanted = null;
     inHome = !mode;
     $('#home').hidden = !inHome; $('#genView').hidden = inHome; $('#crumbs').hidden = inHome; $('#actions').hidden = inHome;
     if (inHome) { renderThumbs(); return; }
@@ -503,13 +912,17 @@ ${build}</build>
 
   // pagina iniziale: schede con anteprima generata dal motore
   function renderHome() {
-    const cats = [...new Set(GROUPS.map(g => g.cat))];
-    $('#cats').innerHTML = cats.map(c => `<section class="cat"><h2>${esc(c)}</h2><div class="cards">${GROUPS.filter(g => g.cat === c).map(g => `
+    // una sola griglia, tre schede per riga; la categoria è scritta sulla scheda
+    $('#cats').innerHTML = `<div class="cards">${GROUPS.map(g => `
       <button class="card" type="button" data-group="${g.id}" id="card-${g.id}">
         <div class="thumb"><img alt="" hidden><span class="ph">anteprima…</span></div>
-        <div class="body"><h3>${esc(g.title)}</h3><p>${esc(g.desc)}</p>${g.modes.length > 1 ? `<div class="chips">${g.modes.map(m => `<span class="chip">${esc(MODES[m].label)}</span>`).join('')}</div>` : ''}</div>
-      </button>`).join('')}</div></section>`).join('');
-    document.querySelectorAll('.card').forEach(c => c.addEventListener('click', () => { location.hash = c.dataset.group; }));
+        <div class="body"><span class="kicker">${esc(g.cat)}</span><h3>${esc(g.title)}</h3><p>${esc(g.desc)}</p>${g.modes.length > 1 ? `<div class="chips">${g.modes.map(m => `<span class="chip">${esc(MODES[m].label)}</span>`).join('')}</div>` : ''}</div>
+      </button>`).join('')}</div>`;
+    // dalla pagina iniziale si torna all'ultima scheda usata nel gruppo
+    document.querySelectorAll('.card').forEach(c => c.addEventListener('click', () => {
+      const g = GROUPS.find(x => x.id === c.dataset.group);
+      go(g.modes.includes(state.mode) ? state.mode : g.modes[0]);
+    }));
   }
   const thumbCache = {};
   let thumbR = null;
@@ -537,7 +950,7 @@ ${build}</build>
     for (const part of res.parts) {
       const { flat, edges } = geomFor(part.mesh);
       const o = new THREE.Group();
-      o.add(new THREE.Mesh(flat, material(part.role)));
+      o.add(new THREE.Mesh(flat, materialFor(part)));
       if (part.role !== 'ghost') o.add(new THREE.LineSegments(edges, edgesMat()));
       if (part.at) o.position.set(part.at[0], part.at[1], part.at[2]);
       if (part.role === 'drawer') o.position.y = part.at[1] - 0.35 * part.size[1] * 0.85;
@@ -548,7 +961,7 @@ ${build}</build>
     const cam = new THREE.PerspectiveCamera(30, 1.5, 1, 5000); cam.up.set(0, 0, 1);
     const c = bb.getCenter(new THREE.Vector3()), r = bb.getSize(new THREE.Vector3()).length() / 2;
     const dist = r / Math.sin((cam.fov * Math.PI / 180) / 2) * 0.92;
-    cam.position.copy(c).addScaledVector(new THREE.Vector3(-0.55, -0.95, 0.75).normalize(), dist);
+    cam.position.copy(c).addScaledVector(new THREE.Vector3(...(res.view || [-0.55, -0.95, 0.75])).normalize(), dist);
     cam.near = dist / 100; cam.far = dist * 10; cam.lookAt(c); cam.updateProjectionMatrix();
     thumbR.render(sc, cam);
     return thumbR.domElement.toDataURL('image/png');
@@ -561,7 +974,7 @@ ${build}</build>
   const openIn = $('#open'); openIn.value = state.open;
   openIn.addEventListener('input', () => { state.open = +openIn.value; applyOpen(); save(); });
   const mq = window.matchMedia('(prefers-color-scheme: dark)');
-  const retheme = () => { for (const k in mats) material(k); if (current) showResult(current); };
+  const retheme = () => { for (const k in mats) if (k[0] !== 'c') material(k); if (current) showResult(current); };
   mq.addEventListener && mq.addEventListener('change', retheme);
   new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 

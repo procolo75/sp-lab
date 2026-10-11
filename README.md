@@ -1,24 +1,76 @@
-# Sprecolo
+<p align="center"><img src="docs/img/logo.svg" alt="SP Lab" width="140"></p>
 
-**Il talento sprecato della stampa 3D.**
+# SP Lab
 
-Sprecolo è un generatore parametrico di oggetti da stampare in 3D che funziona interamente nel browser. Scegli cosa vuoi, regoli le misure, guardi l'anteprima 3D e scarichi il file **3MF** (o STL) pronto per lo slicer. Non serve installare niente e non serve internet: è un'unica pagina HTML.
+**Generatore parametrico per la stampa 3D.**
 
-![Pagina iniziale di Sprecolo](docs/img/home.png)
+SP Lab è un generatore parametrico di oggetti da stampare in 3D che funziona interamente nel browser. Scegli cosa vuoi, regoli le misure, guardi l'anteprima 3D e scarichi il file **3MF** (o STL) pronto per lo slicer. Non serve installare niente e non serve internet: è un'unica pagina HTML.
+
+![Pagina iniziale di SP Lab](docs/img/home.png)
 
 ---
 
 ## Cosa puoi generare
 
-La pagina iniziale mostra un riquadro per ogni generatore, diviso per categoria. Gridfinity raccoglie tre generatori in uno: contenitore, cassettiera e base.
+La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la categoria scritta sopra il titolo. Alcuni riquadri raccolgono più generatori, che trovi come schede in alto: Natale (pallina, palla piatta, decorazione, albero, stella, lanterna, formina), Gridfinity (contenitore, cassettiera, base), Reggimensole e ganci (reggimensola, gancio) e Viti e bulloni (vite, bullone, perno).
 
 | Generatore | Cos'è | Parti nel file |
 |---|---|---|
+| **Pallina** | Pallina di Natale sferica, a goccia, a oliva o a cipolla, con decorazioni e scritta | 2 metà, anello, cappuccio |
+| **Palla piatta** | Palla di Natale piatta con cappuccio, 18 disegni (fiocchi, maglione nordico, bosco, personaggi…) e il nome, anche su una fascia | 1, più il supporto da tavolo |
+| **Decorazione** | Decorazione piatta da appendere in 33 motivi (o solo il nome), con scritta, bordo e decorazioni a colori | 1, più il supporto da tavolo |
+| **Albero** | Albero a spirale, a strati o da incastrare, con stella in cima e base con scritta | 1 o 2 |
+| **Stella** | Stella 3D a punte, come puntale dell'albero o da appendere | 2 metà |
+| **Lanterna** | Lanterna traforata per lumini LED, con scritta | 1 |
+| **Formina** | Formina per biscotti con tutti i motivi (anche a forma di nome), con timbro per decorarli | 1 o 2 |
 | **Contenitore** | Contenitore [Gridfinity](https://gridfinity.xyz/) impilabile, con divisori, raccordo frontale e ripiano per l'etichetta | 1 |
 | **Cassettiera** | Mobiletto Gridfinity con cassetti, impilabile, maniglie a scelta e divisori nei cassetti | mobile + un pezzo per cassetto |
 | **Base** | Griglia Gridfinity su cui agganciare contenitori e cassettiere | 1 |
 | **Rack telefoni** | Rack a fessure per riporre telefoni e tablet, con spessori diversi per ogni fessura | 1 |
 | **Vasi** | Vasi per piante aromatiche: tondi, quadrati, esagonali o fioriera a scomparti; normali con sottovaso oppure autoirriganti | da 1 a 5 |
+| **Reggimensola** | Squadra per mensole con rinforzo a triangolo (pieno o traforato), puntone, raccordo curvo o arco, viti svasate e labbro antiscivolo | quante ne vuoi |
+| **Gancio** | Gancio a muro o appendiabiti con più ganci, sopra porta o anta, per tubo o bastone, a S; fissaggio a viti, biadesivo o magneti | 1 |
+| **Vite** | Vite con filetto metrico ISO da M3 a M30 (o misura libera), cinque tipi di testa | 1 |
+| **Bullone** | Vite con dado (esagonale, zigrinato o ad alette) e rondelle, già avvitabili tra loro | da 2 a 4 |
+| **Perno** | Perno a scatto per unire pezzi stampati, spina liscia o perno con testa e foro per coppiglia | 1, più le piastrine di prova |
+
+### Natale
+![Pallina, calza con nome, albero a spirale e lanterna](docs/img/natale.png)
+Tutti gli oggetti di Natale possono avere **fino a tre colori** (abbinamenti pronti oppure colori a scelta) e una **scritta** in tre caratteri: tondo, corsivo e natalizio. Se la scritta non ci sta, viene ridotta da sola e il riquadro misure lo dice.
+
+- **Pallina:** sfera, goccia, oliva o cipolla, liscia o sfaccettata (low poly). Decorazioni: spicchi, anelli, puntini, stelle in rilievo o stelle traforate (con un LED dentro si illumina). Fino a **quattro scritte**, e ognuna la metti dove vuoi: *lato* (0° davanti, 90° a destra, 180° dietro, 270° a sinistra, a passi di 15°), *altezza* (0 = a metà pallina, positivo verso l'alto, negativo verso il basso) e *altezza lettere*. Per esempio il nome davanti, l'anno sotto e una dedica dietro. Le scritte seguono la curva della pallina e possono essere **in rilievo** o **traforate**; le decorazioni si spostano da sole per lasciarle libere. Con le due metà, se una scritta cade sulla giunzione (90° o 270°) il riquadro misure lo segnala.
+  - Si stampa in **due metà** senza supporti, che si incollano su un anello di giunzione. Oppure intera, con il supporto.
+  - Appendino: **cappuccio** a parte con il foro per il nastro, oppure occhiello.
+- **Palla piatta:** la classica pallina vista di fronte, piatta, con il cappuccio scanalato e l'occhiello. Scrivi il nome (una o due righe, per esempio *Famiglia* e *Rossi 2026*) e scegli il **disegno**:
+  - *Sfondi:* fiocchi di neve, stelle, cuori, pois, righe a bastoncino, spicchi, onde, zig-zag, maglione nordico.
+  - *Natura:* ghirlanda sul bordo, agrifoglio.
+  - *Scene:* cielo stellato con luna, bosco innevato, paesino con casette, luna con la slitta, regali.
+  - *Personaggi:* uno qualsiasi dei motivi delle decorazioni (pupazzo, Babbo Natale, renna, gnomo…) grande sopra il nome.
+  - *Solo il nome.*
+  - **Quantità** e **variante** cambiano quanti disegni ci sono e come sono sparsi. La **fascia dietro il nome** è una striscia nel colore 2 che attraversa la palla.
+  - Colori: palla (1), cappuccio, disegni e bordo (2), scritta e dettagli come neve e fiocchi (3). Scritta in rilievo, a filo, incisa o traforata.
+
+  ![Palle piatte con disegni diversi](docs/img/palle.png)
+- **Decorazione piatta:** scegli il **motivo** dal menu e scrivi il testo. 33 motivi, divisi per gruppo:
+  - *Con il nome:* solo il nome (la decorazione è la scritta stessa, con il contorno che unisce le lettere), medaglione, targhetta.
+  - *Classici:* stella, albero, fiocco di neve (ogni *variante* è un fiocco diverso), pallina, campana, campanelle, stella cometa, cuore, luna, candela.
+  - *Natura:* ghirlanda, agrifoglio, stella di Natale.
+  - *Personaggi:* Babbo Natale, cappello di Babbo Natale, gnomo, omino di pan di zenzero, pupazzo di neve, angelo, renna, pinguino.
+  - *Oggetti:* calza, muffola, maglione, regalo, fiocco, bastoncino di zucchero, casetta, slitta, palla di neve.
+  - Decorazioni a colori (glassa dell'omino, barba dello gnomo, palline sull'albero…) e bordo.
+  - Scritta **in rilievo**, **a filo** (la superficie resta piana; lo *spessore della scritta* è regolabile in multipli di 0,2 o di 0,28 mm, cioè allineato agli strati anche con il primo strato a 0,28, e se è pari allo spessore del pezzo la scritta lo attraversa e si vede dai due lati), **incisa** o **traforata** (con i ponticelli che tengono l'interno di o, a, e). Occhiello, foro o nessun appendino.
+
+  ![I motivi delle decorazioni piatte](docs/img/motivi.png)
+  - **Supporto da tavolo** con fessura: diventa un segnaposto.
+- **Albero:** a spirale (si può stampare anche in modalità vaso), a strati sfalsati (anche a colori alterni) o da incastrare (due sagome piatte a croce). Stella 3D in cima e base con scritta.
+- **Stella 3D:** numero e forma delle punte regolabili. Come **puntale**, con un tubo che si stringe verso l'alto e si adatta alla cima dell'albero, oppure da appendere. Si stampa in due metà piatte.
+- **Lanterna** tonda o esagonale, traforata con stelle, fiocchi, alberi o cuori, con la sede per un lumino LED da 38 mm e una scritta sulla fascia in basso, in rilievo o traforata (la luce passa dalle lettere).
+- **Formina per biscotti** con tutti i motivi, anche a forma di nome, con lama sottile e bordo per premere. Il **timbro** entra nella formina e stampa disegni e scritta sul biscotto (è già a specchio).
+
+#### Colori nel file 3MF
+- Ogni colore è una **parte separata dello stesso oggetto**: nello slicer (Bambu Studio, OrcaSlicer, PrusaSlicer) assegni un filamento a ciascuna parte. I colori scelti sono anche scritti nel file.
+- **Stampante a un colore:** per le decorazioni piatte in rilievo il riquadro misure dice a che altezza cambiare filamento. La scritta è più alta delle decorazioni, così anche il terzo colore si fa con un cambio.
+- Lo **STL** ha un solo colore: per i colori usa il 3MF.
 
 ### Contenitore
 ![Contenitore Gridfinity](docs/img/contenitore.png)
@@ -64,6 +116,42 @@ La pagina iniziale mostra un riquadro per ogni generatore, diviso per categoria.
   - cestello pescante forato, separato, che porta l'acqua alle radici.
 - Il programma calcola **litri di terra** e **millilitri di riserva d'acqua**.
 
+### Reggimensole e ganci
+![Reggimensole e ganci](docs/img/supporti.png)
+Si stampano **sdraiati sul fianco**: gli strati seguono il profilo, così la squadra non si apre e il gancio non si spezza lungo gli strati.
+
+- **Reggimensola:**
+  - profondità (sotto la mensola), altezza sul muro, larghezza e spessore;
+  - rinforzo a scelta: triangolo pieno (il più robusto), triangolo traforato, puntone diagonale, raccordo curvo, arco, oppure nessuno (squadra a L); l'*estensione* dice quanta parte dei bracci copre;
+  - viti al muro e sotto la mensola, diametro e svasatura. I fori vanno solo dove arriva il cacciavite (non dietro il rinforzo): se non c'è spazio il riquadro misure lo dice. Fori a goccia, stampabili senza supporti;
+  - *labbro* in punta che non fa scivolare la mensola (comodo per il vetro);
+  - numero di copie; nell'anteprima c'è una mensola d'esempio in azzurro.
+- **Gancio:**
+  - *a muro*: uno o più ganci (appendiabiti) con la distanza tra loro, su una piastra fissata con viti (sopra i ganci, dove arriva il cacciavite), biadesivo o magneti incassati sul retro;
+  - *sopra porta o anta*: si aggancia sul bordo della porta; imposti spessore della porta, il ponte sottile che passa nella fessura del telaio e la lunghezza dei due lati;
+  - *per tubo o bastone*: anello a scatto sul tubo (diametro e apertura regolabili) e gancio sotto;
+  - *a S*: apertura sopra e sotto e lunghezza del gambo;
+  - per tutti: larghezza e spessore del gancio, sporgenza, raggio della curva, altezza della punta, inclinazione e pallino in punta;
+  - orientamento di stampa sul fianco (robusto) o sulla schiena (comodo per gli appendiabiti lunghi).
+
+### Viti e bulloni
+![Bullone M8 con rondella e dado](docs/img/bullone.png)
+- **Filetto metrico ISO** a passo grosso, da M3 a M30; con *Altro* scegli diametro e passo liberi. Filetto destro o sinistro.
+- Il filetto è un'elica vera, non un'approssimazione: vite e dado dello stesso file si avvitano.
+- **Gioco filetto** regolabile (0,3 mm all'inizio): è lo spazio tra i fianchi di vite e dado.
+- **Lunghezza filettata**: tutta, oppure solo in punta con il resto del gambo liscio.
+- **Teste:** esagonale, cilindrica, svasata a 90°, zigrinata da girare a mano, oppure senza testa (grano o barra filettata). Impronta a esagono incassato o a taglio. Le misure della testa sono quelle standard ISO, oppure le scegli tu con *Misure testa su misura* (larghezza o chiave, e altezza).
+- **Bullone:** dado esagonale, zigrinato o ad alette, dado alto (×1,5) e da zero a due rondelle. L'anteprima mostra il bullone montato e lo spessore che puoi serrare.
+- **Orientamento di stampa:** *in piedi* (testa in basso, filetto più preciso) o *sdraiata*, con un lato piatto per appoggiarla: molto più resistente.
+
+### Perni
+![Perno a scatto con piastrine di prova](docs/img/perno.png)
+- **A scatto:** si infila nel foro e si aggancia da solo con due dentini elastici. Doppio, per unire due pezzi, oppure con testa. Imposti diametro e spessore del pezzo da attraversare; il file è già orientato sdraiato sul lato piatto.
+- **Spina liscia** con estremità smussate, per centrare due pezzi.
+- **Con testa**, con foro per la coppiglia: per cerniere e snodi.
+- Il riquadro misure indica il **foro da fare nei tuoi pezzi** (diametro + tolleranza).
+- **Piastrina di prova:** un pezzetto con il foro giusto, per provare l'incastro prima di stampare il progetto vero.
+
 ---
 
 ## Come si usa
@@ -81,11 +169,12 @@ La pagina iniziale mostra un riquadro per ogni generatore, diviso per categoria.
 
 I valori che imposti restano salvati nel browser. **Ripristina valori** torna a quelli iniziali.
 
-**Link diretti:** ogni generatore ha il suo indirizzo, da usare per linkarlo o salvarlo nei preferiti: `#gridfinity`, `#gridfinity-cab` (cassettiera), `#gridfinity-base`, `#rack`, `#vasi`.
+**Link diretti:** ogni generatore ha il suo indirizzo, da usare per linkarlo o salvarlo nei preferiti: `#natale` (pallina), `#natale-palla` (palla piatta), `#natale-piatto`, `#natale-albero`, `#natale-stella`, `#natale-lanterna`, `#natale-formina`, `#gridfinity`, `#gridfinity-cab` (cassettiera), `#gridfinity-base`, `#rack`, `#vasi`, `#supporti` (reggimensola), `#supporti-gancio`, `#viteria` (vite), `#viteria-bullone`, `#viteria-perno`.
 
 ### Il file 3MF
 - Ogni pezzo è un oggetto separato e con il suo nome (per esempio "Cassetto 3" o "Cestello pescante 1").
-- I pezzi sono già disposti sul piatto e orientati per la stampa senza supporti: coperchi e cestelli capovolti, cassetti accanto al mobile.
+- Le parti di colori diversi dello stesso pezzo restano unite in un solo oggetto multicolore.
+- I pezzi sono già disposti sul piatto e orientati per la stampa senza supporti: coperchi e cestelli capovolti, cassetti accanto al mobile, viti con la testa in basso o sdraiate sul lato piatto, dadi e rondelle accanto.
 - Funziona con Bambu Studio, PrusaSlicer, OrcaSlicer, Cura e gli altri slicer che leggono il 3MF.
 
 ---
@@ -99,10 +188,17 @@ Ogni stampante è diversa. Il parametro **Tolleranza stampante** (0,3 mm all'ini
 3. Se balla troppo, diminuiscila.
 
 ### Per tipo di oggetto
+- **Decorazioni piatte e palle piatte:** strati da 0,2 mm, 3 mm di spessore. Spessore, spessore della scritta e rilievo vanno a multipli di 0,2 e di 0,28 mm (0,28 · 0,56 · 0,84 · 1,12…): con − e + si passa al valore vicino, così ogni colore cade su strati interi anche se stampi il primo strato a 0,28. Per scritte piccole ugello da 0,4 mm e lettere di almeno 5 mm. La scritta in corsivo regge meglio se è almeno 8 mm.
+- **Palline:** incolla le due metà sull'anello con colla cianoacrilica. Lo spessore del guscio va bene da 1,2 mm in su; con 0,8 mm la pallina è leggerissima ma delicata.
+- **Formine:** usa PLA o PETG adatti agli alimenti e lavale a mano.
+- **Lanterne:** solo lumini LED, mai candele vere.
 - **Gridfinity:** per la prima prova stampa un contenitore 1×1×3 e una base 2×2, così verifichi incastro e impilamento.
 - **Pareti:** usa spessori multipli del diametro dell'ugello (con 0,4 mm: 0,8, 1,2, 1,6).
 - **Rack:** se i separatori sono alti o sottili, stampalo *sul fianco*.
 - **Vasi:** perché tengano l'acqua servono almeno 3 perimetri. Per il vaso esterno dell'autoirrigante e per il sottovaso, il PETG è meglio del PLA.
+- **Reggimensole e ganci:** lasciali sul fianco come escono dal file. 4 o più perimetri e riempimento 40% o più; per pesi veri PETG. Per libri usa squadre da 7 mm di spessore e 25 mm di larghezza in su, con il rinforzo a triangolo pieno.
+- **Viti e bulloni:** stampa prima un bullone M8 corto per tarare il *Gioco filetto*. Usa 4 o più perimetri (o riempimento 100%) e strati sottili (0,12–0,16 mm). Sotto M6 il filetto stampato è delicato. Per viti che lavorano, PETG o nylon.
+- **Perni a scatto:** se il perno entra troppo duro aumenta la tolleranza; se la fessura è corta (lo segnala il riquadro misure) il perno resta rigido.
 
 ---
 
@@ -117,7 +213,13 @@ Ogni stampante è diversa. Il parametro **Tolleranza stampante** (0,3 mm all'ini
 ├── src/
 │   ├── page.html   interfaccia e stili
 │   ├── app.js      parametri, anteprima 3D, esportazione 3MF/STL
-│   └── geom.js     geometria di tutti i generatori
+│   ├── geom.js     geometria dei generatori (filetti compresi)
+│   ├── natale.js   generatori di Natale: forme, scritte, colori
+│   ├── supporti.js reggimensole e ganci
+│   └── fonts.js    contorni dei caratteri (generato)
+├── assets/         loghi: SVG per la pagina (li incorpora build.py) e STL originali
+├── tools/
+│   └── make-fonts.mjs  rigenera src/fonts.js dai caratteri
 └── docs/img/       immagini per questo README
 ```
 
@@ -128,20 +230,26 @@ npm install
 python3 build.py
 ```
 
-Lo script incorpora three.js, Manifold (compreso il file WebAssembly) e i sorgenti in un solo HTML da circa 1,5 MB, che funziona offline.
+Lo script incorpora three.js, Manifold (compreso il file WebAssembly), i caratteri e i sorgenti in un solo HTML da circa 1,8 MB, che funziona offline.
+
+Per cambiare i caratteri delle scritte modifica l'elenco in `tools/make-fonts.mjs` e lancia `npm run fonts`.
 
 ### Come funziona
 - **Geometria:** [Manifold](https://github.com/elalish/manifold) (WebAssembly) costruisce solidi con operazioni booleane. I modelli escono sempre chiusi e senza errori.
+- **Scritte:** i contorni dei caratteri sono salvati in `src/fonts.js`; al momento le curve diventano poligoni e poi solidi.
+- **Colori:** un generatore può dare a ogni parte un `color` e un `group`. Le parti dello stesso gruppo diventano un solo oggetto con più parti (componenti 3MF), e i colori finiscono nei materiali del file.
+- **Filetti:** la sezione trasversale del profilo ISO a 60° viene estrusa con una torsione di 360° per ogni passo, e ne esce un'elica esatta. Il foro del dado usa la stessa sezione allargata del gioco, con la stessa fase: per questo vite e dado combaciano.
 - **Anteprima:** [three.js](https://threejs.org/).
 - **Esportazione:** il 3MF è un file zip con dentro XML, scritto direttamente dal codice senza librerie esterne.
 
 ### Aggiungere un generatore
-1. In `src/geom.js` scrivi una funzione `nome(p)` che riceve i parametri e restituisce:
-   - `parts`: lista di `{ name, m, role, print?, at? }`
+1. In `src/geom.js` scrivi una funzione `nome(p)` che riceve i parametri e restituisce quanto segue. Per un gruppo grande puoi usare un file a parte che si registra in `SPRECOLO_EXT`, come `src/natale.js`, e aggiungerlo a `build.py`.
+   - `parts`: lista di `{ name, m, role, print?, at?, color?, group? }`
      - `m` è il solido Manifold;
      - `print` è la versione già orientata per la stampa;
      - `at` è la posizione nell'anteprima;
      - `role: 'ghost'` indica un oggetto solo di esempio, che non viene esportato.
+     - `color` (es. `'#b3202a'`) e `group`: le parti con lo stesso gruppo diventano un unico oggetto multicolore.
    - `info`: lista di coppie `[etichetta, valore]` per il riquadro delle misure.
 2. Collegala in `build()` dentro `geom.js`.
 3. In `src/app.js` aggiungi una voce in `MODES` con l'elenco dei parametri: tipo `int`, `num`, `bool`, `select` o `text`, con `min`, `max`, `step`, `def`, `unit`, `help` e `show`.
@@ -152,10 +260,13 @@ Lo script incorpora three.js, Manifold (compreso il file WebAssembly) e i sorgen
 
 ## Crediti
 
-- **Gridfinity**, il sistema modulare creato da [Zack Freedman](https://www.youtube.com/@ZackFreedman). Sprecolo ne riproduce le misure standard.
+- **Gridfinity**, il sistema modulare creato da [Zack Freedman](https://www.youtube.com/@ZackFreedman). SP Lab ne riproduce le misure standard.
 - **[three.js](https://github.com/mrdoob/three.js)**, licenza MIT.
 - **[Manifold](https://github.com/elalish/manifold)**, licenza Apache 2.0.
 - Caratteri **IBM Plex**, licenza SIL Open Font License (caricati da Google Fonts quando c'è connessione).
+- Caratteri delle scritte **Fredoka**, **Pacifico** e **Mountains of Christmas**, licenza SIL Open Font License, incorporati nella pagina.
+
+- Loghi **SP** e ritratto © Procolo Carannante.
 
 ## Licenza
 
@@ -163,4 +274,4 @@ Distribuito con licenza [MIT](LICENSE) © 2026 Procolo Carannante: chiunque può
 
 ## Sito pubblico
 
-Il generatore è online su **https://procolo75.github.io/sprecolo/**
+Il generatore è online su **https://procolo75.github.io/sp-lab/**
