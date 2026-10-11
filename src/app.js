@@ -97,7 +97,7 @@
     ['nome', 'Solo il nome', 'Con il nome'], ['medaglione', 'Medaglione', 'Con il nome'], ['targhetta', 'Targhetta', 'Con il nome'],
     ...EMOJI.map(e => [e.id, e.it, e.g]),
     ['stella', 'Stella a punte', 'Forme'], ['cuore', 'Cuore semplice', 'Forme'],
-    ['svg', 'Carica un SVG…', 'Il tuo disegno'],
+    ['svg', 'Il tuo SVG (caricalo qui sopra)', 'Il tuo disegno'],
   ];
   // disegni della palla piatta
   const PALLA_OPTS = [
@@ -108,10 +108,9 @@
     ['motivo', 'Un disegno (scegli sotto)', 'Disegno'], ['nessuno', 'Solo il nome', 'Solo il nome'],
   ];
   const shapeP = (sec, defH) => [
+    { sec, id: 'svg', label: 'Il tuo disegno', type: 'svg', palKey: 'forma', use: { forma: 'svg' }, unuse: { forma: 'christmas-tree' }, using: p => p.forma === 'svg' },
     { sec, id: 'forma', label: 'Motivo', type: 'select', menu: true, def: 'christmas-tree', options: SHAPE_OPTS, onSet: (k, v) => (v.tavolozza === 'disegno' && v.col1 !== undefined ? artPal(Object.assign({}, v, { forma: k })) : null),
-      help: 'Disegni Fluent Emoji di Microsoft (licenza MIT). Con "Solo il nome" la decorazione è la scritta stessa; con "Carica un SVG" usi un tuo disegno.' },
-    { sec, id: 'svg', label: 'File SVG', type: 'svg', show: p => p.forma === 'svg', palKey: 'forma',
-      help: 'Un disegno vettoriale (.svg) a colori pieni. I colori vengono portati sui tuoi filamenti; i tratti diventano linee piene.' },
+      help: 'Disegni Fluent Emoji di Microsoft (licenza MIT). Con "Solo il nome" la decorazione è la scritta stessa. Il tuo disegno SVG si carica nel riquadro qui sopra.' },
     { sec, id: 'punte', label: 'Punte', type: 'int', min: 4, max: 12, def: 5, show: p => p.forma === 'stella' },
     { sec, id: 'altezza', label: 'Altezza', type: 'num', min: 25, max: 250, step: 1, def: defH, unit: 'mm', show: p => p.forma !== 'nome' },
     { sec, id: 'contorno', label: 'Contorno', type: 'num', min: 0, max: 8, step: 0.2, def: 1.6, unit: 'mm', show: p => isArtId(p.forma),
@@ -271,10 +270,9 @@
           help: 'Incisi: scavati nella superficie. Traforati: buchi passanti, con una cornice lungo il bordo e ponticelli dove servono. Cappuccio e bordo restano in rilievo (o a filo).' },
         layerP({ sec: 'Forma', id: 'rilievo', label: 'Spessore disegni', min: 0.2, max: 8, def: 0.8,
           help: 'In rilievo: quanto sporgono. A filo e incisi: quanto entrano nel pezzo (a filo, se è pari allo spessore, passano da parte a parte).' }),
+        { sec: 'Disegno', id: 'svg', label: 'Il tuo disegno', type: 'svg', palKey: 'motivo', use: { disegno: 'motivo', motivo: 'svg' }, unuse: { motivo: 'snowman' }, using: p => p.disegno === 'motivo' && p.motivo === 'svg' },
         { sec: 'Disegno', id: 'disegno', label: 'Disegno', type: 'select', menu: true, def: 'fiocchi', options: PALLA_OPTS },
         { sec: 'Disegno', id: 'motivo', label: 'Quale disegno', type: 'select', menu: true, def: 'snowman', options: SHAPE_OPTS.filter(o => isArtId(o[0])), show: p => p.disegno === 'motivo' },
-        { sec: 'Disegno', id: 'svg', label: 'File SVG', type: 'svg', show: p => p.disegno === 'motivo' && p.motivo === 'svg', palKey: 'motivo',
-          help: 'Un disegno vettoriale (.svg) a colori pieni. I colori vengono portati sui tuoi filamenti.' },
         { sec: 'Disegno', id: 'quantita', label: 'Quantità', type: 'int', min: 3, max: 40, def: 14, show: p => !['spicchi', 'onde', 'zigzag', 'nordico', 'ghirlanda', 'nessuno'].includes(p.disegno), help: 'Quanti fiocchi, stelle o cuori.' },
         { sec: 'Disegno', id: 'variante', label: 'Variante', type: 'int', min: 1, max: 999, def: 7, show: p => p.disegno !== 'nessuno', help: 'Ogni numero sparge i disegni in modo diverso.' },
         { sec: 'Disegno', id: 'fascia', label: 'Fascia dietro il nome', type: 'bool', def: false, help: 'Una striscia nel colore 2 attraversa la palla e il nome ci sta sopra.' },
@@ -531,12 +529,28 @@
           row.appendChild(bar);
         }
       } else if (p.type === 'svg') {
-        // disegno SVG caricato dall'utente: resta salvato nel browser insieme agli altri valori
-        row.classList.add('sel');
-        const cur = v[p.id];
-        row.innerHTML = `<label>${p.label}</label><div class="svg-load"><label class="btn" for="${idAttr}">${cur && cur.name ? 'Cambia file…' : 'Carica SVG…'}</label><input id="${idAttr}" type="file" accept=".svg,image/svg+xml" hidden><span class="fname">${cur && cur.name ? esc(cur.name) : 'nessun file'}</span></div>`;
-        row.querySelector('input').addEventListener('change', (e) => {
-          const file = e.target.files && e.target.files[0];
+        // riquadro sempre visibile per caricare un proprio disegno SVG (anche trascinandolo);
+        // il file resta salvato nel browser insieme agli altri valori
+        row.classList.add('svg-row');
+        const cur = v[p.id], using = cur && cur.name && p.using(v);
+        row.innerHTML = `<div class="svg-card${using ? ' on' : ''}">
+          <div class="svg-head"><b>${p.label} (SVG)</b>${using ? '<span class="tag">in uso</span>' : ''}</div>
+          ${cur && cur.name ? `<div class="fname">${esc(cur.name)}</div>` : '<div class="svg-hint">Trascina qui un file .svg, oppure</div>'}
+          <div class="svg-btns">
+            <label class="btn${cur && cur.name ? '' : ' primary'}" for="${idAttr}">${cur && cur.name ? 'Cambia file…' : 'Carica SVG…'}</label>
+            ${cur && cur.name && !using ? '<button type="button" class="btn primary use">Usa questo</button>' : ''}
+            ${using ? '<button type="button" class="btn unuse">Usa la libreria</button>' : ''}
+          </div>
+          <input id="${idAttr}" type="file" accept=".svg,image/svg+xml" hidden>
+          <p class="help">Il tuo disegno vettoriale al posto di quelli della libreria: i colori vanno sui tuoi filamenti, i tratti diventano linee piene.</p>
+        </div>`;
+        const apply = (val, extra) => {
+          const cur2 = Object.assign({}, values(state.mode), { [p.id]: val }, extra || {});
+          const upd = cur2.tavolozza === 'disegno' ? artPal(cur2, p.palKey) : null;
+          Object.assign((state.values[state.mode] ||= {}), { [p.id]: val }, extra || {}, upd || {});
+          save(); renderParams(); schedule(60);
+        };
+        const load = (file) => {
           if (!file) return;
           if (file.size > 1.5e6) { setStatus('File SVG troppo grande (massimo 1,5 MB)', 'err'); return; }
           const rd = new FileReader();
@@ -545,13 +559,17 @@
             let pal = null;
             try { const pk = window.SPLAB_SVG.pack(window.SPLAB_SVG.parse(text)); pal = pk && pk.pal; } catch (err) { pal = null; }
             if (!pal) { setStatus('Nel file non ho trovato forme da usare: serve un SVG con aree colorate o tratti', 'err'); return; }
-            const val = { name: file.name, text, pal };
-            const cur2 = values(state.mode), upd = cur2.tavolozza === 'disegno' ? artPal(Object.assign({}, cur2, { svg: val }), p.palKey) : null;
-            Object.assign((state.values[state.mode] ||= {}), { [p.id]: val }, upd || {});
-            save(); renderParams(); schedule(60);
+            apply({ name: file.name, text, pal }, p.use);
           };
           rd.readAsText(file);
-        });
+        };
+        row.querySelector('input').addEventListener('change', (e) => load(e.target.files && e.target.files[0]));
+        const card = row.querySelector('.svg-card');
+        card.addEventListener('dragover', (e) => { e.preventDefault(); card.classList.add('drag'); });
+        card.addEventListener('dragleave', () => card.classList.remove('drag'));
+        card.addEventListener('drop', (e) => { e.preventDefault(); card.classList.remove('drag'); load(e.dataTransfer.files && e.dataTransfer.files[0]); });
+        const u = row.querySelector('.use'); if (u) u.addEventListener('click', () => apply(cur, p.use));
+        const n = row.querySelector('.unuse'); if (n) n.addEventListener('click', () => apply(cur, p.unuse));
       } else if (p.type === 'select' && p.menu) {
         // elenco lungo: menu a tendina con i gruppi
         row.classList.add('sel');
