@@ -56,19 +56,24 @@
   // spessori allineati agli strati: multipli di 0,2 e di 0,28 (primo strato a 0,28)
   const LAYER_STOPS = (() => { const v = new Set(); for (const h of [0.2, 0.28]) for (let k = 1; k * h <= 12.01; k++) v.add(+(k * h).toFixed(2)); return [...v].sort((a, b) => a - b); })();
   const layerP = (o) => Object.assign({ type: 'num', stops: LAYER_STOPS.filter(x => x >= o.min - 1e-6 && x <= o.max + 1e-6), step: 0.01, unit: 'mm' }, o);
+  // loghi dentro le scritte: {SP} e {viso}. L'ugello decide quanto si ingrossano le linee quando il logo è piccolo
+  const hasLogo = (p) => ['scritta', 'scritta2', 'scritta3', 'scritta4'].some(k => /\{(sp|viso)\}/i.test(String(p[k] || '')));
+  const nozzleP = (sec, show) => ({ sec, id: 'ugello', label: 'Ugello', type: 'select', def: '0.4', options: [['0.2', '0,2'], ['0.4', '0,4'], ['0.6', '0,6'], ['0.8', '0,8']], unit: 'mm',
+    show: p => (!show || show(p)) && hasLogo(p), help: 'Diametro dell\'ugello della stampante. Se il logo è piccolo le sue linee vengono ingrossate fino a questa larghezza, così si stampano.' });
   const FONT_OPTS = [['tondo', 'Tondo'], ['corsivo', 'Corsivo'], ['natalizio', 'Natalizio']];
   const textP = (d1, d2, font, cap, show) => [
-    { sec: 'Scritta', id: 'scritta', label: 'Riga 1', type: 'text', def: d1, placeholder: 'es. un nome', show },
-    { sec: 'Scritta', id: 'scritta2', label: 'Riga 2', type: 'text', def: d2, placeholder: 'facoltativa', show },
+    { sec: 'Scritta', id: 'scritta', label: 'Riga 1', type: 'text', def: d1, placeholder: 'es. un nome', show, logos: true },
+    { sec: 'Scritta', id: 'scritta2', label: 'Riga 2', type: 'text', def: d2, placeholder: 'facoltativa', show, logos: true },
     { sec: 'Scritta', id: 'carattere', label: 'Carattere', type: 'select', def: font, options: FONT_OPTS, show },
-    { sec: 'Scritta', id: 'altTesto', label: 'Altezza lettere', type: 'num', min: 3, max: 40, step: 0.5, def: cap, unit: 'mm', help: 'Altezza delle maiuscole. Se la scritta non ci sta viene ridotta da sola.', show },
+    { sec: 'Scritta', id: 'altTesto', label: 'Altezza lettere', type: 'num', min: 3, max: 40, step: 0.5, def: cap, unit: 'mm', help: 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Se la scritta non ci sta viene ridotta da sola.', show },
+    nozzleP('Scritta', show),
     { sec: 'Scritta', id: 'rilievoTesto', label: 'Rilievo scritta', type: 'num', min: 0.4, max: 4, step: 0.2, def: 1.4, unit: 'mm', show: p => (!show || show(p)) && (p.stile === undefined || p.stile === 'rilievo') && p.stileTesto !== 'traforata' },
   ];
   // pallina: fino a quattro scritte, ognuna con testo, lato, altezza e dimensione
   const ballTextP = (defs) => defs.flatMap(([txt, lato, quota, cap], k) => {
     const i = k + 1, sec = `Scritta ${i}`, has = (p) => String(p[i === 1 ? 'scritta' : 'scritta' + i] || '').trim() !== '';
     return [
-      { sec, id: i === 1 ? 'scritta' : 'scritta' + i, label: 'Testo', type: 'text', def: txt, placeholder: i === 1 ? 'es. un nome' : 'facoltativa' },
+      { sec, id: i === 1 ? 'scritta' : 'scritta' + i, label: 'Testo', type: 'text', def: txt, placeholder: i === 1 ? 'es. un nome' : 'facoltativa', logos: true },
       { sec, id: 'lato' + i, label: 'Lato', type: 'int', min: 0, max: 345, step: 15, def: lato, unit: '°', show: has, wrap: true, help: i === 1 ? '0° davanti, 90° a destra, 180° dietro, 270° a sinistra.' : undefined },
       { sec, id: 'quota' + i, label: 'Altezza', type: 'int', min: -85, max: 85, step: 5, def: quota, unit: '%', show: has, help: i === 1 ? '0 = a metà pallina, valori positivi verso l\'alto, negativi verso il basso.' : undefined },
       { sec, id: i === 1 ? 'altTesto' : 'altTesto' + i, label: 'Altezza lettere', type: 'num', min: 3, max: 40, step: 0.5, def: cap, unit: 'mm', show: has },
@@ -207,6 +212,7 @@
         ...ballTextP([['Buon Natale', 0, 0, 9], ['', 0, -35, 8], ['', 180, 0, 9], ['', 180, -35, 8]]),
         { sec: 'Scritte', id: 'carattere', label: 'Carattere', type: 'select', def: 'natalizio', options: FONT_OPTS },
         { sec: 'Scritte', id: 'stileTesto', label: 'Stile', type: 'select', def: 'rilievo', options: [['rilievo', 'In rilievo'], ['traforata', 'Traforata']], help: 'Traforata: le lettere sono buchi nel guscio, con un LED dentro si illuminano.' },
+        nozzleP('Scritte'),
         { sec: 'Scritte', id: 'rilievoTesto', label: 'Rilievo scritte', type: 'num', min: 0.4, max: 4, step: 0.2, def: 1.4, unit: 'mm', show: p => p.stileTesto !== 'traforata' },
         { sec: 'Montaggio', id: 'costruzione', label: 'Costruzione', type: 'select', def: 'meta', options: [['meta', 'Due metà'], ['intera', 'Intera']], help: 'Due metà: si stampano senza supporti e si incollano su un anello. Intera: serve il supporto sotto.' },
         { sec: 'Montaggio', id: 'appendino', label: 'Appendino', type: 'select', def: 'cappuccio', options: [['cappuccio', 'Cappuccio'], ['occhiello', 'Occhiello']], help: 'Il cappuccio è un pezzo a parte, con il foro per il nastro.' },
@@ -482,6 +488,19 @@
         row.innerHTML = `<label for="${idAttr}">${p.label}</label><input class="txt" type="text" id="${idAttr}" value="${esc(v[p.id] || '')}" placeholder="${esc(p.placeholder || '')}" autocomplete="off">`;
         const ti = row.querySelector('input');
         ti.addEventListener('input', () => set(p, ti.value, true));
+        if (p.logos) {
+          // pulsanti per inserire i loghi dove c'è il cursore
+          const bar = document.createElement('div');
+          bar.className = 'logo-ins';
+          bar.innerHTML = `<span>Inserisci</span><button type="button" class="chip" data-t="{SP}">Logo SP</button><button type="button" class="chip" data-t="{viso}">Viso</button>`;
+          bar.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+            const a = ti.selectionStart ?? ti.value.length, z = ti.selectionEnd ?? a, t = b.dataset.t;
+            ti.value = ti.value.slice(0, a) + t + ti.value.slice(z);
+            ti.focus(); ti.setSelectionRange(a + t.length, a + t.length);
+            set(p, ti.value);
+          }));
+          row.appendChild(bar);
+        }
       } else if (p.type === 'select' && p.menu) {
         // elenco lungo: menu a tendina con i gruppi
         row.classList.add('sel');

@@ -1,11 +1,12 @@
 {
   "name": "sp-lab",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": true,
   "description": "Generatore parametrico di oggetti per la stampa 3D, nel browser: palle piatte e decorazioni di Natale multicolore, reggimensole, ganci, contenitori Gridfinity, cassettiere, basi, rack per telefoni, vasi, viti, bulloni e perni. Esporta 3MF e STL.",
   "scripts": {
     "build": "python3 build.py",
-    "fonts": "node tools/make-fonts.mjs"
+    "fonts": "node tools/make-fonts.mjs",
+    "logos": "node tools/make-logos.mjs"
   },
   "dependencies": {
     "manifold-3d": "3.5.4",

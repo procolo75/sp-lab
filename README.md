@@ -67,6 +67,11 @@ Tutti gli oggetti di Natale possono avere **fino a tre colori** (abbinamenti pro
 - **Lanterna** tonda o esagonale, traforata con stelle, fiocchi, alberi o cuori, con la sede per un lumino LED da 38 mm e una scritta sulla fascia in basso, in rilievo o traforata (la luce passa dalle lettere).
 - **Formina per biscotti** con tutti i motivi, anche a forma di nome, con lama sottile e bordo per premere. Il **timbro** entra nella formina e stampa disegni e scritta sul biscotto (è già a specchio).
 
+#### Loghi nelle scritte
+In ogni scritta puoi mettere il **logo SP** e il **viso**, da soli o insieme al testo: sotto ogni campo di testo ci sono i pulsanti *Logo SP* e *Viso*, che inseriscono `{SP}` e `{viso}` dove c'è il cursore (per esempio `{SP} Lab` o `{viso} Giulia`).
+- Il logo è alto 1,35 volte le lettere, quindi lo regoli con *Altezza lettere* come il resto della scritta, e segue lo stile scelto (rilievo, a filo, incisa, traforata).
+- **Ugello:** le linee dei loghi sono sottili (0,86 mm nel logo SP alto 46 mm, 0,70 mm nel viso alto 58 mm). Se il logo è più piccolo, le linee vengono ingrossate fino alla larghezza dell'ugello scelto (0,2 · 0,4 · 0,6 · 0,8 mm), così si stampano comunque. Il riquadro misure dice di quanto e da che altezza in su il logo esce con tutti i dettagli: con ugello da 0,4 mm circa 23 mm per il logo SP e 36 mm per il viso.
+
 #### Colori nel file 3MF
 - Ogni colore è una **parte separata dello stesso oggetto**: nello slicer (Bambu Studio, OrcaSlicer, PrusaSlicer) assegni un filamento a ciascuna parte. I colori scelti sono anche scritti nel file.
 - **Stampante a un colore:** per le decorazioni piatte in rilievo il riquadro misure dice a che altezza cambiare filamento. La scritta è più alta delle decorazioni, così anche il terzo colore si fa con un cambio.
@@ -216,10 +221,12 @@ Ogni stampante è diversa. Il parametro **Tolleranza stampante** (0,3 mm all'ini
 │   ├── geom.js     geometria dei generatori (filetti compresi)
 │   ├── natale.js   generatori di Natale: forme, scritte, colori
 │   ├── supporti.js reggimensole e ganci
-│   └── fonts.js    contorni dei caratteri (generato)
+│   ├── fonts.js    contorni dei caratteri (generato)
+│   └── logos.js    contorni dei loghi per le scritte (generato da assets/)
 ├── assets/         loghi: SVG per la pagina (li incorpora build.py) e STL originali
 ├── tools/
-│   └── make-fonts.mjs  rigenera src/fonts.js dai caratteri
+│   ├── make-fonts.mjs  rigenera src/fonts.js dai caratteri
+│   └── make-logos.mjs  rigenera src/logos.js dagli STL dei loghi
 └── docs/img/       immagini per questo README
 ```
 
@@ -232,7 +239,7 @@ python3 build.py
 
 Lo script incorpora three.js, Manifold (compreso il file WebAssembly), i caratteri e i sorgenti in un solo HTML da circa 1,8 MB, che funziona offline.
 
-Per cambiare i caratteri delle scritte modifica l'elenco in `tools/make-fonts.mjs` e lancia `npm run fonts`.
+Per cambiare i caratteri delle scritte modifica l'elenco in `tools/make-fonts.mjs` e lancia `npm run fonts`. Per cambiare i loghi sostituisci gli STL e gli SVG in `assets/` e lancia `node tools/make-logos.mjs`.
 
 ### Come funziona
 - **Geometria:** [Manifold](https://github.com/elalish/manifold) (WebAssembly) costruisce solidi con operazioni booleane. I modelli escono sempre chiusi e senza errori.
@@ -274,4 +281,4 @@ Distribuito con licenza [MIT](LICENSE) © 2026 Procolo Carannante: chiunque può
 
 ## Sito pubblico
 
-Il generatore è online su **https://procolo75.github.io/sp-lab/**
+Il generatore è online (ancora all'indirizzo con il vecchio nome) su **https://procolo75.github.io/sprecolo/**
