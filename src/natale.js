@@ -217,7 +217,8 @@
       if (!art) return null;
       const g = artGeom(art, H, maxW), sl = {};
       for (const [hex, cs] of Object.entries(g.regions)) { const k = SVGL ? SVGL.nearest(hex, F) + 1 : 2; if (k > 1) sl[k] = U([sl[k], MV(cs, x, y)]); }
-      return { sil: MV(g.sil, x, y), slots: sl, w: bounds(g.sil).w, h: bounds(g.sil).h };
+      const lines = g.lines ? MV(g.lines, x, y) : null, linesIn = g.lines ? MV(I(g.lines, OFF(g.sil, -1.3 * g.k)), x, y) : null;
+      return { sil: MV(g.sil, x, y), slots: sl, lines, linesIn, w: bounds(g.sil).w, h: bounds(g.sil).h };
     }
     const artSil = (id, H, x, y) => { const g = artGeom(EMO_BY[id], H); return MV(g.sil, x, y); };
 
@@ -234,7 +235,14 @@
         return { base: soft(P2(pts), 0.6), box: { x: 0, y: 0.06 * S, w: 0.62 * S, h: 0.3 * S }, hang: [0, 7.5 * s] };
       },
       palla(S, p) {
-        const R = S / 2, d = p.disegno === 'agrifoglio' ? 'ghirlanda' : (p.disegno || 'fiocchi'), rnd = rng((p.variante || 1) * 7 + 3);
+        // due scelte indipendenti: lo sfondo che riempie la palla e la figura grande sopra il nome
+        // (i valori salvati con il vecchio menu unico "disegno" vengono convertiti)
+        const old = String(p.disegno || '');
+        const figSel = p.figura !== undefined ? p.figura : old.startsWith('fig:') ? old.slice(4) : old === 'motivo' ? p.motivo : 'nessuna';
+        const fig = figSel && figSel !== 'nessuna' ? figSel : null;
+        let d = p.sfondo !== undefined ? p.sfondo : (old.startsWith('fig:') || old === 'motivo') ? 'nessuno' : (old || 'fiocchi');
+        if (d === 'agrifoglio') d = 'ghirlanda';
+        const R = S / 2, rnd = rng((p.variante || 1) * 7 + 3);
         const disc = C2(0, 0, R, 128);
         // cappuccio con scanalature
         const cw = 0.3 * S, yc0 = Math.sqrt(R * R - cw * cw / 4) - 0.02 * S, yc1 = R + 0.075 * S;
@@ -246,7 +254,7 @@
         const nl = [p.scritta, p.scritta2].filter(x => x && String(x).trim()).length;
         const pad = Math.min(4, Math.max(2, 0.3 * p.altTesto));
         const Rin = R - (p.bordo ? p.bordoL : 0) - 2.5;            // il nome deve stare tutto dentro questo cerchio
-        const pos = { bosco: 0.15, paese: 0.15, regali: 0.15, slitta: -0.29, motivo: -0.3 }[d] || 0;
+        const pos = fig ? -0.3 : ({ bosco: 0.15, paese: 0.15, regali: 0.15, slitta: -0.29 }[d] || 0);
         // misura la scritta alla grandezza chiesta, poi trova la più grande che ci sta:
         // il rettangolo della scritta (w·f × h·f) centrato in ty deve stare nel cerchio Rin
         const t0 = nl ? textCS([p.scritta, p.scritta2], p.carattere, p.altTesto, +p.ugello || 0.4) : null;
@@ -268,7 +276,11 @@
         const inner = OFF(disc, -Math.max(1.2, p.bordo ? p.bordoL + 0.8 : 1.2));
         let c2 = [], c3 = [], c4 = [];                                 // colore 2, 3 e 4
         const F = [p.col1 || '#b3202a', p.col2 || '#e3b341', p.col3 || '#ffffff', p.col4 || '#2b2b2b'];
-        const addSlots = (pl) => { if (pl) { if (pl.slots[2]) c2.push(pl.slots[2]); if (pl.slots[3]) c3.push(pl.slots[3]); if (pl.slots[4]) c4.push(pl.slots[4]); } };
+        const r1 = [];
+        const addSlots = (pl) => { if (pl) { r1.push(pl.sil); if (pl.slots[2]) c2.push(pl.slots[2]); if (pl.slots[3]) c3.push(pl.slots[3]); if (pl.slots[4]) c4.push(pl.slots[4]); } };
+        // figura grande sopra il nome (disegno Fluent o il tuo SVG), a colori
+        const figPl = fig ? artPlace(artOf(fig, p.svg), fH * 0.95, 0, fMid, F, 0.62 * S) : null;
+        const fb = figPl ? bounds(OFF(figPl.sil, 2)) : null, halo = figPl ? OFF(figPl.sil, 1.5) : null;
         // oggetti sparsi senza sovrapposizioni, lontani dal nome
         const scatter = (n, sMin, sMax, make, area) => {
           const placed = [];
@@ -277,6 +289,7 @@
             const x = rr * Math.cos(a), y = rr * Math.sin(a);
             if (area && !area(x, y, s)) continue;
             if (Math.abs(y - ty) < bh / 2 + s / 2 + 1 && nl) continue;
+            if (fb && x + s / 2 > fb.x0 && x - s / 2 < fb.x1 && y + s / 2 > fb.y0 && y - s / 2 < fb.y1) continue;   // lontano dalla figura
             if (placed.some(q => Math.hypot(q[0] - x, q[1] - y) < (q[2] + s) / 2 + 1.5)) continue;
             placed.push([x, y, s]);
           }
@@ -381,14 +394,6 @@
           for (const [x, s] of gifts) addSlots(artPlace(EMO_BY['wrapped-gift'], s * S, x * S, -0.43 * S + s * S / 2 - 0.01 * S, F));
           c3.push(I(disc, RECT(-R, -R, R, -0.43 * S)));
           c2.push(scatter(Math.round(n * 0.6), 0.05 * S, 0.09 * S, star, upper(-0.12 * S)));
-        } else if (d === 'motivo') {
-          // un disegno Fluent (o il tuo SVG) a colori, nello spazio sopra il nome
-          const pl = artPlace(artOf(p.motivo, p.svg), fH * 0.95, 0, fMid, F, 0.62 * S);
-          addSlots(pl);
-          if (pl) {
-            const mw = pl.w / 2 + 1.5;
-            c3.push(scatter(Math.round(n * 0.4), 0.05 * S, 0.08 * S, flake, (x, y, s) => Math.abs(x) > mw + s / 2 && y - s / 2 > fBot));
-          }
         }
         let dec2 = U(c2), dec3 = U(c3), dec4 = U(c4);
         if (p.fascia && nl) {
@@ -399,7 +404,15 @@
         // i colori non si sovrappongono: 4 sopra 3 sopra 2
         if (dec4) { dec3 = D(dec3, dec4); dec2 = D(dec2, dec4); }
         if (dec3) dec2 = D(dec2, dec3);
-        return { base: U([disc, capC]), slots: { 2: dec2, 3: dec3, 4: dec4 }, decorFix: capDec, box, clear: p.fascia ? 0.9 : 1.6, hang: [0, yc1 + 0.025 * S], F };
+        // lo sfondo si ferma attorno alla figura
+        if (halo) { dec2 = D(dec2, halo); dec3 = D(dec3, halo); dec4 = D(dec4, halo); }
+        const fsl = figPl ? figPl.slots : {};
+        const groups = [
+          { name: 'Sfondo', slots: { 2: dec2, 3: dec3, 4: dec4 }, raise1: r1.length ? D(I(U(r1), inner), halo) : null, styleKey: 'stileSfondo', hKey: 'spSfondo' },
+          { name: 'Figura', slots: { 2: I(fsl[2], inner), 3: I(fsl[3], inner), 4: I(fsl[4], inner) }, raise1: figPl ? I(figPl.sil, inner) : null,
+            lines: figPl ? I(figPl.lines, inner) : null, linesIn: figPl ? figPl.linesIn : null, styleKey: 'stileFigura', hKey: 'spFigura' },
+        ];
+        return { base: U([disc, capC]), groups, decorFix: capDec, box, clear: p.fascia ? 0.9 : 1.6, hang: [0, yc1 + 0.025 * S], F };
       },
       medaglione(S) { return { base: C2(0, 0, S / 2, 96), box: { x: 0, y: 0, w: 0.8 * S, h: 0.42 * S }, hang: [0, S / 2] }; },
       targhetta(S) {
@@ -496,7 +509,8 @@
         const best = tips.filter(t2 => t2.y1 > bb.y1 - 0.8).sort((a, b2) => Math.abs(a.x0 + a.x1) - Math.abs(b2.x0 + b2.x1))[0] || tips[0];
         hx = (best.x0 + best.x1) / 2; hy = best.y1;
       }
-      return { base, slots, lines, linesIn, box, clear, F, plate, hang: [hx, hy - 0.6], art: true };
+      // in rilievo tutto il disegno sporge allo stesso modo: anche le parti del colore del pezzo
+      return { base, slots, lines, linesIn, box, clear, F, plate, hang: [hx, hy - 0.6], art: true, raise1: I(g.sil, clip) };
     }
     function flatDesign(p, forStamp) {
       const notes = [];
@@ -541,6 +555,7 @@
       const { sh, txt, notes } = flatDesign(p);
       let base = sh.base;
       const t = p.spessore, hR = p.rilievo, hT = Math.max(p.rilievo, p.rilievoTesto);
+      const f2 = (v) => (Math.round(v * 100) / 100).toString().replace('.', ',');
       // appendino
       if (sh.hang && p.appendino === 'occhiello') {
         const ro = Math.max(3.6, p.altezza * 0.05), ri = ro - 2;
@@ -552,86 +567,102 @@
       if (sh.holes) base = D(base, sh.holes);
       const zone = txt && txt.cs ? OFF(txt.cs, sh.clear || 0.9) : null;
       const border = p.bordo ? D(base, OFF(base, -p.bordoL)) : null;
-      // stile dei disegni, indipendente da quello della scritta ("uguale" = come la scritta)
-      const st = p.stile || 'rilievo', sd = !p.stileDec || p.stileDec === 'uguale' ? st : p.stileDec;
+      const st = p.stile || 'rilievo';
       // filamenti: 1 = il pezzo, 2-3-4 = disegni; la scritta va sul filamento scelto
       const F = sh.F || [p.col1, p.col2, p.col3, p.col4 || '#2b2b2b'];
       // colore della scritta: scelto, oppure in automatico quello che stacca di più dal pezzo
       let ts = Math.min(4, Math.max(2, +p.colTesto || 3));
       if ((p.colTesto === 'auto' || p.colTesto === undefined) && SVGL) ts = [2, 3, 4].sort((a, b2) => SVGL.dist(F[b2 - 1], F[0]) - SVGL.dist(F[a - 1], F[0]))[0];
-      // parti del disegno per filamento; le parti fisse (bordo, cappuccio della palla) non si incidono e non si traforano
+      // gruppi di disegni, ognuno con il suo stile e il suo spessore ("uguale" = come la scritta).
+      // La decorazione ha un gruppo solo; la palla piatta ne ha due: sfondo e figura.
+      const groups = (sh.groups || [{ name: 'Disegno', slots: sh.slots || { 2: sh.decor, 3: sh.decor3 }, lines: sh.lines, linesIn: sh.linesIn, raise1: sh.raise1, styleKey: 'stileDec', hKey: 'rilievo' }])
+        .map(g => Object.assign({}, g, { sd: !p[g.styleKey] || p[g.styleKey] === 'uguale' ? st : p[g.styleKey], h: +p[g.hKey] || hR }));
+      // parti fisse (bordo, cappuccio della palla): non si incidono e non si traforano; a filo solo se tutti i disegni sono a filo
       let fixed = U([border, p.decorazioni !== false && sh.decorFix ? I(sh.decorFix, base) : null]);
       if (sh.holes) fixed = D(fixed, OFF(sh.holes, 0.6));
       fixed = D(fixed, zone);
       if (empty(fixed)) fixed = null;
-      const L = {};
-      const src = sh.slots || { 2: sh.decor, 3: sh.decor3 };
-      for (const k of [2, 3, 4]) {
-        let c = p.decorazioni !== false && src[k] ? I(src[k], base) : null;
-        if (c && sh.holes) c = D(c, OFF(sh.holes, 0.6));
-        c = D(D(c, zone), fixed);
-        if (!empty(c)) L[k] = c;
-      }
-      const des = U(Object.values(L));
       const tcs = txt ? txt.cs : null;
       const dT = Math.min(t, p.profTesto), through = dT >= t - 0.01;   // spessore della scritta a filo / incisa
-      const thrD = hR >= t - 0.01, dI = Math.min(hR, t - 0.6);          // disegni passanti (a filo) / profondità incisione
       let body = EXT(base, 0, t);
       const c = { 2: [], 3: [], 4: [] };   // solidi per filamento
+      const up = [];                        // parti che sporgono: { k: filamento, h: altezza }
+      let filo = false;
+      const ginfo = [];
       // --- scritta ---
       if (!empty(tcs)) {
-        if (st === 'filo') { body = sub(body, EXT(tcs, through ? -1 : t - dT, t + 1)); c[ts].push(EXT(tcs, through ? 0 : t - dT, t)); }
+        if (st === 'filo') { body = sub(body, EXT(tcs, through ? -1 : t - dT, t + 1)); c[ts].push(EXT(tcs, through ? 0 : t - dT, t)); filo = true; }
         else if (st === 'inciso') body = sub(body, EXT(tcs, t - Math.min(dT, t - 0.6), t + 1));
         else if (st === 'traforata') body = sub(body, EXT(stencil(tcs, txt.cap), -1, t + 1));
-        else c[ts].push(EXT(tcs, t, t + hT));
+        else { c[ts].push(EXT(tcs, t, t + hT)); up.push({ k: ts, h: hT }); }
       }
-      // --- disegni ---
-      let perfNote = null;
-      if (sd === 'filo') {
-        for (const k of [2, 3, 4]) if (L[k]) { body = sub(body, EXT(L[k], thrD ? -1 : t - hR, t + 1)); c[k].push(EXT(L[k], thrD ? 0 : t - hR, t)); }
-      } else if (sd === 'inciso') {
-        // con un disegno a linea incido le sue linee, altrimenti le parti colorate
-        const e = sh.lines ? D(sh.lines, zone) : des;
-        if (!empty(e) && dI > 0.1) body = sub(body, EXT(e, t - dI, t + 1));
-      } else if (sd === 'traforata') {
-        const r = perforate(sh.linesIn ? D(sh.linesIn, OFF(zone, 0.6)) : des, base);
-        if (r.holes) body = sub(body, EXT(r.holes, -1, t + 1));
-        if (r.bridges) perfNote = `${r.bridges} ponticell${r.bridges > 1 ? 'i tengono' : 'o tiene'} attaccate le parti che sarebbero cadute`;
-      } else {
-        for (const k of [2, 3, 4]) if (L[k]) c[k].push(EXT(L[k], t, t + (k === ts ? hT : hR)));
+      // --- disegni, gruppo per gruppo ---
+      for (const g of groups) {
+        const L = {};
+        for (const k of [2, 3, 4]) {
+          let cs = p.decorazioni !== false && g.slots && g.slots[k] ? I(g.slots[k], base) : null;
+          if (cs && sh.holes) cs = D(cs, OFF(sh.holes, 0.6));
+          cs = D(D(cs, zone), fixed);
+          if (!empty(cs)) L[k] = cs;
+        }
+        const des = U(Object.values(L)), sd = g.sd, h = g.h;
+        const thr = h >= t - 0.01, dI = Math.min(h, t - 0.6);
+        const hasLines = g.lines && !empty(g.lines);
+        if (!des && !hasLines && !(g.raise1 && !empty(g.raise1))) continue;
+        if (sd === 'filo') {
+          for (const k of [2, 3, 4]) if (L[k]) { body = sub(body, EXT(L[k], thr ? -1 : t - h, t + 1)); c[k].push(EXT(L[k], thr ? 0 : t - h, t)); filo = true; }
+        } else if (sd === 'inciso') {
+          // con un disegno a linea incido le sue linee, altrimenti le parti colorate
+          const e = hasLines ? D(g.lines, zone) : des;
+          if (!empty(e) && dI > 0.1) body = sub(body, EXT(e, t - dI, t + 1));
+          else if (!empty(e)) notes.push(`${g.name}: pezzo troppo sottile per incidere, aumenta lo spessore`);
+        } else if (sd === 'traforata') {
+          const r = perforate(g.linesIn ? D(g.linesIn, OFF(zone, 0.6)) : des, base);
+          if (r.holes) body = sub(body, EXT(r.holes, -1, t + 1));
+          if (r.bridges) notes.push(`${g.name}: ${r.bridges} ponticell${r.bridges > 1 ? 'i tengono' : 'o tiene'} attaccate le parti che sarebbero cadute`);
+        } else {
+          // tutto il disegno sporge dello stesso spessore, qualunque sia il colore delle sue parti
+          for (const k of [2, 3, 4]) if (L[k]) { c[k].push(EXT(L[k], t, t + h)); up.push({ k, h }); }
+          // anche le parti del colore del pezzo
+          if (p.decorazioni !== false && g.raise1) {
+            const r1 = D(D(I(g.raise1, base), des), U([zone, fixed]));
+            if (!empty(r1)) { body = union([body, EXT(r1, t - 0.01, t + h)]); up.push({ k: 1, h }); }
+          }
+        }
+        ginfo.push([g.name, { rilievo: `in rilievo ${f2(h)} mm`, filo: thr ? 'a filo, passante: si vede dai due lati' : `a filo, spesso ${f2(h)} mm`, inciso: hasLines ? `linee incise ${f2(Math.max(0, dI))} mm` : `inciso ${f2(Math.max(0, dI))} mm`, traforata: 'traforato' }[sd]]);
       }
-      // --- parti fisse: a filo se i disegni sono a filo, altrimenti in rilievo ---
+      // --- parti fisse ---
+      const fixFilo = groups.length ? groups.every(g => g.sd === 'filo') : st === 'filo';
       if (fixed) {
-        if (sd === 'filo') { body = sub(body, EXT(fixed, thrD ? -1 : t - hR, t + 1)); c[2].push(EXT(fixed, thrD ? 0 : t - hR, t)); }
-        else c[2].push(EXT(fixed, t, t + hR));
+        const thrF = hR >= t - 0.01;
+        if (fixFilo) { body = sub(body, EXT(fixed, thrF ? -1 : t - hR, t + 1)); c[2].push(EXT(fixed, thrF ? 0 : t - hR, t)); filo = true; }
+        else { c[2].push(EXT(fixed, t, t + hR)); up.push({ k: 2, h: hR }); }
       }
       const G = SHAPE_NAMES[p.forma] || (EMO_BY[p.forma] && EMO_BY[p.forma].it) || (p.forma === 'svg' ? 'Disegno' : 'Decorazione');
       const solid = { 2: U3(c[2]), 3: U3(c[3]), 4: U3(c[4]) };
       const parts = ok([part(`${G} · base`, body, F[0], G),
         ...[2, 3, 4].map(k => part(`${G} · colore ${k}`, solid[k], F[k - 1], G))]);
       const b = bounds(base);
-      const f2 = (v) => (Math.round(v * 100) / 100).toString().replace('.', ',');
-      const raised = [2, 3, 4].filter(k => solid[k] && (sd === 'rilievo' && L[k] || (k === 2 && fixed && sd !== 'filo') || (k === ts && st === 'rilievo' && !empty(tcs))));
-      const up = raised.length ? Math.max(...raised.map(k => (k === ts ? hT : hR))) : 0;
-      const info = [['Misure', `${fmt(b.w)} × ${fmt(b.h)} × ${f2(t + up)} mm`]];
+      const info = [['Misure', `${fmt(b.w)} × ${fmt(b.h)} × ${f2(t + Math.max(0, ...up.map(u => u.h)))} mm`]];
       if (txt) info.push(['Lettere', `${fmt(txt.cap)} mm` + ({ inciso: `, incise ${f2(Math.min(dT, t - 0.6))} mm`, traforata: ', traforate con ponticelli', filo: through ? ', passanti: si vedono dai due lati' : `, a filo, spesse ${f2(dT)} mm` }[st] || '')]);
-      if (des) info.push(['Disegno', { rilievo: `in rilievo ${f2(hR)} mm`, filo: thrD ? 'a filo, passante: si vede dai due lati' : `a filo, spesso ${f2(hR)} mm`, inciso: sh.lines ? `linee incise ${f2(Math.max(0, dI))} mm` : `inciso ${f2(Math.max(0, dI))} mm`, traforata: 'traforato' }[sd]]);
+      for (const gi of ginfo) info.push(gi);
       const used = [1, ...[2, 3, 4].filter(k => solid[k])];
       info.push(['Filamenti', used.length > 1 ? used.map(k => (k === 1 ? '1 pezzo' : String(k))).join(' · ') + ' (una parte per filamento nel 3MF)' : '1']);
-      const anyFilo = (st === 'filo' && !empty(tcs)) || (sd === 'filo' && (des || fixed));
-      if (anyFilo && parts.length > 1) {
+      if (filo && parts.length > 1) {
         notes.push('A filo i colori sono negli stessi strati: serve una stampante multicolore (AMS, MMU…)');
-      } else if (parts.length > 1) {
-        const lv = raised.map(k => ({ k, h: k === ts ? hT : hR }));
-        const sameH = lv.filter(a => lv.some(b2 => b2 !== a && Math.abs(b2.h - a.h) < 0.01)).length;
-        if (sameH) notes.push('Più colori alla stessa altezza: per stamparli serve una stampante multicolore. Con un solo estrusore usa un colore per il disegno e uno per la scritta, con altezze diverse');
-        else info.push(['Stampante a un colore', 'cambio filamento a ' + lv.sort((a, b2) => a.h - b2.h).map((x, i) => `${f2(t + (i ? lv[i - 1].h : 0))} mm → colore ${x.k}`).join(', ')]);
+      } else if (parts.length > 1 && up.length) {
+        // con un solo estrusore si cambia filamento salendo: a ogni altezza deve esserci un colore solo
+        const byH = new Map();
+        for (const u of up) { const key = Math.round(u.h * 100); if (!byH.has(key)) byH.set(key, new Set()); byH.get(key).add(u.k); }
+        if ([...byH.values()].some(set => set.size > 1)) notes.push('Più colori alla stessa altezza: per stamparli serve una stampante multicolore. Con un solo estrusore dai a ogni colore un\'altezza diversa');
+        else {
+          const hs = [...byH.keys()].sort((a, b2) => a - b2);
+          info.push(['Stampante a un colore', 'cambio filamento a ' + hs.map((key, i) => `${f2(t + (i ? hs[i - 1] / 100 : 0))} mm → colore ${[...byH.get(key)][0]}`).join(', ')]);
+        }
       }
-      if (perfNote) notes.push(perfNote);
-      if (sd === 'inciso' && dI <= 0.1) notes.push('Pezzo troppo sottile per incidere i disegni: aumenta lo spessore');
-      if (anyFilo) {
+      if (filo) {
         const al = (v) => [0.2, 0.28].some(h => Math.abs(v / h - Math.round(v / h)) < 0.02);
-        if (![t, dT, hR].every(al)) notes.push('Alcuni spessori non sono multipli di 0,2 o 0,28 mm: lo slicer arrotonda agli strati');
+        if (![t, dT, hR, ...groups.map(g => g.h)].every(al)) notes.push('Alcuni spessori non sono multipli di 0,2 o 0,28 mm: lo slicer arrotonda agli strati');
       }
       // segnaposto: base con fessura
       if (p.supporto) {
