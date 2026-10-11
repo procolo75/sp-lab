@@ -287,4 +287,4 @@ Distribuito con licenza [MIT](LICENSE) © 2026 Procolo Carannante: chiunque può
 
 ## Sito pubblico
 
-Il generatore è online (ancora all'indirizzo con il vecchio nome) su **https://procolo75.github.io/sprecolo/**
+Il generatore è online su **https://procolo75.github.io/sp-lab/**
