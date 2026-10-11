@@ -136,6 +136,91 @@
       return { cs: MV(c, bx.x, bx.y), cap: capWanted * f, reduced: f < 0.97 };
     }
 
+    // ---------- disegni: Fluent Emoji (libreria) e SVG caricati ----------
+    // Un "disegno" è { f: forme a colori, h: versione a linea (può mancare), pal: 4 colori } in un quadrato 32×32, y in alto.
+    const EMO = root.SPLAB_EMOJI || [], EMO_BY = {};
+    for (const e of EMO) EMO_BY[e.id] = e;
+    const SVGL = root.SPLAB_SVG;
+    // i vecchi motivi disegnati a mano puntano ai disegni Fluent più simili
+    const OLD = { albero: 'christmas-tree', pupazzo: 'snowman', babbo: 'santa-claus', renna: 'deer', campana: 'bell', campanelle: 'bell', regalo: 'wrapped-gift',
+      candela: 'candle', angelo: 'baby-angel', pinguino: 'penguin', slitta: 'sled', fiocco: 'snowflake', cometa: 'shooting-star', casetta: 'house', muffola: 'gloves',
+      nastro: 'ribbon', globo: 'snowman', gnomo: 'person-elf', omino: 'cookie', cappello: 'santa-claus', calza: 'socks', maglione: 'coat', bastoncino: 'candy',
+      pallina: 'christmas-tree', agrifoglio: 'four-leaf-clover', poinsettia: 'sparkling-heart', ghirlanda: 'ribbon', luna: 'crescent-moon' };
+    const svgCache = new Map();
+    // disegno scelto: un id Fluent, oppure "svg" con il testo del file caricato
+    function artOf(id, svgVal) {
+      if (id === 'svg') {
+        const txt = svgVal && svgVal.text;
+        if (!txt || !SVGL) return null;
+        if (!svgCache.has(txt)) { let a = null; try { a = SVGL.pack(SVGL.parse(txt)); } catch (e) { a = null; } svgCache.clear(); svgCache.set(txt, a); }
+        return svgCache.get(txt);
+      }
+      return EMO_BY[id] || EMO_BY[OLD[id]] || null;
+    }
+    const isArt = (id) => id === 'svg' || !!EMO_BY[id] || !!OLD[id];
+    // forme compatte → sezioni 2D, scalate di k e spostate di (ox, oy)
+    function artCS(list, k, ox, oy) {
+      const out = [];
+      for (const it of list) {
+        const ps = it[2].map(q => { const p = []; for (let i = 0; i + 1 < q.length; i += 2) p.push([q[i] * k + ox, q[i + 1] * k + oy]); return p; });
+        let c = null;
+        if (it[1] === 2) {   // tratto: lo trasformo in area
+          const w = Math.max(0.05, it[3] * k);
+          c = U(ps.map((p, j) => (p.length >= 2 ? stroke(it[4] && it[4][j] ? p.concat([p[0]]) : p, w) : null)));
+        } else c = R2(CrossSection.ofPolygons(ps.filter(p => p.length >= 3), it[1] ? 'EvenOdd' : 'NonZero'));
+        if (!empty(c)) out.push({ hex: it[0], cs: c });
+      }
+      return out;
+    }
+    // geometria del disegno alto S (o largo al massimo maxW), centrato in (0,0):
+    // sil = sagoma intera, regions = parti visibili per colore originale (quelle sopra coprono quelle sotto), lines = versione a linea
+    function artGeom(art, S, maxW) {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const it of art.f) for (const q of it[2]) for (let i = 0; i + 1 < q.length; i += 2) { x0 = Math.min(x0, q[i]); x1 = Math.max(x1, q[i]); y0 = Math.min(y0, q[i + 1]); y1 = Math.max(y1, q[i + 1]); }
+      const k = Math.min(S / Math.max(1e-6, y1 - y0), maxW ? maxW / Math.max(1e-6, x1 - x0) : Infinity);
+      const ox = -(x0 + x1) / 2 * k, oy = -(y0 + y1) / 2 * k;
+      const shapes = artCS(art.f, k, ox, oy);
+      const regions = {}; let cover = null;
+      for (let i = shapes.length - 1; i >= 0; i--) {
+        const vis = D(shapes[i].cs, cover);
+        if (!empty(vis)) regions[shapes[i].hex] = U([regions[shapes[i].hex], vis]);
+        cover = U([cover, shapes[i].cs]);
+      }
+      const lines = art.h && art.h.length ? U(artCS(art.h, k, ox, oy).map(s => s.cs)) : null;
+      return { sil: cover, regions, lines, k };
+    }
+    // colori del disegno → filamenti: ogni colore va sul filamento più vicino (1 = il pezzo sotto, che si vede da solo)
+    // tavolozza "disegno": i filamenti sono i 4 colori del disegno stesso
+    function filaments(p, art) {
+      const F = [p.col1 || '#b3202a', p.col2 || '#e3b341', p.col3 || '#ffffff', p.col4 || '#2b2b2b'];
+      if (p.col1 === undefined && art && art.pal) art.pal.forEach((c, i) => { if (i < 4) F[i] = c; });
+      return F;
+    }
+    // parti del disegno per filamento (2, 3, 4), ripulite dai dettagli più stretti dell'ugello
+    function artSlots(g, F, clip, noz, notes) {
+      const by = { 2: [], 3: [], 4: [] };
+      for (const [hex, cs] of Object.entries(g.regions)) { const k = SVGL ? SVGL.nearest(hex, F) + 1 : 2; if (k > 1) by[k].push(cs); }
+      const out = {}; let lost = 0, tot = 0;
+      for (const k of [2, 3, 4]) {
+        let c = I(U(by[k]), clip);
+        if (empty(c)) continue;
+        const r = noz * 0.45, cl = OFF(OFF(c, -r), r);
+        tot += c.area(); lost += Math.max(0, c.area() - (cl ? cl.area() : 0));
+        if (!empty(cl)) out[k] = cl;
+      }
+      if (tot > 0 && lost / tot > 0.01) notes.push(`Dettagli più stretti dell'ugello (${fmt2(noz)} mm) tolti: ${Math.round(100 * lost / tot)}% dei colori. Ingrandisci il disegno per tenerli`);
+      return out;
+    }
+
+    // disegno messo in un punto: sagoma e parti per filamento (2, 3, 4) secondo i colori F; il colore 1 non si stampa
+    function artPlace(art, H, x, y, F, maxW) {
+      if (!art) return null;
+      const g = artGeom(art, H, maxW), sl = {};
+      for (const [hex, cs] of Object.entries(g.regions)) { const k = SVGL ? SVGL.nearest(hex, F) + 1 : 2; if (k > 1) sl[k] = U([sl[k], MV(cs, x, y)]); }
+      return { sil: MV(g.sil, x, y), slots: sl, w: bounds(g.sil).w, h: bounds(g.sil).h };
+    }
+    const artSil = (id, H, x, y) => { const g = artGeom(EMO_BY[id], H); return MV(g.sil, x, y); };
+
     // ---------- forme 2D (altezza S, centrate) ----------
     // ognuna restituisce { base, decor, box (riquadro per la scritta), hang (punto di aggancio in alto), holes }
     const SHAPES = {
@@ -143,277 +228,13 @@
         const n = Math.max(4, Math.min(12, p.punte | 0 || 5)), R = S / 2;
         return { base: soft(starCS(n, R, R * 0.48), 0.6), box: { x: 0, y: -R * 0.04, w: R * 0.95, h: R * 0.42 }, hang: [0, R] };
       },
-      albero(S) {
-        const W = 0.78 * S, y0 = -S / 2 + 0.11 * S, top = S / 2 - 0.1 * S;
-        const tier = (w, yb, ya) => P2([[-w / 2, yb], [0, yb - 0.025 * S], [w / 2, yb], [0, ya]]);
-        const tiers = [tier(W, y0, y0 + 0.42 * S), tier(0.76 * W, y0 + 0.25 * S, y0 + 0.6 * S), tier(0.52 * W, y0 + 0.47 * S, top + 0.02 * S)];
-        const star = starCS(5, 0.1 * S, 0.045 * S, 0, top);
-        const base = soft(U([...tiers, RECT(-0.08 * S, -S / 2, 0.08 * S, y0 + 0.02 * S), star]), 0.5);
-        const rb = 0.034 * S;
-        const balls = [[-0.24, y0 / S + 0.07], [0.25, y0 / S + 0.05], [0.02, y0 / S + 0.26], [-0.14, y0 / S + 0.33], [0.15, y0 / S + 0.36], [-0.05, y0 / S + 0.56], [0.08, y0 / S + 0.63]]
-          .map(([x, y]) => C2(x * S, y * S, rb, 24));
-        return { base, decor: U([star, ...balls]), box: { x: 0, y: y0 + 0.14 * S, w: 0.42 * S, h: 0.1 * S }, hang: [0, top + 0.1 * S] };
-      },
-      fiocco(S, p) {
-        const r = rng(p.variante || 1), R = S / 2, wa = Math.max(2.4, R * 0.1);
-        const arm = [stroke([[0, 0], [0, R - wa / 2]], wa)];
-        const nb = 2 + Math.floor(r() * 2);
-        for (let k = 0; k < nb; k++) {
-          const t = 0.3 + 0.55 * (k + 0.2 + r() * 0.6) / nb, L = R * (1 - t) * (0.45 + 0.35 * r());
-          const a = (45 + r() * 25) * Math.PI / 180, y = t * R;
-          for (const sx of [-1, 1]) arm.push(stroke([[0, y], [sx * L * Math.sin(a), y + L * Math.cos(a)]], wa * 0.85));
-        }
-        if (r() > 0.4) { const q = wa * (1.1 + r() * 0.6); arm.push(P2([[0, R - 2 * q], [q, R - q * 1.2], [0, R], [-q, R - q * 1.2]])); }
-        const one = U(arm), all = [C2(0, 0, R * (0.16 + 0.1 * r()), 6)];
-        for (let i = 0; i < 6; i++) all.push(ROT(one, i * 60));
-        return { base: U(all), box: { x: 0, y: 0, w: R * 0.3, h: R * 0.3 }, hang: [0, R] };
-      },
-      campana(S) {
-        const yb = -S / 2 + 0.08 * S, yt = S / 2 - 0.15 * S, Hb = yt - yb, n = 40, R = [], L = [];
-        for (let i = 0; i <= n; i++) {
-          const v = i / n, y = yb + v * Hb;
-          const w = v < 0.8 ? 0.2 * S + 0.24 * S * Math.pow((0.8 - v) / 0.8, 2.6) : 0.2 * S * Math.sqrt(Math.max(0, 1 - Math.pow((v - 0.8) / 0.2, 2)));
-          R.push([w, y]); L.unshift([-w, y]);
-        }
-        const bell = soft(P2([...R, ...L]), 1);
-        const bow = U([E2(-0.11 * S, yt + 0.035 * S, 0.12 * S, 0.06 * S, 20), E2(0.11 * S, yt + 0.035 * S, 0.12 * S, 0.06 * S, -20), C2(0, yt + 0.02 * S, 0.045 * S)]);
-        const band = I(bell, RECT(-S, yb + 0.07 * S, S, yb + 0.13 * S));
-        return { base: U([bell, C2(0, yb - 0.02 * S, 0.075 * S), bow]), decor: U([bow, band]), box: { x: 0, y: yb + 0.45 * Hb, w: 0.36 * S, h: 0.13 * S }, hang: [0, yt + 0.09 * S] };
-      },
-      pallina(S) {
-        const R = 0.42 * S, cy = -S / 2 + R;
-        const cap = RECT(-0.11 * S, cy + R - 0.03 * S, 0.11 * S, cy + R + 0.08 * S);
-        const ball = C2(0, cy, R, 96);
-        const wave = (yc) => {
-          const top = [], bot = [];
-          for (let i = 0; i <= 40; i++) { const x = -R + 2 * R * i / 40, y = yc + 0.02 * S * Math.sin(x / R * 3 * Math.PI); top.push([x, y + 0.035 * S]); bot.push([x, y - 0.035 * S]); }
-          return P2([...bot, ...top.reverse()]);
-        };
-        const bands = I(ball, U([wave(cy + 0.55 * R), wave(cy - 0.55 * R)]));
-        return { base: U([ball, cap]), decor: U([cap, bands]), box: { x: 0, y: cy, w: 1.45 * R, h: 0.5 * R }, hang: [0, cy + R + 0.08 * S] };
-      },
       cuore(S) {
         const pts = [], s = S / 29;
         for (let i = 0; i < 120; i++) { const t = 2 * Math.PI * i / 120; pts.push([16 * Math.pow(Math.sin(t), 3) * s, (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t) + 2.5) * s]); }
         return { base: soft(P2(pts), 0.6), box: { x: 0, y: 0.06 * S, w: 0.62 * S, h: 0.3 * S }, hang: [0, 7.5 * s] };
       },
-      pupazzo(S) {
-        const r1 = 0.25 * S, y1 = -S / 2 + r1, r2 = 0.17 * S, y2 = y1 + r1 + r2 * 0.7, yb = y2 + r2 * 0.72;
-        const hat = U([RECT(-0.18 * S, yb, 0.18 * S, yb + 0.035 * S), RECT(-0.11 * S, yb + 0.03 * S, 0.11 * S, yb + 0.19 * S)]);
-        const base = soft(U([C2(0, y1, r1, 96), C2(0, y2, r2, 64), hat]), 0.5);
-        const decor = U([hat, C2(0, y1 + 0.12 * S, 0.026 * S, 24), C2(0, y1, 0.026 * S, 24), C2(0, y1 - 0.12 * S, 0.026 * S, 24),
-          C2(-0.06 * S, y2 + 0.045 * S, 0.02 * S, 20), C2(0.06 * S, y2 + 0.045 * S, 0.02 * S, 20),
-          P2([[0, y2 - 0.005 * S], [0.12 * S, y2 - 0.03 * S], [0, y2 - 0.045 * S]]),
-          I(base, RECT(-S, y1 + r1 - 0.035 * S, S, y1 + r1 + 0.03 * S))]);
-        return { base, decor, box: { x: 0, y: y1 - 0.02 * S, w: 0.36 * S, h: 0.12 * S }, hang: [0, yb + 0.19 * S] };
-      },
-      bastoncino(S) {
-        const w = 0.15 * S, rh = 0.19 * S, sx = 0.12 * S, yT = S / 2 - w / 2, cx = sx - rh, cy = yT - rh;
-        const pts = [[sx, -S / 2 + w / 2], [sx, cy]];
-        for (let i = 1; i <= 16; i++) { const a = Math.PI * i / 16; pts.push([cx + rh * Math.cos(a), cy + rh * Math.sin(a)]); }
-        pts.push([cx - rh, cy - 0.1 * S]);
-        const base = stroke(pts, w);
-        const st = [];
-        for (let k = -8; k <= 8; k++) st.push(ROT(RECT(-S, k * 0.13 * S - 0.03 * S, S, k * 0.13 * S + 0.03 * S), 35));
-        return { base, decor: I(base, U(st)), box: null, hang: [cx, yT + w / 2] };
-      },
-      calza(S) {
-        const leg = RECT(-0.2 * S, -0.22 * S, 0.14 * S, 0.3 * S), cuff = RECT(-0.24 * S, 0.3 * S, 0.18 * S, 0.5 * S);
-        const foot = R2(CrossSection.hull([C2(-0.04 * S, -0.3 * S, 0.2 * S, 64), C2(0.25 * S, -0.33 * S, 0.17 * S, 64)]));
-        const base0 = soft(U([leg, foot, cuff]), 1.2), base = MV(base0, -0.04 * S, 0);
-        const decor = U([MV(cuff, -0.04 * S, 0), I(base, C2(0.32 * S, -0.34 * S, 0.14 * S)), I(base, C2(-0.13 * S, -0.42 * S, 0.12 * S))]);
-        return { base, decor, box: { x: -0.07 * S, y: 0.4 * S, w: 0.37 * S, h: 0.13 * S }, hang: [-0.24 * S, 0.5 * S] };
-      },
-      regalo(S) {
-        const o = 0.06 * S;
-        const boxC = RECT(-0.34 * S, -0.5 * S + o, 0.34 * S, 0.08 * S + o), lid = RECT(-0.38 * S, 0.08 * S + o, 0.38 * S, 0.2 * S + o);
-        const bow = U([E2(-0.13 * S, 0.28 * S + o, 0.14 * S, 0.075 * S, 25), E2(0.13 * S, 0.28 * S + o, 0.14 * S, 0.075 * S, -25), C2(0, 0.24 * S + o, 0.05 * S)]);
-        const ribbon = U([RECT(-0.05 * S, -0.5 * S + o, 0.05 * S, 0.2 * S + o), RECT(-0.34 * S, -0.27 * S + o, 0.34 * S, -0.18 * S + o)]);
-        return { base: soft(U([boxC, lid, bow]), 0.6), decor: U([ribbon, bow]), box: { x: 0, y: -0.06 * S, w: 0.58 * S, h: 0.14 * S }, hang: [0, 0.36 * S + o] };
-      },
-      casetta(S) {
-        const walls = RECT(-0.3 * S, -0.5 * S, 0.3 * S, 0.02 * S), roof = P2([[-0.42 * S, 0], [0.42 * S, 0], [0, 0.45 * S]]);
-        const chim = RECT(0.14 * S, 0.12 * S, 0.24 * S, 0.42 * S);
-        const base = soft(U([walls, roof, chim]), 0.5);
-        const snow = U([D(roof, MV(roof, 0, -0.07 * S)), RECT(0.13 * S, 0.38 * S, 0.25 * S, 0.43 * S)]);
-        const decor = U([I(base, snow), RECT(-0.07 * S, -0.5 * S, 0.07 * S, -0.27 * S), RECT(-0.23 * S, -0.22 * S, -0.12 * S, -0.11 * S), RECT(0.12 * S, -0.22 * S, 0.23 * S, -0.11 * S)]);
-        return { base, decor, box: { x: 0, y: -0.04 * S, w: 0.5 * S, h: 0.09 * S }, hang: [0, 0.45 * S] };
-      },
-      angelo(S) {
-        const robe = P2([[-0.27 * S, -0.5 * S], [0.27 * S, -0.5 * S], [0.08 * S, 0.12 * S], [-0.08 * S, 0.12 * S]]);
-        const head = C2(0, 0.2 * S, 0.11 * S, 64);
-        const wings = U([E2(-0.17 * S, 0.03 * S, 0.21 * S, 0.11 * S, -35), E2(0.17 * S, 0.03 * S, 0.21 * S, 0.11 * S, 35)]);
-        const halo = D(E2(0, 0.35 * S, 0.13 * S, 0.05 * S), E2(0, 0.35 * S, 0.09 * S, 0.025 * S));
-        const base = soft(U([robe, head, wings, halo]), 0.5);
-        return { base, decor: U([halo, D(wings, OFF(U([robe, head]), 0.6))]), box: { x: 0, y: -0.3 * S, w: 0.34 * S, h: 0.1 * S }, hang: [0, 0.4 * S] };
-      },
-      renna(S) {
-        const head = E2(0, -0.08 * S, 0.2 * S, 0.24 * S), muzzle = E2(0, -0.24 * S, 0.16 * S, 0.12 * S);
-        const ears = U([E2(-0.22 * S, 0.06 * S, 0.1 * S, 0.045 * S, 30), E2(0.22 * S, 0.06 * S, 0.1 * S, 0.045 * S, -30)]);
-        const w = Math.max(2.4, 0.05 * S), ant = [];
-        for (const sx of [-1, 1]) {
-          ant.push(stroke([[sx * 0.08 * S, 0.1 * S], [sx * 0.16 * S, 0.3 * S], [sx * 0.2 * S, 0.47 * S]], w));
-          ant.push(stroke([[sx * 0.15 * S, 0.27 * S], [sx * 0.3 * S, 0.33 * S]], w));
-          ant.push(stroke([[sx * 0.18 * S, 0.39 * S], [sx * 0.09 * S, 0.46 * S]], w));
-        }
-        const base = soft(U([head, muzzle, ears, ...ant]), 0.4);
-        return { base, decor: C2(0, -0.25 * S, 0.065 * S), holes: U([C2(-0.08 * S, 0, 0.022 * S, 20), C2(0.08 * S, 0, 0.022 * S, 20)]), box: null, hang: [0, 0.16 * S] };
-      },
-      luna(S) {
-        const R = S / 2, base = soft(D(C2(0, 0, R, 96), C2(0.38 * R, 0.16 * R, 0.82 * R, 96)), 0.6);
-        return { base, box: null, hang: [-0.17 * R, 0.98 * R] };
-      },
-      // ---- motivi aggiunti: personaggi, oggetti, simboli ----
-      gnomo(S) {
-        const hat = P2([[-0.3 * S, -0.04 * S], [0.3 * S, -0.04 * S], [0.12 * S, 0.3 * S], [0.02 * S, 0.5 * S], [-0.05 * S, 0.3 * S]]);
-        const brim = RECT(-0.32 * S, -0.08 * S, 0.32 * S, 0.02 * S);
-        const beard = R2(CrossSection.hull([E2(0, -0.17 * S, 0.3 * S, 0.12 * S), C2(0, -0.47 * S, 0.03 * S)]));
-        const nose = C2(0, -0.09 * S, 0.09 * S);
-        const base = soft(U([hat, brim, beard, nose]), 0.6);
-        return { base, decor: U([D(beard, nose), brim]), box: { x: 0, y: -0.27 * S, w: 0.36 * S, h: 0.11 * S }, hang: [0.02 * S, 0.5 * S] };
-      },
-      omino(S) {
-        const w = 0.17 * S, iw = Math.max(1.2, 0.022 * S);
-        const head = C2(0, 0.3 * S, 0.17 * S, 64);
-        const body = R2(CrossSection.hull([C2(0, 0.03 * S, 0.19 * S, 64), C2(0, -0.13 * S, 0.19 * S, 64)]));
-        const arms = stroke([[-0.37 * S, 0.12 * S], [0.37 * S, 0.12 * S]], w);
-        const legs = U([stroke([[-0.09 * S, -0.15 * S], [-0.24 * S, -0.41 * S]], 0.18 * S), stroke([[0.09 * S, -0.15 * S], [0.24 * S, -0.41 * S]], 0.18 * S)]);
-        const base = soft(U([head, body, arms, legs]), 1);
-        const zig = (x0, y0, x1, y1, n) => { const pts = []; for (let i = 0; i <= n; i++) { const t = i / n; pts.push([x0 + (x1 - x0) * t + (i % 2 ? 0.015 * S : 0), y0 + (y1 - y0) * t + (i % 2 ? 0.02 * S : -0.0)]); } return stroke(pts, iw); };
-        const icing = U([zig(-0.4 * S, 0.06 * S, -0.4 * S, 0.18 * S, 4), zig(0.4 * S, 0.06 * S, 0.4 * S, 0.18 * S, 4),
-          zig(-0.32 * S, -0.39 * S, -0.2 * S, -0.47 * S, 4), zig(0.32 * S, -0.39 * S, 0.2 * S, -0.47 * S, 4),
-          C2(-0.06 * S, 0.34 * S, 0.022 * S, 20), C2(0.06 * S, 0.34 * S, 0.022 * S, 20),
-          stroke([[-0.07 * S, 0.25 * S], [-0.03 * S, 0.225 * S], [0.03 * S, 0.225 * S], [0.07 * S, 0.25 * S]], iw),
-          C2(0, 0.06 * S, 0.026 * S, 20), C2(0, -0.04 * S, 0.026 * S, 20), C2(0, -0.14 * S, 0.026 * S, 20)]);
-        return { base, decor: I(icing, OFF(base, -0.5)), box: { x: 0, y: -0.04 * S, w: 0.32 * S, h: 0.1 * S }, hang: [0, 0.47 * S] };
-      },
-      cappello(S) {
-        const band = soft(RECT(-0.42 * S, -0.5 * S, 0.42 * S, -0.29 * S), 0.06 * S);
-        const pts = [];
-        const bz = (a, b, c, t) => [(1 - t) * (1 - t) * a[0] + 2 * (1 - t) * t * b[0] + t * t * c[0], (1 - t) * (1 - t) * a[1] + 2 * (1 - t) * t * b[1] + t * t * c[1]];
-        for (let i = 0; i <= 16; i++) pts.push(bz([-0.36 * S, -0.31 * S], [-0.1 * S, 0.48 * S], [0.3 * S, 0.22 * S], i / 16));
-        for (let i = 1; i <= 16; i++) pts.push(bz([0.3 * S, 0.22 * S], [0.12 * S, 0.12 * S], [0.36 * S, -0.31 * S], i / 16));
-        const cone = P2(pts), pom = C2(0.31 * S, 0.21 * S, 0.1 * S);
-        return { base: soft(U([band, cone, pom]), 0.6), decor: U([band, pom]), box: { x: 0, y: -0.395 * S, w: 0.74 * S, h: 0.13 * S }, hang: [0.31 * S, 0.31 * S] };
-      },
-      babbo(S) {
-        const face = C2(0, 0.04 * S, 0.17 * S, 64);
-        const beard = R2(CrossSection.hull([E2(0, -0.1 * S, 0.29 * S, 0.14 * S), C2(0, -0.44 * S, 0.06 * S)]));
-        const hat = P2([[-0.25 * S, 0.14 * S], [0.25 * S, 0.14 * S], [0.22 * S, 0.3 * S], [0.12 * S, 0.44 * S], [-0.12 * S, 0.33 * S]]);
-        const brim = soft(RECT(-0.28 * S, 0.1 * S, 0.28 * S, 0.21 * S), 0.04 * S), pom = C2(0.14 * S, 0.43 * S, 0.07 * S);
-        const mous = U([E2(-0.08 * S, -0.05 * S, 0.1 * S, 0.04 * S, 15), E2(0.08 * S, -0.05 * S, 0.1 * S, 0.04 * S, -15)]);
-        const base = soft(U([face, beard, hat, brim, pom]), 0.6);
-        return { base, decor: U([D(beard, D(face, RECT(-S, -0.02 * S, S, S))), brim, pom, mous]), holes: U([C2(-0.06 * S, 0.06 * S, 0.02 * S, 20), C2(0.06 * S, 0.06 * S, 0.02 * S, 20)]),
-          box: { x: 0, y: -0.25 * S, w: 0.38 * S, h: 0.1 * S }, hang: [0.14 * S, 0.5 * S] };
-      },
-      pinguino(S) {
-        const body = E2(0, -0.08 * S, 0.27 * S, 0.36 * S, 0, 64);
-        const wings = U([E2(-0.25 * S, -0.1 * S, 0.07 * S, 0.19 * S, -18), E2(0.25 * S, -0.1 * S, 0.07 * S, 0.19 * S, 18)]);
-        const feet = U([E2(-0.1 * S, -0.44 * S, 0.1 * S, 0.045 * S), E2(0.1 * S, -0.44 * S, 0.1 * S, 0.045 * S)]);
-        const hat = P2([[-0.2 * S, 0.21 * S], [0.2 * S, 0.21 * S], [0.14 * S, 0.36 * S], [0.06 * S, 0.47 * S], [-0.08 * S, 0.36 * S]]);
-        const brim = soft(RECT(-0.22 * S, 0.18 * S, 0.22 * S, 0.25 * S), 0.03 * S), pom = C2(0.07 * S, 0.47 * S, 0.055 * S);
-        const belly = E2(0, -0.15 * S, 0.18 * S, 0.25 * S), beak = P2([[-0.04 * S, 0.1 * S], [0.04 * S, 0.1 * S], [0, 0.04 * S]]);
-        const base = soft(U([body, wings, feet, hat, brim, pom]), 0.5);
-        return { base, decor: U([belly, beak, feet, brim, pom]), holes: U([C2(-0.07 * S, 0.14 * S, 0.02 * S, 20), C2(0.07 * S, 0.14 * S, 0.02 * S, 20)]),
-          box: { x: 0, y: -0.2 * S, w: 0.3 * S, h: 0.1 * S }, hang: [0.07 * S, 0.52 * S] };
-      },
-      ghirlanda(S) {
-        const R = 0.4 * S, bumps = [C2(0, 0, R, 96)];
-        for (let i = 0; i < 18; i++) { const a = 2 * Math.PI * i / 18; bumps.push(C2(R * Math.cos(a), R * Math.sin(a), 0.07 * S, 24)); }
-        const ring = D(U(bumps), C2(0, 0, 0.26 * S, 96));
-        const banner = P2([[-0.5 * S, -0.1 * S], [0.5 * S, -0.1 * S], [0.45 * S, 0], [0.5 * S, 0.1 * S], [-0.5 * S, 0.1 * S], [-0.45 * S, 0]]);
-        const bow = U([E2(-0.09 * S, -0.43 * S, 0.1 * S, 0.055 * S, -20), E2(0.09 * S, -0.43 * S, 0.1 * S, 0.055 * S, 20), C2(0, -0.43 * S, 0.04 * S)]);
-        const berries = U([[-0.3, 0.3], [0.32, 0.27], [0, 0.42], [-0.38, -0.2], [0.38, -0.22]].map(([x, y]) => U([C2(x * S, y * S, 0.03 * S, 20), C2(x * S + 0.04 * S, y * S - 0.02 * S, 0.03 * S, 20)])));
-        return { base: soft(U([ring, banner, bow]), 0.5), decor: U([bow, D(berries, banner)]), box: { x: 0, y: 0, w: 0.8 * S, h: 0.14 * S }, hang: [0, R + 0.07 * S] };
-      },
-      agrifoglio(S) {
-        const leaf = (cx, cy, rot) => {
-          let l = E2(0, 0, 0.3 * S, 0.12 * S, 0, 64);
-          for (let i = -3; i <= 3; i++) for (const sy of [-1, 1]) l = D(l, C2(i * 0.082 * S, sy * 0.145 * S, 0.042 * S, 24));
-          return MV(ROT(l, rot), cx, cy);
-        };
-        const leaves = U([leaf(-0.21 * S, -0.1 * S, 30), leaf(0.21 * S, -0.1 * S, -30), leaf(0, 0.14 * S, 90)]);
-        const berries = U([C2(-0.06 * S, -0.04 * S, 0.075 * S), C2(0.07 * S, -0.03 * S, 0.075 * S), C2(0, 0.06 * S, 0.075 * S)]);
-        return { base: U([leaves, berries]), decor: berries, box: null, hang: [0, 0.43 * S] };
-      },
-      poinsettia(S) {
-        const pet = [];
-        for (let i = 0; i < 6; i++) pet.push(ROT(MV(E2(0, 0, 0.11 * S, 0.24 * S), 0, 0.22 * S), i * 60));
-        for (let i = 0; i < 6; i++) pet.push(ROT(MV(E2(0, 0, 0.08 * S, 0.17 * S), 0, 0.17 * S), i * 60 + 30));
-        const center = U([C2(0, 0, 0.06 * S), C2(0.05 * S, 0.04 * S, 0.03 * S), C2(-0.05 * S, 0.03 * S, 0.03 * S), C2(0, -0.06 * S, 0.03 * S)]);
-        return { base: soft(U(pet), 0.6), decor: center, box: null, hang: [0, 0.46 * S] };
-      },
-      maglione(S) {
-        const body = RECT(-0.3 * S, -0.45 * S, 0.3 * S, 0.27 * S);
-        const sl = (sx) => P2(sx < 0 ? [[-0.3 * S, 0.27 * S], [-0.5 * S, -0.12 * S], [-0.37 * S, -0.18 * S], [-0.3 * S, -0.02 * S]] : [[0.3 * S, -0.02 * S], [0.37 * S, -0.18 * S], [0.5 * S, -0.12 * S], [0.3 * S, 0.27 * S]]);
-        const base0 = soft(D(U([body, sl(-1), sl(1)]), C2(0, 0.32 * S, 0.11 * S)), 0.8);
-        const tri = [];
-        for (let i = -5; i <= 5; i++) tri.push(P2([[i * 0.06 * S - 0.03 * S, 0.06 * S], [i * 0.06 * S + 0.03 * S, 0.06 * S], [i * 0.06 * S, 0.12 * S]]));
-        const decor = U([I(base0, RECT(-S, -0.45 * S, S, -0.38 * S)), I(base0, D(C2(0, 0.32 * S, 0.16 * S), C2(0, 0.32 * S, 0.11 * S))),
-          I(base0, U([ROT(RECT(-0.5 * S, -0.2 * S, -0.36 * S, -0.13 * S), 0)])), I(base0, RECT(0.36 * S, -0.2 * S, 0.5 * S, -0.13 * S)), I(RECT(-0.29 * S, 0, 0.29 * S, 0.2 * S), U(tri)),
-          ...[-0.2, -0.1, 0, 0.1, 0.2].map(x => C2(x * S, 0.17 * S, 0.018 * S, 16))]);
-        return { base: base0, decor, box: { x: 0, y: -0.17 * S, w: 0.5 * S, h: 0.13 * S }, hang: [-0.18 * S, 0.27 * S] };
-      },
-      muffola(S) {
-        const hand = R2(CrossSection.hull([C2(0.02 * S, 0.24 * S, 0.2 * S, 64), RECT(-0.18 * S, -0.26 * S, 0.22 * S, 0.1 * S)]));
-        const thumb = E2(-0.22 * S, -0.02 * S, 0.09 * S, 0.16 * S, -25);
-        const cuff = soft(RECT(-0.22 * S, -0.5 * S, 0.26 * S, -0.25 * S), 0.03 * S);
-        return { base: soft(U([hand, thumb, cuff]), 1), decor: cuff, box: { x: 0.02 * S, y: -0.375 * S, w: 0.42 * S, h: 0.15 * S }, hang: [0.02 * S, 0.44 * S] };
-      },
-      candela(S) {
-        const body = RECT(-0.12 * S, -0.4 * S, 0.12 * S, 0.17 * S);
-        const flame = R2(CrossSection.hull([C2(0, 0.28 * S, 0.075 * S), C2(0, 0.48 * S, 0.01 * S, 12)]));
-        const dish = E2(0, -0.42 * S, 0.32 * S, 0.075 * S);
-        const wick = RECT(-0.012 * S, 0.15 * S, 0.012 * S, 0.24 * S);
-        const drip = I(body, U([RECT(-S, 0.1 * S, S, 0.17 * S), C2(-0.06 * S, 0.08 * S, 0.035 * S), C2(0.05 * S, 0.05 * S, 0.035 * S)]));
-        return { base: soft(U([body, flame, dish, wick]), 0.5), decor: U([flame, dish, drip]), box: null, hang: [0, 0.49 * S] };
-      },
-      cometa(S) {
-        const star = soft(starCS(5, 0.22 * S, 0.1 * S, 0.24 * S, 0.24 * S, 90 - 18), 0.5);
-        const tail = [];
-        for (const [k, w] of [[-1, 0.06], [0, 0.08], [1, 0.06]]) {
-          const pts = [];
-          for (let i = 0; i <= 12; i++) { const t = i / 12; pts.push([0.24 * S - 0.7 * S * t + k * 0.09 * S * t, 0.24 * S - 0.62 * S * t - k * 0.09 * S * t + 0.12 * S * Math.sin(Math.PI * t)]); }
-          tail.push(stroke(pts, Math.max(2.4, w * S * 0.8)));
-        }
-        const tl = U(tail);
-        return { base: U([star, tl]), decor: D(tl, OFF(star, 0.3)), box: null, hang: [0.24 * S, 0.46 * S] };
-      },
-      slitta(S) {
-        const rw = Math.max(2.4, 0.045 * S), pts = [[-0.46 * S, -0.34 * S]];
-        for (let i = 0; i <= 10; i++) { const a = -Math.PI / 2 + Math.PI * 0.9 * i / 10; pts.push([0.34 * S + 0.1 * S * Math.cos(a), -0.24 * S + 0.1 * S * Math.sin(a)]); }
-        const runner = stroke(pts, rw);
-        const struts = U([stroke([[-0.3 * S, -0.34 * S], [-0.3 * S, -0.18 * S]], rw), stroke([[0.15 * S, -0.34 * S], [0.15 * S, -0.18 * S]], rw)]);
-        const body = soft(P2([[-0.44 * S, -0.2 * S], [0.28 * S, -0.2 * S], [0.4 * S, 0.02 * S], [0.3 * S, 0.06 * S], [0.18 * S, -0.02 * S], [-0.28 * S, -0.02 * S], [-0.34 * S, 0.24 * S], [-0.46 * S, 0.24 * S]]), 0.025 * S);
-        const gifts = U([RECT(-0.25 * S, -0.04 * S, -0.06 * S, 0.14 * S), RECT(-0.06 * S, -0.04 * S, 0.1 * S, 0.08 * S), RECT(-0.19 * S, 0.12 * S, -0.03 * S, 0.24 * S)]);
-        const base = soft(U([runner, struts, body, gifts]), 0.4);
-        return { base, decor: U([runner, D(gifts, OFF(body, 0.01))]), box: { x: -0.05 * S, y: -0.11 * S, w: 0.44 * S, h: 0.1 * S }, hang: [-0.4 * S, 0.24 * S] };
-      },
-      nastro(S) {
-        const loops = U([E2(-0.22 * S, 0.12 * S, 0.25 * S, 0.15 * S, 18), E2(0.22 * S, 0.12 * S, 0.25 * S, 0.15 * S, -18)]);
-        const tails = U([P2([[-0.04 * S, 0.06 * S], [0.02 * S, 0.02 * S], [-0.22 * S, -0.48 * S], [-0.3 * S, -0.38 * S], [-0.36 * S, -0.44 * S]]), P2([[0.04 * S, 0.06 * S], [0.36 * S, -0.44 * S], [0.3 * S, -0.38 * S], [0.22 * S, -0.48 * S], [-0.02 * S, 0.02 * S]])]);
-        const knot = E2(0, 0.08 * S, 0.08 * S, 0.1 * S);
-        const inner = U([E2(-0.24 * S, 0.13 * S, 0.12 * S, 0.06 * S, 18), E2(0.24 * S, 0.13 * S, 0.12 * S, 0.06 * S, -18)]);
-        return { base: soft(U([loops, tails, knot]), 0.5), decor: U([knot, inner]), box: null, hang: [0, 0.18 * S] };
-      },
-      campanelle(S) {
-        const one = SHAPES.campana(0.72 * S);
-        const L = MV(ROT(one.base, 14), -0.16 * S, -0.1 * S), Rr = MV(ROT(one.base, -14), 0.16 * S, -0.1 * S);
-        const dl = MV(ROT(one.decor, 14), -0.16 * S, -0.1 * S), dr = MV(ROT(one.decor, -14), 0.16 * S, -0.1 * S);
-        const bow = U([E2(-0.1 * S, 0.36 * S, 0.11 * S, 0.06 * S, 20), E2(0.1 * S, 0.36 * S, 0.11 * S, 0.06 * S, -20), C2(0, 0.35 * S, 0.045 * S)]);
-        return { base: U([L, Rr, bow]), decor: U([dl, dr, bow]), box: null, hang: [0, 0.42 * S] };
-      },
-      globo(S) {
-        const glass = C2(0, 0.08 * S, 0.36 * S, 96);
-        const foot = soft(P2([[-0.34 * S, -0.5 * S], [0.34 * S, -0.5 * S], [0.26 * S, -0.26 * S], [-0.26 * S, -0.26 * S]]), 0.02 * S);
-        const tree = SHAPES.albero(0.4 * S);
-        const flakes = U([[-0.2, 0.25], [0.18, 0.3], [-0.24, 0.0], [0.24, 0.05], [0.0, 0.36], [-0.1, -0.12], [0.12, -0.1]].map(([x, y]) => C2(x * S, y * S, 0.02 * S, 16)));
-        const snow = I(glass, RECT(-S, -0.3 * S, S, -0.18 * S));
-        return { base: U([glass, foot]), decor: U([MV(tree.base, 0, 0.06 * S), flakes, snow]), box: { x: 0, y: -0.38 * S, w: 0.5 * S, h: 0.13 * S }, hang: [0, 0.44 * S] };
-      },
-      // ---- palla piatta: disco con cappuccio, disegni a colori e nome ----
       palla(S, p) {
-        const R = S / 2, d = p.disegno || 'fiocchi', rnd = rng((p.variante || 1) * 7 + 3);
+        const R = S / 2, d = p.disegno === 'agrifoglio' ? 'ghirlanda' : (p.disegno || 'fiocchi'), rnd = rng((p.variante || 1) * 7 + 3);
         const disc = C2(0, 0, R, 128);
         // cappuccio con scanalature
         const cw = 0.3 * S, yc0 = Math.sqrt(R * R - cw * cw / 4) - 0.02 * S, yc1 = R + 0.075 * S;
@@ -422,25 +243,32 @@
         for (let i = -2; i <= 2; i++) grooves.push(RECT(i * cw / 6 - gw / 2, yc0 + 0.035 * S, i * cw / 6 + gw / 2, yc1 - 0.012 * S));
         const capDec = p.cappuccio === false ? null : D(capC, U(grooves));
         // riquadro della scritta: al centro, più in alto sopra le scene, in basso sotto i motivi grandi
-        const nl = Math.max(1, [p.scritta, p.scritta2].filter(x => x && String(x).trim()).length), tH = p.altTesto * (1 + 1.5 * (nl - 1));
-        const chord = (y) => 2 * Math.sqrt(Math.max(0, R * R - y * y));
-        const pad = Math.max(2, 0.3 * p.altTesto);
-        let bh = Math.min(0.46 * S, tH * 1.7 + 2 * pad);
-        let ty = { bosco: 0.15, paese: 0.15, regali: 0.15, slitta: -0.29, motivo: -0.3 }[d] * S || 0;
-        // con due righe il riquadro si sposta verso il centro per restare dentro la palla
-        if (ty < 0) ty = Math.min(0, Math.max(ty, -R + 0.1 * S + bh / 2)); else if (ty > 0) ty = Math.max(0, Math.min(ty, R - 0.14 * S - bh / 2));
-        const box = { x: 0, y: ty, w: Math.min(chord(ty + bh / 2), chord(ty - bh / 2)) * 0.9, h: bh - 2 * pad };
-        // misura la scritta vera e stringe la zona del nome attorno a lei (verso il bordo, se non è al centro)
-        const tf = fitText(p, box, p.altTesto);
-        if (tf) {
-          const th = bounds(tf.cs).h + 0.5, bh2 = Math.min(bh, th + 2 * pad), sh = (bh - bh2) / 2 * Math.sign(ty);
-          ty += sh; bh = bh2; box.y = ty; box.h = th;
+        const nl = [p.scritta, p.scritta2].filter(x => x && String(x).trim()).length;
+        const pad = Math.min(4, Math.max(2, 0.3 * p.altTesto));
+        const Rin = R - (p.bordo ? p.bordoL : 0) - 2.5;            // il nome deve stare tutto dentro questo cerchio
+        const pos = { bosco: 0.15, paese: 0.15, regali: 0.15, slitta: -0.29, motivo: -0.3 }[d] || 0;
+        // misura la scritta alla grandezza chiesta, poi trova la più grande che ci sta:
+        // il rettangolo della scritta (w·f × h·f) centrato in ty deve stare nel cerchio Rin
+        const t0 = nl ? textCS([p.scritta, p.scritta2], p.carattere, p.altTesto, +p.ugello || 0.4) : null;
+        const w0 = t0 ? bounds(t0).w : 0, h0 = t0 ? bounds(t0).h : 0;
+        const fitAt = (y) => { const A = (w0 * w0 + h0 * h0) / 4, B = Math.abs(y) * h0, C = y * y - Rin * Rin; return C >= 0 || !A ? 0 : (-B + Math.sqrt(B * B - 4 * A * C)) / (2 * A); };
+        const maxH = 0.46 * S;
+        let ty = pos * S, f = 1;
+        if (t0) {
+          // con le scene e i personaggi il nome sta verso il bordo; se è grande si avvicina al centro
+          const hw = Math.min(h0, maxH);
+          if (pos) ty = Math.sign(pos) * Math.max(0, Math.min(Math.abs(pos) * S, Rin - hw / 2 - pad));
+          f = Math.min(1, fitAt(ty), maxH / h0);
         }
+        let bh = t0 ? f * h0 + 2 * pad : 0;
+        const box = { x: 0, y: ty, w: f * w0 + 0.6, h: f * h0 + 0.6 };
         // spazio libero sopra il nome, per i motivi grandi
         const fTop = R - 0.07 * S, fBot = ty + bh / 2 + 0.01 * S, fMid = (fTop + fBot) / 2, fH = fTop - fBot;
         const keep = RECT(-R, ty - bh / 2, R, ty + bh / 2);           // zona del nome da lasciare libera
         const inner = OFF(disc, -Math.max(1.2, p.bordo ? p.bordoL + 0.8 : 1.2));
-        let c2 = [], c3 = [];                                          // colore 2 e colore 3
+        let c2 = [], c3 = [], c4 = [];                                 // colore 2, 3 e 4
+        const F = [p.col1 || '#b3202a', p.col2 || '#e3b341', p.col3 || '#ffffff', p.col4 || '#2b2b2b'];
+        const addSlots = (pl) => { if (pl) { if (pl.slots[2]) c2.push(pl.slots[2]); if (pl.slots[3]) c3.push(pl.slots[3]); if (pl.slots[4]) c4.push(pl.slots[4]); } };
         // oggetti sparsi senza sovrapposizioni, lontani dal nome
         const scatter = (n, sMin, sMax, make, area) => {
           const placed = [];
@@ -465,7 +293,6 @@
         };
         const star = (x, y, s) => MV(ROT(soft(starCS(5, s / 2, s * 0.21), Math.min(0.4, s * 0.03)), rnd() * 72), x, y);
         const heart = (x, y, s) => MV(ROT(SHAPES.cuore(s).base, (rnd() - 0.5) * 50), x, y);
-        const tree = (x, yb, h) => { const w = h * 0.62; return U([P2([[x - w / 2, yb + 0.12 * h], [x + w / 2, yb + 0.12 * h], [x, yb + 0.62 * h]]), P2([[x - w * 0.4, yb + 0.42 * h], [x + w * 0.4, yb + 0.42 * h], [x, yb + h]]), RECT(x - 0.06 * h, yb, x + 0.06 * h, yb + 0.14 * h)]); };
         const hills = (y0, amp) => { const pts = [[-R, -R]]; for (let i = 0; i <= 48; i++) { const x = -R + 2 * R * i / 48; pts.push([x, y0 + amp * Math.sin(x / R * 2.2 + 0.6) + amp * 0.5 * Math.sin(x / R * 5.1)]); } pts.push([R, -R]); return P2(pts); };
         const upper = (yMin) => (x, y, s) => y - s / 2 > yMin;
         if (d === 'fiocchi') c3.push(scatter(n, 0.1 * S, 0.2 * S, flake));
@@ -512,12 +339,6 @@
             c3.push(U(tri)); c2.push(U(dia));
             if (y1 + 0.26 * S < R) c3.push(U([-2, -1, 0, 1, 2].map(i => C2(i * 0.12 * S, sg * (y1 + 0.26 * S), 0.018 * S, 16))));
           }
-        } else if (d === 'agrifoglio') {
-          for (const [x, y, rot, s] of [[-0.25, 0.25, -25, 0.42], [0.27, -0.26, 155, 0.42]]) {
-            const h = SHAPES.agrifoglio(s * S);
-            c2.push(MV(ROT(D(h.base, h.decor), rot), x * S, y * S)); c3.push(MV(ROT(h.decor, rot), x * S, y * S));
-          }
-          c3.push(scatter(Math.round(n / 2), 0.07 * S, 0.11 * S, flake, (x, y) => x * y > 0));
         } else if (d === 'ghirlanda') {
           const rr = R - 0.1 * S, leaves = [], ber = [], N = 16;
           const leaf = (L, W) => R2(CrossSection.hull([C2(-L / 2, 0, 0.3, 8), C2(L / 2, 0, 0.3, 8), E2(0, 0, L * 0.3, W / 2, 0, 24)]));
@@ -539,47 +360,46 @@
           const gy = -0.2 * S, hMax = (ty - bh / 2 - 1.5) - (gy - 0.02 * S), hk = (h) => Math.min(h, Math.max(0.08 * S, hMax)), ground = I(disc, hills(gy, 0.03 * S)), obj = [];
           c3.push(ground);
           if (d === 'bosco') {
-            for (const [x, h] of [[-0.3, 0.2], [-0.16, 0.28], [0, 0.22], [0.15, 0.3], [0.3, 0.19]]) obj.push(tree(x * S, gy - 0.02 * S, hk(h * S)));
+            for (const [x, h] of [[-0.3, 0.2], [-0.16, 0.28], [0, 0.22], [0.15, 0.3], [0.3, 0.19]]) { const H = hk(h * S); obj.push(artSil('evergreen-tree', H, x * S, gy - 0.02 * S + H / 2)); }
           } else {
             const hs = [[-0.2, 0.22], [0.12, 0.26]];
-            for (const [x, s0] of hs) { const s = hk(s0 * S) / S, h = SHAPES.casetta(s * S); obj.push(MV(D(h.base, I(h.decor, OFF(h.base, -0.3))), x * S, gy + s * S / 2 - 0.02 * S)); }
-            for (const [x, h] of [[-0.36, 0.17], [-0.03, 0.2], [0.33, 0.16]]) obj.push(tree(x * S, gy - 0.02 * S, hk(h * S)));
+            for (const [x, s0] of hs) { const H = hk(s0 * S); obj.push(artSil('house', H, x * S, gy - 0.02 * S + H / 2)); }
+            for (const [x, h] of [[-0.36, 0.17], [-0.03, 0.2], [0.33, 0.16]]) { const H = hk(h * S); obj.push(artSil('evergreen-tree', H, x * S, gy - 0.02 * S + H / 2)); }
             c2.push(D(C2(-0.24 * S, 0.33 * S, 0.075 * S, 48), C2(-0.21 * S, 0.355 * S, 0.065 * S, 48)));
           }
           c2.push(D(U(obj), OFF(keep, 1)));
           c3.push(scatter(Math.round(n * 0.7), 0.05 * S, 0.1 * S, flake, upper(gy + 0.1 * S)));
         } else if (d === 'slitta') {
           const mr = Math.min(0.27 * S, fH / 2), mx = 0.04 * S, my = fMid;
-          const moon = C2(mx, my, mr, 96), sl = SHAPES.slitta(1.33 * mr);
-          const sled = MV(sl.base, 0, my - 0.07 * mr);
+          const moon = C2(mx, my, mr, 96);
+          const sled = MV(artGeom(EMO_BY.sled, mr, 1.3 * mr).sil, mx, my - 0.1 * mr);
           c3.push(D(moon, OFF(sled, 0.8)));
           c2.push(sled);
           c2.push(scatter(Math.round(n * 0.6), 0.05 * S, 0.09 * S, star, (x, y, s) => Math.hypot(x - mx, y - my) > mr + s / 2 + 1.5));
         } else if (d === 'regali') {
           const gifts = [[-0.2, 0.3], [0.19, 0.32], [0.005, 0.22]];
-          for (const [x, s] of gifts) {
-            const g = SHAPES.regalo(s * S), y = -0.43 * S - bounds(g.base).y0 - 0.01 * S;
-            c2.push(MV(D(g.base, g.decor), x * S, y)); c3.push(MV(g.decor, x * S, y));
-          }
+          for (const [x, s] of gifts) addSlots(artPlace(EMO_BY['wrapped-gift'], s * S, x * S, -0.43 * S + s * S / 2 - 0.01 * S, F));
           c3.push(I(disc, RECT(-R, -R, R, -0.43 * S)));
           c2.push(scatter(Math.round(n * 0.6), 0.05 * S, 0.09 * S, star, upper(-0.12 * S)));
         } else if (d === 'motivo') {
-          const k = SHAPES[p.motivo] ? p.motivo : 'pupazzo', ms = 0.52 * S, m = SHAPES[k](ms, Object.assign({}, p, { punte: 5 }));
-          const b = bounds(m.base), sc = Math.min(1, 0.6 * S / b.w, fH * 0.95 / b.h);
-          const place = (c) => (c ? MV(R2(c.scale([sc, sc])), -(b.x0 + b.x1) / 2 * sc, fMid - (b.y0 + b.y1) / 2 * sc) : null);
-          const det = m.decor ? I(m.decor, m.base) : null;
-          c2.push(place(D(D(m.base, det), m.holes))); c3.push(place(D(det, m.holes)));
-          const mw = b.w * sc / 2 + 1.5;
-          c3.push(scatter(Math.round(n * 0.4), 0.05 * S, 0.08 * S, flake, (x, y, s) => Math.abs(x) > mw + s / 2 && y - s / 2 > fBot));
+          // un disegno Fluent (o il tuo SVG) a colori, nello spazio sopra il nome
+          const pl = artPlace(artOf(p.motivo, p.svg), fH * 0.95, 0, fMid, F, 0.62 * S);
+          addSlots(pl);
+          if (pl) {
+            const mw = pl.w / 2 + 1.5;
+            c3.push(scatter(Math.round(n * 0.4), 0.05 * S, 0.08 * S, flake, (x, y, s) => Math.abs(x) > mw + s / 2 && y - s / 2 > fBot));
+          }
         }
-        let dec2 = U(c2), dec3 = U(c3);
+        let dec2 = U(c2), dec3 = U(c3), dec4 = U(c4);
         if (p.fascia && nl) {
           const band = I(disc, keep);
-          dec2 = U([D(dec2, OFF(keep, 1.2)), band]); dec3 = D(dec3, OFF(keep, 1.2));
+          dec2 = U([D(dec2, OFF(keep, 1.2)), band]); dec3 = D(dec3, OFF(keep, 1.2)); dec4 = D(dec4, OFF(keep, 1.2));
         }
-        dec2 = I(dec2, inner); dec3 = I(dec3, inner);
+        dec2 = I(dec2, inner); dec3 = I(dec3, inner); dec4 = I(dec4, inner);
+        // i colori non si sovrappongono: 4 sopra 3 sopra 2
+        if (dec4) { dec3 = D(dec3, dec4); dec2 = D(dec2, dec4); }
         if (dec3) dec2 = D(dec2, dec3);
-        return { base: U([disc, capC]), decor: U([dec2, capDec]), decor3: dec3, box, clear: p.fascia ? 0.9 : 1.6, hang: [0, yc1 + 0.025 * S] };
+        return { base: U([disc, capC]), slots: { 2: dec2, 3: dec3, 4: dec4 }, decorFix: capDec, box, clear: p.fascia ? 0.9 : 1.6, hang: [0, yc1 + 0.025 * S], F };
       },
       medaglione(S) { return { base: C2(0, 0, S / 2, 96), box: { x: 0, y: 0, w: 0.8 * S, h: 0.42 * S }, hang: [0, S / 2] }; },
       targhetta(S) {
@@ -587,7 +407,7 @@
         return { base: soft(RECT(-W / 2, -S / 2, W / 2, S / 2), Math.min(0.2 * S, 6)), box: { x: 0, y: 0, w: W - 0.35 * S, h: 0.62 * S }, hang: [0, S / 2] };
       },
     };
-    const SHAPE_NAMES = { stella: 'Stella', albero: 'Albero', fiocco: 'Fiocco di neve', campana: 'Campana', pallina: 'Pallina', cuore: 'Cuore', pupazzo: 'Pupazzo di neve', bastoncino: 'Bastoncino', calza: 'Calza', regalo: 'Regalo', casetta: 'Casetta', angelo: 'Angelo', renna: 'Renna', luna: 'Luna', medaglione: 'Medaglione', targhetta: 'Targhetta', gnomo: 'Gnomo', omino: 'Omino di pan di zenzero', cappello: 'Cappello di Babbo Natale', babbo: 'Babbo Natale', pinguino: 'Pinguino', ghirlanda: 'Ghirlanda', agrifoglio: 'Agrifoglio', poinsettia: 'Stella di Natale', maglione: 'Maglione', muffola: 'Muffola', candela: 'Candela', cometa: 'Stella cometa', slitta: 'Slitta', nastro: 'Fiocco', campanelle: 'Campanelle', globo: 'Palla di neve', nome: 'Nome', palla: 'Palla piatta' };
+    const SHAPE_NAMES = { stella: 'Stella', cuore: 'Cuore', medaglione: 'Medaglione', targhetta: 'Targhetta', nome: 'Nome', palla: 'Palla piatta', svg: 'Disegno' };
 
     if (root.SPRECOLO_DEBUG) root.__NATALE = { SHAPES, textCS, fillHoles };
     const part = (name, m, color, group, extra) => (m ? Object.assign({ name, m, role: 'body', color, group }, extra || {}) : null);
@@ -619,6 +439,65 @@
       const top = strip && !strip.isEmpty() ? bounds(strip).y1 : b.y1;
       return { sh: { base, decor: null, box: null, hang: [0, top - 0.6] }, txt: { cs: tc, cap } };
     }
+    // decorazione da un disegno (Fluent o SVG caricato): sagoma con contorno, colori sui filamenti, nome su targhetta
+    function artShape(p, notes, forStamp) {
+      const art = artOf(p.forma, p.svg);
+      const S = p.altezza, noz = +p.ugello || 0.4;
+      if (!art) {
+        notes.push(p.forma === 'svg' ? 'Carica un file SVG con il pulsante qui a sinistra' : 'Disegno non trovato');
+        return Object.assign(SHAPES.medaglione(S), { F: filaments(p) });
+      }
+      const g = artGeom(art, S), con = forStamp ? 1.5 : Math.max(0, p.contorno === undefined ? 1.6 : +p.contorno);   // nella formina un po' di contorno addolcisce la lama
+      let base = con > 0 ? OFF(g.sil, con) : g.sil;
+      base = OFF(OFF(base, 0.4), -0.4);   // chiude le fessure più sottili
+      // parti staccate (fiocchi attorno al pupazzo, scintille…): le unisco alla parte grande con un ponticello
+      let comps = base.decompose().map(R2).filter(c => c.area() > 0.5).sort((a, b) => b.area() - a.area());
+      if (comps.length > 1) {
+        // le parti piccole (meno del 6% della principale) le tolgo, le altre le collego con un ponticello
+        const A0 = comps[0].area(), small = comps.slice(1).filter(c => c.area() < 0.06 * A0), big = comps.slice(1).filter(c => c.area() >= 0.06 * A0);
+        const mb = bounds(comps[0]), mc = [(mb.x0 + mb.x1) / 2, (mb.y0 + mb.y1) / 2], w = Math.max(2.4, 3 * noz);
+        const bars = big.map(c => { const b = bounds(c); return stroke([[(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2], mc], w); });
+        base = U([comps[0], ...big, ...bars]);
+        if (small.length) notes.push(`${small.length} part${small.length > 1 ? 'i piccole staccate tolte' : 'e piccola staccata tolta'} (aumenta il contorno per tenerle)`);
+        if (big.length) notes.push(`${big.length} part${big.length > 1 ? 'i staccate unite' : 'e staccata unita'} con un ponticello`);
+      }
+      // nome: targhetta sotto o sopra il disegno, oppure sopra il disegno stesso
+      const has = [p.scritta, p.scritta2].some(x => x && String(x).trim());
+      const pos = p.posNome || 'sotto';
+      let box = null, plate = null, clear = 0.9;
+      if (has && (pos === 'sotto' || pos === 'sopra')) {
+        const t0 = textCS([p.scritta, p.scritta2], p.carattere, p.altTesto, noz);
+        if (t0) {
+          const tb = bounds(t0), pad = Math.max(2, 0.35 * p.altTesto), pw = Math.max(tb.w + 2 * pad, 0.4 * S), ph = tb.h + 2 * pad;
+          const bb = bounds(base), ov = Math.min(ph * 0.35, 0.12 * S);
+          const cy = pos === 'sopra' ? bb.y1 + ph / 2 - ov : bb.y0 - ph / 2 + ov, r = Math.min(ph / 2 - 0.05, 5);
+          plate = OFF(RECT(-pw / 2 + r, cy - ph / 2 + r, pw / 2 - r, cy + ph / 2 - r), r);
+          box = { x: 0, y: cy, w: tb.w + 0.6, h: tb.h + 0.6 };
+          base = U([base, plate]);
+        }
+      } else if (has) {
+        const sb = bounds(g.sil);
+        box = { x: (sb.x0 + sb.x1) / 2, y: (sb.y0 + sb.y1) / 2, w: sb.w * 0.8, h: sb.h * 0.35 };
+        clear = 1.6;
+      }
+      const F = filaments(p, art);
+      let clip = OFF(base, -((p.bordo && !forStamp) ? p.bordoL : 0) - 0.01);
+      if (plate) clip = D(clip, OFF(plate, 0.6));
+      const slots = artSlots(g, F, clip, noz, notes);
+      const lines = g.lines ? I(g.lines, OFF(base, -0.8)) : null;
+      // per i traforati tolgo la linea di contorno del disegno, che staccherebbe tutto l'interno
+      const linesIn = g.lines ? I(g.lines, OFF(g.sil, -1.3 * g.k)) : null;
+      // aggancio: nel punto più alto
+      // aggancio: sulla parte più alta; se lassù ci sono più punte (orecchie, corna) scelgo la più vicina al centro
+      const bb = bounds(base), topSl = I(base, RECT(-1e4, bb.y1 - 3, 1e4, bb.y1 + 1));
+      let hx = 0, hy = bb.y1;
+      if (topSl && !empty(topSl)) {
+        const tips = topSl.decompose().map(R2).map(c => bounds(c)).sort((a, b2) => (b2.y1 - a.y1) || (Math.abs(a.x0 + a.x1) - Math.abs(b2.x0 + b2.x1)));
+        const best = tips.filter(t2 => t2.y1 > bb.y1 - 0.8).sort((a, b2) => Math.abs(a.x0 + a.x1) - Math.abs(b2.x0 + b2.x1))[0] || tips[0];
+        hx = (best.x0 + best.x1) / 2; hy = best.y1;
+      }
+      return { base, slots, lines, linesIn, box, clear, F, plate, hang: [hx, hy - 0.6], art: true };
+    }
     function flatDesign(p, forStamp) {
       const notes = [];
       if (p.forma === 'nome') {
@@ -626,7 +505,8 @@
         if (!(p.scritta || p.scritta2)) notes.push('Scrivi il nome nella Riga 1');
         return { sh, base: sh.base, txt, notes };
       }
-      const S = p.altezza, sh = SHAPES[p.forma] ? SHAPES[p.forma](S, p) : SHAPES.stella(S, p);
+      const S = p.altezza;
+      const sh = isArt(p.forma) ? artShape(p, notes, forStamp) : SHAPES[p.forma] ? SHAPES[p.forma](S, p) : SHAPES.stella(S, p);
       let base = sh.base;
       let txt = null;
       if ((p.scritta || p.scritta2) && String(p.scritta || p.scritta2).trim()) {
@@ -634,12 +514,29 @@
           txt = fitText(p, sh.box, p.altTesto);
           if (txt && txt.reduced) notes.push(`Scritta ridotta a ${fmt(txt.cap)} mm per starci: allunga la forma o accorcia il testo`);
           if (txt && txt.cs) txt.cs = I(txt.cs, OFF(base, -(p.bordo && !forStamp ? p.bordoL + 0.4 : 0.8)));
-        } else notes.push(`Il motivo "${SHAPE_NAMES[p.forma]}" non ha spazio per una scritta: prova Nome, Medaglione, Targhetta, Cappello o Ghirlanda`);
+        } else notes.push(`Il motivo "${SHAPE_NAMES[p.forma]}" non ha spazio per una scritta`);
       }
       if (txt && txt.cap < 4.5) notes.push('Lettere sotto i 4,5 mm: vengono poco leggibili');
       return { sh, base, txt, notes };
     }
 
+    // disegni traforati: buchi solo all'interno (resta una cornice di 1,2 mm lungo il contorno)
+    // e ponticelli verticali per le parti del pezzo che resterebbero staccate e cadrebbero
+    function perforate(h, base) {
+      let holes = I(h, OFF(base, -1.2));
+      if (empty(holes)) return { holes: null, bridges: 0 };
+      let bridges = 0;
+      for (let k = 0; k < 4; k++) {
+        const rest = D(base, holes), comps = rest.decompose().map(R2).sort((a, b) => b.area() - a.area());
+        if (comps.length <= 1) break;
+        const bars = comps.slice(1).filter(c => c.area() > 0.3).map(c => { const bc = bounds(c), cx = (bc.x0 + bc.x1) / 2; return RECT(cx - 0.8, -1e4, cx + 0.8, 1e4); });
+        if (!bars.length) break;
+        bridges += bars.length;
+        holes = D(holes, U(bars));
+        if (empty(holes)) return { holes: null, bridges };
+      }
+      return { holes, bridges };
+    }
     function piatto(p) {
       const { sh, txt, notes } = flatDesign(p);
       let base = sh.base;
@@ -655,48 +552,84 @@
       if (sh.holes) base = D(base, sh.holes);
       const zone = txt && txt.cs ? OFF(txt.cs, sh.clear || 0.9) : null;
       const border = p.bordo ? D(base, OFF(base, -p.bordoL)) : null;
-      // dettagli nel colore 3 (fiocchi bianchi, neve…): stanno alla stessa altezza della scritta
-      const d3 = p.decorazioni && sh.decor3 ? D(I(sh.decor3, base), zone) : null;
-      let col2 = U([p.decorazioni && sh.decor ? I(sh.decor, base) : null, border]);
-      if (sh.holes) col2 = D(col2, OFF(sh.holes, 0.6));
-      col2 = D(D(col2, zone), d3);
-      const tcs = txt ? txt.cs : null, x3 = empty(d3) ? null : d3;
-      let body, dec, text;
-      const dT = Math.min(t, p.profTesto), through = dT >= t - 0.01;   // spessore della scritta a filo / incisa
-      body = EXT(base, 0, t);
-      if (p.stile === 'filo') {
-        // a livello: decorazioni e scritta incassate, la superficie resta piana
-        if (!empty(col2)) body = sub(body, EXT(col2, t - hR, t + 1));
-        if (!empty(tcs)) body = sub(body, EXT(tcs, through ? -1 : t - dT, t + 1));
-        if (x3) body = sub(body, EXT(x3, t - hR, t + 1));
-        dec = EXT(D(col2, tcs), t - hR, t); text = U3([EXT(tcs, through ? 0 : t - dT, t), EXT(D(x3, tcs), t - hR, t)]);
-      } else if (p.stile === 'inciso') {
-        if (!empty(tcs)) body = sub(body, EXT(tcs, t - Math.min(dT, t - 0.6), t + 1));
-        dec = EXT(col2, t, t + hR); text = EXT(x3, t, t + hR);
-      } else if (p.stile === 'traforata') {
-        if (!empty(tcs)) body = sub(body, EXT(stencil(tcs, txt.cap), -1, t + 1));
-        dec = EXT(col2, t, t + hR); text = EXT(x3, t, t + hR);
-      } else {
-        dec = EXT(col2, t, t + hR); text = EXT(U([tcs, x3]), t, t + hT);
+      // stile dei disegni, indipendente da quello della scritta ("uguale" = come la scritta)
+      const st = p.stile || 'rilievo', sd = !p.stileDec || p.stileDec === 'uguale' ? st : p.stileDec;
+      // filamenti: 1 = il pezzo, 2-3-4 = disegni; la scritta va sul filamento scelto
+      const F = sh.F || [p.col1, p.col2, p.col3, p.col4 || '#2b2b2b'];
+      // colore della scritta: scelto, oppure in automatico quello che stacca di più dal pezzo
+      let ts = Math.min(4, Math.max(2, +p.colTesto || 3));
+      if ((p.colTesto === 'auto' || p.colTesto === undefined) && SVGL) ts = [2, 3, 4].sort((a, b2) => SVGL.dist(F[b2 - 1], F[0]) - SVGL.dist(F[a - 1], F[0]))[0];
+      // parti del disegno per filamento; le parti fisse (bordo, cappuccio della palla) non si incidono e non si traforano
+      let fixed = U([border, p.decorazioni !== false && sh.decorFix ? I(sh.decorFix, base) : null]);
+      if (sh.holes) fixed = D(fixed, OFF(sh.holes, 0.6));
+      fixed = D(fixed, zone);
+      if (empty(fixed)) fixed = null;
+      const L = {};
+      const src = sh.slots || { 2: sh.decor, 3: sh.decor3 };
+      for (const k of [2, 3, 4]) {
+        let c = p.decorazioni !== false && src[k] ? I(src[k], base) : null;
+        if (c && sh.holes) c = D(c, OFF(sh.holes, 0.6));
+        c = D(D(c, zone), fixed);
+        if (!empty(c)) L[k] = c;
       }
-      const G = SHAPE_NAMES[p.forma] || 'Decorazione';
-      const parts = ok([part(`${G} · base`, body, p.col1, G), part(`${G} · decorazioni`, dec, p.col2, G), part(`${G} · scritta`, text, p.col3, G)]);
+      const des = U(Object.values(L));
+      const tcs = txt ? txt.cs : null;
+      const dT = Math.min(t, p.profTesto), through = dT >= t - 0.01;   // spessore della scritta a filo / incisa
+      const thrD = hR >= t - 0.01, dI = Math.min(hR, t - 0.6);          // disegni passanti (a filo) / profondità incisione
+      let body = EXT(base, 0, t);
+      const c = { 2: [], 3: [], 4: [] };   // solidi per filamento
+      // --- scritta ---
+      if (!empty(tcs)) {
+        if (st === 'filo') { body = sub(body, EXT(tcs, through ? -1 : t - dT, t + 1)); c[ts].push(EXT(tcs, through ? 0 : t - dT, t)); }
+        else if (st === 'inciso') body = sub(body, EXT(tcs, t - Math.min(dT, t - 0.6), t + 1));
+        else if (st === 'traforata') body = sub(body, EXT(stencil(tcs, txt.cap), -1, t + 1));
+        else c[ts].push(EXT(tcs, t, t + hT));
+      }
+      // --- disegni ---
+      let perfNote = null;
+      if (sd === 'filo') {
+        for (const k of [2, 3, 4]) if (L[k]) { body = sub(body, EXT(L[k], thrD ? -1 : t - hR, t + 1)); c[k].push(EXT(L[k], thrD ? 0 : t - hR, t)); }
+      } else if (sd === 'inciso') {
+        // con un disegno a linea incido le sue linee, altrimenti le parti colorate
+        const e = sh.lines ? D(sh.lines, zone) : des;
+        if (!empty(e) && dI > 0.1) body = sub(body, EXT(e, t - dI, t + 1));
+      } else if (sd === 'traforata') {
+        const r = perforate(sh.linesIn ? D(sh.linesIn, OFF(zone, 0.6)) : des, base);
+        if (r.holes) body = sub(body, EXT(r.holes, -1, t + 1));
+        if (r.bridges) perfNote = `${r.bridges} ponticell${r.bridges > 1 ? 'i tengono' : 'o tiene'} attaccate le parti che sarebbero cadute`;
+      } else {
+        for (const k of [2, 3, 4]) if (L[k]) c[k].push(EXT(L[k], t, t + (k === ts ? hT : hR)));
+      }
+      // --- parti fisse: a filo se i disegni sono a filo, altrimenti in rilievo ---
+      if (fixed) {
+        if (sd === 'filo') { body = sub(body, EXT(fixed, thrD ? -1 : t - hR, t + 1)); c[2].push(EXT(fixed, thrD ? 0 : t - hR, t)); }
+        else c[2].push(EXT(fixed, t, t + hR));
+      }
+      const G = SHAPE_NAMES[p.forma] || (EMO_BY[p.forma] && EMO_BY[p.forma].it) || (p.forma === 'svg' ? 'Disegno' : 'Decorazione');
+      const solid = { 2: U3(c[2]), 3: U3(c[3]), 4: U3(c[4]) };
+      const parts = ok([part(`${G} · base`, body, F[0], G),
+        ...[2, 3, 4].map(k => part(`${G} · colore ${k}`, solid[k], F[k - 1], G))]);
       const b = bounds(base);
       const f2 = (v) => (Math.round(v * 100) / 100).toString().replace('.', ',');
-      const hTot = p.stile === 'filo' ? t : p.stile === 'rilievo' ? t + (text ? hT : dec ? hR : 0) : t + (text || dec ? hR : 0);
-      const info = [['Misure', `${fmt(b.w)} × ${fmt(b.h)} × ${f2(hTot)} mm`]];
-      if (txt) info.push(['Lettere', `${fmt(txt.cap)} mm` + ({ inciso: `, incise ${f2(Math.min(dT, t - 0.6))} mm`, traforata: ', traforate con ponticelli', filo: through ? ', passanti: si vedono dai due lati' : `, a filo, spesse ${f2(dT)} mm` }[p.stile] || '')]);
-      info.push(['Colori', `${parts.length}${parts.length > 1 ? ' (una parte per colore nel 3MF)' : ''}`]);
-      if (p.stile === 'rilievo' && parts.length > 1) {
-        const ch = [];
-        if (dec) ch.push(`${f2(t)} mm → colore 2`);
-        if (text) ch.push(`${f2(dec && hT > hR ? t + hR : t)} mm → colore 3`);
-        info.push(['Stampante a un colore', 'cambio filamento a ' + ch.join(', ')]);
-        if (dec && text && hT <= hR) notes.push('Scritta alta come le decorazioni: con un solo estrusore i colori 2 e 3 coincidono. Alza il rilievo della scritta');
-      } else if (p.stile === 'filo' && parts.length > 1) {
+      const raised = [2, 3, 4].filter(k => solid[k] && (sd === 'rilievo' && L[k] || (k === 2 && fixed && sd !== 'filo') || (k === ts && st === 'rilievo' && !empty(tcs))));
+      const up = raised.length ? Math.max(...raised.map(k => (k === ts ? hT : hR))) : 0;
+      const info = [['Misure', `${fmt(b.w)} × ${fmt(b.h)} × ${f2(t + up)} mm`]];
+      if (txt) info.push(['Lettere', `${fmt(txt.cap)} mm` + ({ inciso: `, incise ${f2(Math.min(dT, t - 0.6))} mm`, traforata: ', traforate con ponticelli', filo: through ? ', passanti: si vedono dai due lati' : `, a filo, spesse ${f2(dT)} mm` }[st] || '')]);
+      if (des) info.push(['Disegno', { rilievo: `in rilievo ${f2(hR)} mm`, filo: thrD ? 'a filo, passante: si vede dai due lati' : `a filo, spesso ${f2(hR)} mm`, inciso: sh.lines ? `linee incise ${f2(Math.max(0, dI))} mm` : `inciso ${f2(Math.max(0, dI))} mm`, traforata: 'traforato' }[sd]]);
+      const used = [1, ...[2, 3, 4].filter(k => solid[k])];
+      info.push(['Filamenti', used.length > 1 ? used.map(k => (k === 1 ? '1 pezzo' : String(k))).join(' · ') + ' (una parte per filamento nel 3MF)' : '1']);
+      const anyFilo = (st === 'filo' && !empty(tcs)) || (sd === 'filo' && (des || fixed));
+      if (anyFilo && parts.length > 1) {
         notes.push('A filo i colori sono negli stessi strati: serve una stampante multicolore (AMS, MMU…)');
-      } else if (p.stile !== 'rilievo' && dec) info.push(['Stampante a un colore', `cambio filamento a ${f2(t)} mm → colore 2` + (text ? ' (i dettagli del colore 3 sono negli stessi strati)' : '')]);
-      if (p.stile === 'filo') {
+      } else if (parts.length > 1) {
+        const lv = raised.map(k => ({ k, h: k === ts ? hT : hR }));
+        const sameH = lv.filter(a => lv.some(b2 => b2 !== a && Math.abs(b2.h - a.h) < 0.01)).length;
+        if (sameH) notes.push('Più colori alla stessa altezza: per stamparli serve una stampante multicolore. Con un solo estrusore usa un colore per il disegno e uno per la scritta, con altezze diverse');
+        else info.push(['Stampante a un colore', 'cambio filamento a ' + lv.sort((a, b2) => a.h - b2.h).map((x, i) => `${f2(t + (i ? lv[i - 1].h : 0))} mm → colore ${x.k}`).join(', ')]);
+      }
+      if (perfNote) notes.push(perfNote);
+      if (sd === 'inciso' && dI <= 0.1) notes.push('Pezzo troppo sottile per incidere i disegni: aumenta lo spessore');
+      if (anyFilo) {
         const al = (v) => [0.2, 0.28].some(h => Math.abs(v / h - Math.round(v / h)) < 0.02);
         if (![t, dT, hR].every(al)) notes.push('Alcuni spessori non sono multipli di 0,2 o 0,28 mm: lo slicer arrotonda agli strati');
       }
@@ -704,16 +637,16 @@
       if (p.supporto) {
         const L = Math.max(30, Math.min(b.w * 0.8, 90)), Wd = 16, Hs = 9, sl = t + p.tolleranza;
         let st = sub(H.slab(L, Wd, 3, 0, Hs), box(-L / 2 + 4, -sl / 2, Hs - 6, L / 2 - 4, sl / 2, Hs + 1));
-        parts.push(part('Supporto da tavolo', st, p.col1, 'Supporto', { at: [0, b.y0 - Wd / 2 - 8, 0] }));
+        parts.push(part('Supporto da tavolo', st, F[0], 'Supporto', { at: [0, b.y0 - Wd / 2 - 8, 0] }));
         info.push(['Supporto', `${fmt(L)} × ${fmt(Wd)} × ${fmt(Hs)} mm, fessura ${fmt(sl)} mm`]);
       }
       for (const n of notes) info.push(['Nota', n]);
-      return { parts, info };
+      return { parts, info, view: [0, -0.6, 1] };
     }
 
     // ============ FORMINA PER BISCOTTI ============
     function formina(p) {
-      const q = Object.assign({}, p, { bordo: false });
+      const q = Object.assign({}, p, { bordo: false, posNome: 'centro' });   // nella formina il nome va sul timbro
       const { sh, txt, notes } = flatDesign(q, true);
       const out = soft(fillHoles(sh.base), 1);
       const Hc = p.profondita, lama = p.lama;
@@ -724,7 +657,10 @@
       if (p.timbro) {
         const plate = OFF(out, -(p.tolleranza + 0.6));
         const ring = D(plate, OFF(plate, -1.2));
-        const rel = U([ring, p.decorazioni && sh.decor ? I(sh.decor, plate) : null, txt ? txt.cs : null]);
+        const zt = txt && txt.cs ? OFF(txt.cs, 1) : null;
+        // disegno sul timbro: le linee del disegno (versione a linea), altrimenti i dettagli colorati
+        const art = p.decorazioni ? (sh.lines ? sh.lines : sh.slots ? U(Object.values(sh.slots)) : sh.decor) : null;
+        const rel = U([ring, art ? D(I(art, plate), zt) : null, txt ? txt.cs : null]);
         const mir = (c) => (c ? R2(c.scale([-1, 1])) : null);   // il timbro si preme capovolto: disegno a specchio
         const stamp = union(ok([EXT(mir(plate), 0, 3), EXT(mir(I(rel, plate)), 3, 5)]));
         parts.push(part('Timbro', stamp, p.col2, 'Timbro', { at: [b.w + 10, 0, 0] }));
@@ -793,8 +729,27 @@
         const rz = Math.max(4, radiusAt(pr, zc));
         // spazio in altezza: fino al bordo della pallina, senza toccare il cappuccio
         const room = Math.max(4, Math.min(pr.zTop - 4 - zc, zc - pr.zBot - 2) * 2 * 0.9);
-        const tf = fitText(Object.assign({}, p, { scritta: str, scritta2: '' }), { x: 0, y: 0, w: rz * 1.15, h: Math.min(room, (pr.zTop - pr.zBot) * 0.42) }, cap);
+        const q = Object.assign({}, p, { scritta: str, scritta2: '' }), keepN = new Set(NOTES);
+        const undoNotes = () => { for (const n of [...NOTES]) if (!keepN.has(n)) NOTES.delete(n); };   // tengo solo gli avvisi dell'ultima prova
+        let tf = fitText(q, { x: 0, y: 0, w: rz * 1.15, h: Math.min(room, (pr.zTop - pr.zBot) * 0.42) }, cap);
         if (!tf) continue;
+        // tutta la scritta deve stare sulla parte "frontale" della pallina, non solo il suo centro:
+        // ai bordi alto e basso la pallina è più stretta e più curva, e gli angoli (del logo, delle lettere)
+        // finirebbero fuori o stirati. Limiti: metà larghezza <= 0,6 del raggio a quell'altezza,
+        // e la scritta non sale/scende oltre il 72% tra l'equatore e la cima/il fondo.
+        const zHi = pr.zW + 0.72 * (pr.zTop - pr.zW), zLo = pr.zW - 0.72 * (pr.zW - pr.zBot);
+        for (let it = 0; it < 6; it++) {
+          const bt = bounds(tf.cs), w = bt.w, hh = bt.h;
+          const zt = zc + hh / 2, zb = zc - hh / 2;
+          const lim = 0.6 * Math.min(radiusAt(pr, Math.min(zt, zHi)), radiusAt(pr, Math.max(zb, zLo)));
+          let k = Math.min(1, lim / (w / 2));
+          if (zt > zHi) k = Math.min(k, Math.max(0.05, (zHi - zc) / (hh / 2)));
+          if (zb < zLo) k = Math.min(k, Math.max(0.05, (zc - zLo) / (hh / 2)));
+          if (k > 0.985) break;
+          undoNotes();
+          tf = fitText(q, { x: 0, y: 0, w: w * k, h: hh * k }, cap);
+          tf.reduced = true;
+        }
         const c = MV(tf.cs, 0, zc), bc = bounds(c);
         const halfA = Math.asin(Math.min(1, bc.w / 2 / rz)) * 180 / Math.PI;
         const turn = (m) => reg(m.rotate([0, 0, ang]));
@@ -955,7 +910,10 @@
     }
     function roundCylZ(r, z0, z1) { return H.roundCyl(r, z0, z1, Math.min(1.2, (z1 - z0) / 4), 0.4, 96); }
     function alberoIncastro(p) {
-      const S = p.altezza, tk = p.spessore, sl = tk + p.tolleranza, sh = SHAPES.albero(S, p);
+      const S = p.altezza, tk = p.spessore, sl = tk + p.tolleranza;
+      // sagoma: l'albero di Natale Fluent; decorazioni (palline, stella) = tutto ciò che non è del verde principale
+      const g = artGeom(EMO_BY['christmas-tree'], S), main = EMO_BY['christmas-tree'].pal[0];
+      const sh = { base: OFF(OFF(OFF(g.sil, 0.8), 0.4), -0.4), decor: U(Object.entries(g.regions).filter(([hex]) => hex !== main).map(([, cs]) => cs)) };
       const slotA = RECT(-sl / 2, 0, sl / 2, S), slotB = RECT(-sl / 2, -S, sl / 2, 0);
       const parts = [];
       const make = (slot, name, rotZ) => {
@@ -1031,7 +989,9 @@
       // motivi traforati
       const rows = Math.max(1, p.righe | 0), per = hex ? 6 * Math.max(1, Math.round((p.perRiga | 0) / 6)) : Math.max(3, p.perRiga | 0);
       const top = 10, zone = Hl - band - top, size = Math.min(p.motivo, zone / rows * 0.85, (hex ? Dl / Math.sqrt(3) : Math.PI * Dl / per) * 0.8);
-      const motif = (() => { const sh = SHAPES[p.disegno === 'fiocchi' ? 'fiocco' : p.disegno === 'alberi' ? 'albero' : p.disegno === 'cuori' ? 'cuore' : 'stella'](size, { punte: 5, variante: 3 }); return fillHoles(sh.base); })();
+      // motivi traforati: sagome dei disegni Fluent (le stelle restano geometriche, più pulite da traforare)
+      const motif = p.disegno === 'stelle' ? fillHoles(SHAPES.stella(size, { punte: 5 }).base)
+        : fillHoles(artGeom(EMO_BY[{ fiocchi: 'snowflake', alberi: 'evergreen-tree', cuori: 'red-heart' }[p.disegno] || 'snowflake'], size).sil);
       const holes = [];
       for (let j = 0; j < rows; j++) {
         const z = band + zone * (j + 0.5) / rows;

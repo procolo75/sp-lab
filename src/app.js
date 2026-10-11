@@ -42,15 +42,28 @@
 
   // ---- Natale ----
   const PALETTES = {
-    rossoro: { col1: '#b3202a', col2: '#e3b341', col3: '#ffffff' },
-    verde: { col1: '#1f6b3a', col2: '#c62828', col3: '#ffffff' },
-    bianco: { col1: '#f4f4f2', col2: '#b8bcc2', col3: '#c62828' },
-    blu: { col1: '#1d4e89', col2: '#c9ced6', col3: '#ffffff' },
-    legno: { col1: '#c8a36a', col2: '#7a4a24', col3: '#2b2b2b' },
+    rossoro: { col1: '#b3202a', col2: '#e3b341', col3: '#ffffff', col4: '#1f6b3a' },
+    verde: { col1: '#1f6b3a', col2: '#c62828', col3: '#ffffff', col4: '#e3b341' },
+    bianco: { col1: '#f4f4f2', col2: '#b8bcc2', col3: '#c62828', col4: '#1f6b3a' },
+    blu: { col1: '#1d4e89', col2: '#c9ced6', col3: '#ffffff', col4: '#e3b341' },
+    legno: { col1: '#c8a36a', col2: '#7a4a24', col3: '#2b2b2b', col4: '#ffffff' },
   };
-  const colorsP = (labels) => [
-    { sec: 'Colori', id: 'tavolozza', label: 'Abbinamenti pronti', type: 'select', def: 'rossoro', options: [['rossoro', 'Rosso e oro'], ['verde', 'Verde e rosso'], ['bianco', 'Bianco e argento'], ['blu', 'Blu e argento'], ['legno', 'Legno']], onSet: (k) => PALETTES[k],
-      help: 'Nel 3MF ogni colore è una parte separata dello stesso oggetto: nello slicer dai un filamento a ciascuna.' },
+  // disegni: Fluent Emoji (libreria) e SVG caricati dall'utente
+  const EMOJI = window.SPLAB_EMOJI || [], EMO_BY = Object.fromEntries(EMOJI.map(e => [e.id, e]));
+  const isArtId = (k) => k === 'svg' || !!EMO_BY[k];
+  // i 4 colori del disegno scelto (per l'abbinamento "Colori del disegno")
+  const artPal = (v, key = 'forma') => {
+    const k = v[key], pal = k === 'svg' ? (v.svg && v.svg.pal) : EMO_BY[k] && EMO_BY[k].pal;
+    if (!pal || !pal.length) return null;
+    const out = {}; pal.slice(0, 4).forEach((c, i) => { out['col' + (i + 1)] = c; });
+    return out;
+  };
+  const colorsP = (labels, art) => [
+    { sec: 'Colori', id: 'tavolozza', label: 'Abbinamenti pronti', type: 'select', def: art ? 'disegno' : 'rossoro',
+      options: [...(art ? [['disegno', 'Colori del disegno']] : []), ['rossoro', 'Rosso e oro'], ['verde', 'Verde e rosso'], ['bianco', 'Bianco e argento'], ['blu', 'Blu e argento'], ['legno', 'Legno']],
+      onSet: (k, v) => (k === 'disegno' ? artPal(v, art) : PALETTES[k]),
+      help: art ? 'Al massimo 4 filamenti: il colore 1 è il pezzo. Ogni colore del disegno va sul filamento più simile; quelli uguali al colore 1 restano del colore del pezzo. "Colori del disegno" riduce i colori originali a 4.'
+        : 'Nel 3MF ogni colore è una parte separata dello stesso oggetto: nello slicer dai un filamento a ciascuna.' },
     ...labels.map((l, i) => ({ sec: 'Colori', id: 'col' + (i + 1), label: l, type: 'color', def: PALETTES.rossoro['col' + (i + 1)] })),
   ];
   // spessori allineati agli strati: multipli di 0,2 e di 0,28 (primo strato a 0,28)
@@ -59,7 +72,7 @@
   // loghi dentro le scritte: {SP} e {viso}. L'ugello decide quanto si ingrossano le linee quando il logo è piccolo
   const hasLogo = (p) => ['scritta', 'scritta2', 'scritta3', 'scritta4'].some(k => /\{(sp|viso)\}/i.test(String(p[k] || '')));
   const nozzleP = (sec, show) => ({ sec, id: 'ugello', label: 'Ugello', type: 'select', def: '0.4', options: [['0.2', '0,2'], ['0.4', '0,4'], ['0.6', '0,6'], ['0.8', '0,8']], unit: 'mm',
-    show: p => (!show || show(p)) && hasLogo(p), help: 'Diametro dell\'ugello della stampante. Se il logo è piccolo le sue linee vengono ingrossate fino a questa larghezza, così si stampano.' });
+    show: p => (!show || show(p)) && (hasLogo(p) || isArtId(p.forma) || (p.disegno === 'motivo' && isArtId(p.motivo))), help: 'Diametro dell\'ugello della stampante. Se il logo è piccolo le sue linee vengono ingrossate fino a questa larghezza, così si stampano.' });
   const FONT_OPTS = [['tondo', 'Tondo'], ['corsivo', 'Corsivo'], ['natalizio', 'Natalizio']];
   const textP = (d1, d2, font, cap, show) => [
     { sec: 'Scritta', id: 'scritta', label: 'Riga 1', type: 'text', def: d1, placeholder: 'es. un nome', show, logos: true },
@@ -82,13 +95,9 @@
   // motivi delle decorazioni piatte, divisi per gruppo nel menu
   const SHAPE_OPTS = [
     ['nome', 'Solo il nome', 'Con il nome'], ['medaglione', 'Medaglione', 'Con il nome'], ['targhetta', 'Targhetta', 'Con il nome'],
-    ['stella', 'Stella', 'Classici'], ['albero', 'Albero', 'Classici'], ['fiocco', 'Fiocco di neve', 'Classici'], ['pallina', 'Pallina', 'Classici'], ['campana', 'Campana', 'Classici'],
-    ['campanelle', 'Campanelle', 'Classici'], ['cometa', 'Stella cometa', 'Classici'], ['cuore', 'Cuore', 'Classici'], ['luna', 'Luna', 'Classici'], ['candela', 'Candela', 'Classici'],
-    ['ghirlanda', 'Ghirlanda', 'Natura'], ['agrifoglio', 'Agrifoglio', 'Natura'], ['poinsettia', 'Stella di Natale (fiore)', 'Natura'],
-    ['babbo', 'Babbo Natale', 'Personaggi'], ['cappello', 'Cappello di Babbo Natale', 'Personaggi'], ['gnomo', 'Gnomo', 'Personaggi'], ['omino', 'Omino di pan di zenzero', 'Personaggi'],
-    ['pupazzo', 'Pupazzo di neve', 'Personaggi'], ['angelo', 'Angelo', 'Personaggi'], ['renna', 'Renna', 'Personaggi'], ['pinguino', 'Pinguino', 'Personaggi'],
-    ['calza', 'Calza', 'Oggetti'], ['muffola', 'Muffola', 'Oggetti'], ['maglione', 'Maglione', 'Oggetti'], ['regalo', 'Regalo', 'Oggetti'], ['nastro', 'Fiocco', 'Oggetti'],
-    ['bastoncino', 'Bastoncino di zucchero', 'Oggetti'], ['casetta', 'Casetta', 'Oggetti'], ['slitta', 'Slitta', 'Oggetti'], ['globo', 'Palla di neve', 'Oggetti'],
+    ...EMOJI.map(e => [e.id, e.it, e.g]),
+    ['stella', 'Stella a punte', 'Forme'], ['cuore', 'Cuore semplice', 'Forme'],
+    ['svg', 'Carica un SVG…', 'Il tuo disegno'],
   ];
   // disegni della palla piatta
   const PALLA_OPTS = [
@@ -96,13 +105,17 @@
     ['righe', 'Righe a bastoncino', 'Sfondi'], ['spicchi', 'Spicchi', 'Sfondi'], ['onde', 'Onde', 'Sfondi'], ['zigzag', 'Zig-zag', 'Sfondi'], ['nordico', 'Maglione nordico', 'Sfondi'],
     ['ghirlanda', 'Ghirlanda sul bordo', 'Natura'], ['agrifoglio', 'Agrifoglio', 'Natura'],
     ['cielo', 'Cielo stellato con luna', 'Scene'], ['bosco', 'Bosco innevato', 'Scene'], ['paese', 'Paesino con casette', 'Scene'], ['slitta', 'Luna con la slitta', 'Scene'], ['regali', 'Regali', 'Scene'],
-    ['motivo', 'Personaggio (scegli sotto)', 'Personaggi'], ['nessuno', 'Solo il nome', 'Solo il nome'],
+    ['motivo', 'Un disegno (scegli sotto)', 'Disegno'], ['nessuno', 'Solo il nome', 'Solo il nome'],
   ];
   const shapeP = (sec, defH) => [
-    { sec, id: 'forma', label: 'Motivo', type: 'select', menu: true, def: 'stella', options: SHAPE_OPTS, help: 'Con "Solo il nome" la decorazione è la scritta stessa, con il contorno che unisce le lettere.' },
+    { sec, id: 'forma', label: 'Motivo', type: 'select', menu: true, def: 'christmas-tree', options: SHAPE_OPTS, onSet: (k, v) => (v.tavolozza === 'disegno' && v.col1 !== undefined ? artPal(Object.assign({}, v, { forma: k })) : null),
+      help: 'Disegni Fluent Emoji di Microsoft (licenza MIT). Con "Solo il nome" la decorazione è la scritta stessa; con "Carica un SVG" usi un tuo disegno.' },
+    { sec, id: 'svg', label: 'File SVG', type: 'svg', show: p => p.forma === 'svg', palKey: 'forma',
+      help: 'Un disegno vettoriale (.svg) a colori pieni. I colori vengono portati sui tuoi filamenti; i tratti diventano linee piene.' },
     { sec, id: 'punte', label: 'Punte', type: 'int', min: 4, max: 12, def: 5, show: p => p.forma === 'stella' },
-    { sec, id: 'variante', label: 'Variante', type: 'int', min: 1, max: 999, def: 7, show: p => p.forma === 'fiocco', help: 'Ogni numero disegna un fiocco diverso.' },
     { sec, id: 'altezza', label: 'Altezza', type: 'num', min: 25, max: 250, step: 1, def: defH, unit: 'mm', show: p => p.forma !== 'nome' },
+    { sec, id: 'contorno', label: 'Contorno', type: 'num', min: 0, max: 8, step: 0.2, def: 1.6, unit: 'mm', show: p => isArtId(p.forma),
+      help: 'Margine attorno alla sagoma del disegno: tiene unite le parti vicine e rende il bordo più robusto.' },
   ];
   const MODES = {
     bin: {
@@ -225,11 +238,16 @@
       params: [
         ...shapeP('Forma', 75),
         layerP({ sec: 'Forma', id: 'spessore', label: 'Spessore', min: 1.6, max: 8, def: 3, help: 'I valori seguono gli strati: multipli di 0,2 e di 0,28 mm.' }),
-        { sec: 'Forma', id: 'decorazioni', label: 'Decorazioni a colori', type: 'bool', def: true, help: 'Palline sull\'albero, cappello del pupazzo, fiocco della campana, righe del bastoncino…' },
+        { sec: 'Forma', id: 'decorazioni', label: 'Disegno a colori', type: 'bool', def: true, help: 'Spento: resta solo la sagoma, del colore del pezzo (con bordo e scritta).' },
         { sec: 'Forma', id: 'bordo', label: 'Bordo', type: 'bool', def: true },
         { sec: 'Forma', id: 'bordoL', label: 'Larghezza bordo', type: 'num', min: 0.8, max: 5, step: 0.2, def: 1.6, unit: 'mm', show: p => p.bordo },
-        layerP({ sec: 'Forma', id: 'rilievo', label: 'Rilievo decorazioni', min: 0.2, max: 3, def: 0.8, help: 'A filo è quanto entrano le decorazioni nel pezzo.' }),
+        { sec: 'Forma', id: 'stileDec', label: 'Stile decorazioni', type: 'select', def: 'uguale', options: [['uguale', 'Come la scritta'], ['rilievo', 'In rilievo'], ['filo', 'A filo'], ['inciso', 'Incisi'], ['traforata', 'Traforati']], show: p => p.decorazioni,
+          help: 'Incisi: scavati nella superficie. Traforati: buchi passanti, con una cornice lungo il contorno e ponticelli dove servono. Il bordo resta in rilievo (o a filo).' },
+        layerP({ sec: 'Forma', id: 'rilievo', label: 'Spessore decorazioni', min: 0.2, max: 8, def: 0.8, show: p => !(p.stileDec === 'traforata' || (p.stileDec === 'uguale' || !p.stileDec) && p.stile === 'traforata') || p.bordo,
+          help: 'In rilievo: quanto sporgono. A filo e incisi: quanto entrano nel pezzo (a filo, se è pari allo spessore, passano da parte a parte).' }),
         ...textP('Giulia', '', 'corsivo', 9),
+        { sec: 'Scritta', id: 'posNome', label: 'Posizione', type: 'select', def: 'sotto', options: [['sotto', 'Targhetta sotto'], ['sopra', 'Targhetta sopra'], ['centro', 'Sul disegno']], show: p => isArtId(p.forma),
+          help: 'Con la targhetta il nome sta su una striscia attaccata al disegno; sul disegno copre una parte dei colori.' },
         { sec: 'Scritta', id: 'stile', label: 'Stile', type: 'select', def: 'rilievo', options: [['rilievo', 'In rilievo'], ['filo', 'A filo'], ['inciso', 'Incisa'], ['traforata', 'Traforata']],
           help: 'In rilievo va bene anche con una stampante a un colore. A filo la superficie resta piana (serve una multicolore). Traforata: le lettere sono buchi, con ponticelli che tengono l\'interno di o, a, e.' },
         layerP({ sec: 'Scritta', id: 'profTesto', label: 'Spessore scritta', min: 0.2, max: 8, def: 0.84, show: p => p.stile === 'filo' || p.stile === 'inciso',
@@ -237,7 +255,8 @@
         { sec: 'Appendere', id: 'appendino', label: 'Appendino', type: 'select', def: 'occhiello', options: [['occhiello', 'Occhiello'], ['foro', 'Foro'], ['nessuno', 'Nessuno']] },
         { sec: 'Appendere', id: 'supporto', label: 'Supporto da tavolo', type: 'bool', def: false, help: 'Base con fessura: la decorazione sta in piedi. Perfetto come segnaposto.' },
         { sec: 'Appendere', id: 'tolleranza', label: 'Gioco fessura', type: 'num', min: 0, max: 1, step: 0.05, def: 0.3, unit: 'mm', show: p => p.supporto },
-        ...colorsP(['Colore 1 · base', 'Colore 2 · decorazioni e bordo', 'Colore 3 · scritta']),
+        ...colorsP(['Colore 1 · pezzo', 'Colore 2', 'Colore 3', 'Colore 4'], 'forma'),
+        { sec: 'Colori', id: 'colTesto', label: 'Colore della scritta', type: 'select', def: 'auto', options: [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4']], help: 'Auto: il colore che si legge meglio sul pezzo. Il bordo usa il colore 2.' },
       ],
     },
     palla: {
@@ -248,9 +267,14 @@
         { sec: 'Forma', id: 'cappuccio', label: 'Cappuccio a colori', type: 'bool', def: true, help: 'Il cappuccio in alto, con le scanalature, nel colore 2.' },
         { sec: 'Forma', id: 'bordo', label: 'Bordo', type: 'bool', def: true },
         { sec: 'Forma', id: 'bordoL', label: 'Larghezza bordo', type: 'num', min: 0.8, max: 5, step: 0.2, def: 1.6, unit: 'mm', show: p => p.bordo },
-        layerP({ sec: 'Forma', id: 'rilievo', label: 'Rilievo disegni', min: 0.2, max: 3, def: 0.8, help: 'A filo è quanto entrano i disegni nel pezzo.' }),
+        { sec: 'Forma', id: 'stileDec', label: 'Stile disegni', type: 'select', def: 'uguale', options: [['uguale', 'Come la scritta'], ['rilievo', 'In rilievo'], ['filo', 'A filo'], ['inciso', 'Incisi'], ['traforata', 'Traforati']],
+          help: 'Incisi: scavati nella superficie. Traforati: buchi passanti, con una cornice lungo il bordo e ponticelli dove servono. Cappuccio e bordo restano in rilievo (o a filo).' },
+        layerP({ sec: 'Forma', id: 'rilievo', label: 'Spessore disegni', min: 0.2, max: 8, def: 0.8,
+          help: 'In rilievo: quanto sporgono. A filo e incisi: quanto entrano nel pezzo (a filo, se è pari allo spessore, passano da parte a parte).' }),
         { sec: 'Disegno', id: 'disegno', label: 'Disegno', type: 'select', menu: true, def: 'fiocchi', options: PALLA_OPTS },
-        { sec: 'Disegno', id: 'motivo', label: 'Personaggio', type: 'select', menu: true, def: 'pupazzo', options: SHAPE_OPTS.filter(o => !['nome', 'medaglione', 'targhetta'].includes(o[0])), show: p => p.disegno === 'motivo' },
+        { sec: 'Disegno', id: 'motivo', label: 'Quale disegno', type: 'select', menu: true, def: 'snowman', options: SHAPE_OPTS.filter(o => isArtId(o[0])), show: p => p.disegno === 'motivo' },
+        { sec: 'Disegno', id: 'svg', label: 'File SVG', type: 'svg', show: p => p.disegno === 'motivo' && p.motivo === 'svg', palKey: 'motivo',
+          help: 'Un disegno vettoriale (.svg) a colori pieni. I colori vengono portati sui tuoi filamenti.' },
         { sec: 'Disegno', id: 'quantita', label: 'Quantità', type: 'int', min: 3, max: 40, def: 14, show: p => !['spicchi', 'onde', 'zigzag', 'nordico', 'ghirlanda', 'nessuno'].includes(p.disegno), help: 'Quanti fiocchi, stelle o cuori.' },
         { sec: 'Disegno', id: 'variante', label: 'Variante', type: 'int', min: 1, max: 999, def: 7, show: p => p.disegno !== 'nessuno', help: 'Ogni numero sparge i disegni in modo diverso.' },
         { sec: 'Disegno', id: 'fascia', label: 'Fascia dietro il nome', type: 'bool', def: false, help: 'Una striscia nel colore 2 attraversa la palla e il nome ci sta sopra.' },
@@ -262,7 +286,8 @@
         { sec: 'Appendere', id: 'appendino', label: 'Appendino', type: 'select', def: 'occhiello', options: [['occhiello', 'Occhiello'], ['foro', 'Foro'], ['nessuno', 'Nessuno']] },
         { sec: 'Appendere', id: 'supporto', label: 'Supporto da tavolo', type: 'bool', def: false, help: 'Base con fessura: la palla sta in piedi, come segnaposto.' },
         { sec: 'Appendere', id: 'tolleranza', label: 'Gioco fessura', type: 'num', min: 0, max: 1, step: 0.05, def: 0.3, unit: 'mm', show: p => p.supporto },
-        ...colorsP(['Colore 1 · palla', 'Colore 2 · cappuccio, disegni, bordo', 'Colore 3 · scritta e dettagli']),
+        ...colorsP(['Colore 1 · palla', 'Colore 2 · cappuccio, disegni, bordo', 'Colore 3 · scritta e dettagli', 'Colore 4']),
+        { sec: 'Colori', id: 'colTesto', label: 'Colore della scritta', type: 'select', def: '3', options: [['2', '2'], ['3', '3'], ['4', '4']] },
       ],
     },
     albero: {
@@ -451,7 +476,11 @@
     for (const p of MODES[mode].params) {
       const stored = state.values[mode] && state.values[mode][p.id];
       v[p.id] = stored !== undefined ? stored : p.def;
+      // valori salvati che non esistono più (es. i vecchi motivi): torno al valore iniziale
+      if (p.type === 'select' && p.options && !p.options.some(o => o[0] === v[p.id])) v[p.id] = p.def;
     }
+    // "Colori del disegno" senza colori scelti: prendo quelli del disegno
+    if (v.tavolozza === 'disegno' && !(state.values[mode] && state.values[mode].col1 !== undefined)) Object.assign(v, artPal(v) || {});
     return v;
   }
 
@@ -501,6 +530,28 @@
           }));
           row.appendChild(bar);
         }
+      } else if (p.type === 'svg') {
+        // disegno SVG caricato dall'utente: resta salvato nel browser insieme agli altri valori
+        row.classList.add('sel');
+        const cur = v[p.id];
+        row.innerHTML = `<label>${p.label}</label><div class="svg-load"><label class="btn" for="${idAttr}">${cur && cur.name ? 'Cambia file…' : 'Carica SVG…'}</label><input id="${idAttr}" type="file" accept=".svg,image/svg+xml" hidden><span class="fname">${cur && cur.name ? esc(cur.name) : 'nessun file'}</span></div>`;
+        row.querySelector('input').addEventListener('change', (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+          if (file.size > 1.5e6) { setStatus('File SVG troppo grande (massimo 1,5 MB)', 'err'); return; }
+          const rd = new FileReader();
+          rd.onload = () => {
+            const text = String(rd.result || '');
+            let pal = null;
+            try { const pk = window.SPLAB_SVG.pack(window.SPLAB_SVG.parse(text)); pal = pk && pk.pal; } catch (err) { pal = null; }
+            if (!pal) { setStatus('Nel file non ho trovato forme da usare: serve un SVG con aree colorate o tratti', 'err'); return; }
+            const val = { name: file.name, text, pal };
+            const cur2 = values(state.mode), upd = cur2.tavolozza === 'disegno' ? artPal(Object.assign({}, cur2, { svg: val }), p.palKey) : null;
+            Object.assign((state.values[state.mode] ||= {}), { [p.id]: val }, upd || {});
+            save(); renderParams(); schedule(60);
+          };
+          rd.readAsText(file);
+        });
       } else if (p.type === 'select' && p.menu) {
         // elenco lungo: menu a tendina con i gruppi
         row.classList.add('sel');

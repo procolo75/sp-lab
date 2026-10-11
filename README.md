@@ -17,12 +17,12 @@ La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la 
 | Generatore | Cos'è | Parti nel file |
 |---|---|---|
 | **Pallina** | Pallina di Natale sferica, a goccia, a oliva o a cipolla, con decorazioni e scritta | 2 metà, anello, cappuccio |
-| **Palla piatta** | Palla di Natale piatta con cappuccio, 18 disegni (fiocchi, maglione nordico, bosco, personaggi…) e il nome, anche su una fascia | 1, più il supporto da tavolo |
-| **Decorazione** | Decorazione piatta da appendere in 33 motivi (o solo il nome), con scritta, bordo e decorazioni a colori | 1, più il supporto da tavolo |
+| **Palla piatta** | Palla di Natale piatta con cappuccio, sfondi (fiocchi, maglione nordico, bosco…), un disegno a colori o il tuo SVG, e il nome, anche su una fascia | 1, più il supporto da tavolo |
+| **Decorazione** | Decorazione piatta da appendere con 57 disegni Fluent Emoji a colori (fino a 4 filamenti) o con il tuo SVG, nome su targhetta, oppure solo il nome | 1, più il supporto da tavolo |
 | **Albero** | Albero a spirale, a strati o da incastrare, con stella in cima e base con scritta | 1 o 2 |
 | **Stella** | Stella 3D a punte, come puntale dell'albero o da appendere | 2 metà |
 | **Lanterna** | Lanterna traforata per lumini LED, con scritta | 1 |
-| **Formina** | Formina per biscotti con tutti i motivi (anche a forma di nome), con timbro per decorarli | 1 o 2 |
+| **Formina** | Formina per biscotti con tutti i disegni (anche a forma di nome o dal tuo SVG), con timbro per decorarli | 1 o 2 |
 | **Contenitore** | Contenitore [Gridfinity](https://gridfinity.xyz/) impilabile, con divisori, raccordo frontale e ripiano per l'etichetta | 1 |
 | **Cassettiera** | Mobiletto Gridfinity con cassetti, impilabile, maniglie a scelta e divisori nei cassetti | mobile + un pezzo per cassetto |
 | **Base** | Griglia Gridfinity su cui agganciare contenitori e cassettiere | 1 |
@@ -43,29 +43,30 @@ Tutti gli oggetti di Natale possono avere **fino a tre colori** (abbinamenti pro
   - Appendino: **cappuccio** a parte con il foro per il nastro, oppure occhiello.
 - **Palla piatta:** la classica pallina vista di fronte, piatta, con il cappuccio scanalato e l'occhiello. Scrivi il nome (una o due righe, per esempio *Famiglia* e *Rossi 2026*) e scegli il **disegno**:
   - *Sfondi:* fiocchi di neve, stelle, cuori, pois, righe a bastoncino, spicchi, onde, zig-zag, maglione nordico.
-  - *Natura:* ghirlanda sul bordo, agrifoglio.
-  - *Scene:* cielo stellato con luna, bosco innevato, paesino con casette, luna con la slitta, regali.
-  - *Personaggi:* uno qualsiasi dei motivi delle decorazioni (pupazzo, Babbo Natale, renna, gnomo…) grande sopra il nome.
+  - *Natura:* ghirlanda sul bordo.
+  - *Scene:* cielo stellato con luna, bosco innevato, paesino con casette, luna con la slitta, regali (alberi, case, slitta e regali sono sagome Fluent Emoji).
+  - *Disegno:* uno qualsiasi dei disegni Fluent Emoji (pinguino, renna, Babbo Natale…) o il tuo SVG, grande sopra il nome, a colori.
   - *Solo il nome.*
   - **Quantità** e **variante** cambiano quanti disegni ci sono e come sono sparsi. La **fascia dietro il nome** è una striscia nel colore 2 che attraversa la palla.
-  - Colori: palla (1), cappuccio, disegni e bordo (2), scritta e dettagli come neve e fiocchi (3). Scritta in rilievo, a filo, incisa o traforata.
+  - Colori, al massimo 4: palla (1), cappuccio, disegni e bordo (2), scritta e dettagli come neve e fiocchi (3), più un quarto colore. I colori del disegno vanno sul filamento più simile: quelli uguali alla palla restano del colore della palla. Scritta in rilievo, a filo, incisa o traforata; i **disegni** hanno uno stile a parte (come la scritta, in rilievo, a filo, incisi o traforati) e uno spessore regolabile.
 
   ![Palle piatte con disegni diversi](docs/img/palle.png)
-- **Decorazione piatta:** scegli il **motivo** dal menu e scrivi il testo. 33 motivi, divisi per gruppo:
-  - *Con il nome:* solo il nome (la decorazione è la scritta stessa, con il contorno che unisce le lettere), medaglione, targhetta.
-  - *Classici:* stella, albero, fiocco di neve (ogni *variante* è un fiocco diverso), pallina, campana, campanelle, stella cometa, cuore, luna, candela.
-  - *Natura:* ghirlanda, agrifoglio, stella di Natale.
-  - *Personaggi:* Babbo Natale, cappello di Babbo Natale, gnomo, omino di pan di zenzero, pupazzo di neve, angelo, renna, pinguino.
-  - *Oggetti:* calza, muffola, maglione, regalo, fiocco, bastoncino di zucchero, casetta, slitta, palla di neve.
-  - Decorazioni a colori (glassa dell'omino, barba dello gnomo, palline sull'albero…) e bordo.
+- **Decorazione piatta:** scegli il **motivo** dal menu e scrivi il nome.
+  - *Disegni* **Fluent Emoji** di Microsoft (licenza MIT), 57 soggetti: *Natale* (albero, Babbo Natale, Mamma Natale, renna, pupazzo di neve, elfo, angelo, campana, regalo, candela, stelle, slitta, fiocco, biscotto, caramelle, orsetto, matrioske, chiesa, case, cioccolata, luna), *Inverno* (fiocco di neve, nuvola, montagna, abete, guanti, sciarpa, cappotto, calze, sciatore, pattino), *Animali* (pinguino, orso polare, orso, volpe, gufo, gatto, cane, coniglio, riccio, uccellino, colomba) e *Feste* (cuori, quadrifoglio, corona, festa, coriandoli, palloncino, fuochi d'artificio).
+  - *Il tuo disegno:* carica un file **SVG** (forme piene, tratti, gradienti, trasformazioni); funziona come i disegni della libreria e resta salvato nel browser.
+  - *Con il nome:* solo il nome (la decorazione è la scritta stessa, con il contorno che unisce le lettere), medaglione, targhetta. *Forme:* stella a punte, cuore.
+  - **Colori, al massimo 4 filamenti:** il colore 1 è il pezzo, poi 2, 3 e 4. Ogni colore del disegno va sul filamento più simile; quelli uguali al colore 1 restano del colore del pezzo. *Colori del disegno* riduce i colori originali a 4 (il più esteso diventa il pezzo). La scritta va sul colore scelto, o in automatico su quello che si legge meglio.
+  - **Contorno:** margine attorno alla sagoma che tiene unite le parti vicine; le parti piccole staccate vengono tolte, quelle grandi unite con un ponticello. I dettagli più stretti dell'ugello vengono tolti (il riquadro misure dice quanti).
+  - **Nome** su una targhetta sotto o sopra il disegno, oppure sul disegno.
+  - **Stile del disegno**, indipendente dalla scritta: *come la scritta*, in rilievo, a filo, inciso o traforato. Inciso e traforato usano la versione a linea dello stesso disegno (Fluent *High Contrast*), che viene molto più pulita; con lo **spessore** regolabile (in rilievo quanto sporgono, a filo e incise quanto entrano; a filo, se è pari allo spessore del pezzo, passano da parte a parte). Traforate: lungo il contorno resta una cornice di 1,2 mm e dei ponticelli tengono le parti che cadrebbero (il riquadro misure dice quanti). Il bordo resta in rilievo o a filo.
   - Scritta **in rilievo**, **a filo** (la superficie resta piana; lo *spessore della scritta* è regolabile in multipli di 0,2 o di 0,28 mm, cioè allineato agli strati anche con il primo strato a 0,28, e se è pari allo spessore del pezzo la scritta lo attraversa e si vede dai due lati), **incisa** o **traforata** (con i ponticelli che tengono l'interno di o, a, e). Occhiello, foro o nessun appendino.
 
-  ![I motivi delle decorazioni piatte](docs/img/motivi.png)
+  ![Decorazioni con i disegni Fluent Emoji e il nome](docs/img/motivi.png)
   - **Supporto da tavolo** con fessura: diventa un segnaposto.
 - **Albero:** a spirale (si può stampare anche in modalità vaso), a strati sfalsati (anche a colori alterni) o da incastrare (due sagome piatte a croce). Stella 3D in cima e base con scritta.
 - **Stella 3D:** numero e forma delle punte regolabili. Come **puntale**, con un tubo che si stringe verso l'alto e si adatta alla cima dell'albero, oppure da appendere. Si stampa in due metà piatte.
-- **Lanterna** tonda o esagonale, traforata con stelle, fiocchi, alberi o cuori, con la sede per un lumino LED da 38 mm e una scritta sulla fascia in basso, in rilievo o traforata (la luce passa dalle lettere).
-- **Formina per biscotti** con tutti i motivi, anche a forma di nome, con lama sottile e bordo per premere. Il **timbro** entra nella formina e stampa disegni e scritta sul biscotto (è già a specchio).
+- **Lanterna** tonda o esagonale, traforata con stelle, fiocchi, alberi o cuori (sagome Fluent Emoji), con la sede per un lumino LED da 38 mm e una scritta sulla fascia in basso, in rilievo o traforata (la luce passa dalle lettere).
+- **Formina per biscotti** con tutti i disegni, anche a forma di nome o dal tuo SVG, con lama sottile e bordo per premere. Il **timbro** entra nella formina e stampa le linee del disegno e la scritta sul biscotto (è già a specchio).
 
 #### Loghi nelle scritte
 In ogni scritta puoi mettere il **logo SP** e il **viso**, da soli o insieme al testo: sotto ogni campo di testo ci sono i pulsanti *Logo SP* e *Viso*, che inseriscono `{SP}` e `{viso}` dove c'è il cursore (per esempio `{SP} Lab` o `{viso} Giulia`).
@@ -74,7 +75,8 @@ In ogni scritta puoi mettere il **logo SP** e il **viso**, da soli o insieme al 
 
 #### Colori nel file 3MF
 - Ogni colore è una **parte separata dello stesso oggetto**: nello slicer (Bambu Studio, OrcaSlicer, PrusaSlicer) assegni un filamento a ciascuna parte. I colori scelti sono anche scritti nel file.
-- **Stampante a un colore:** per le decorazioni piatte in rilievo il riquadro misure dice a che altezza cambiare filamento. La scritta è più alta delle decorazioni, così anche il terzo colore si fa con un cambio.
+- **Stampante a un colore:** per le decorazioni piatte in rilievo il riquadro misure dice a che altezza cambiare filamento, quando i colori sono ad altezze diverse (per esempio un colore per il disegno e uno, più alto, per la scritta). Più colori alla stessa altezza richiedono una stampante multicolore: il riquadro lo segnala.
+- **Al massimo 4 filamenti** per pezzo, compreso quello del pezzo.
 - Lo **STL** ha un solo colore: per i colori usa il 3MF.
 
 ### Contenitore
@@ -222,11 +224,14 @@ Ogni stampante è diversa. Il parametro **Tolleranza stampante** (0,3 mm all'ini
 │   ├── natale.js   generatori di Natale: forme, scritte, colori
 │   ├── supporti.js reggimensole e ganci
 │   ├── fonts.js    contorni dei caratteri (generato)
-│   └── logos.js    contorni dei loghi per le scritte (generato da assets/)
+│   ├── logos.js    contorni dei loghi per le scritte (generato da assets/)
+│   ├── svg.js      lettore SVG (disegni caricati e libreria)
+│   └── emoji.js    disegni Fluent Emoji (generato)
 ├── assets/         loghi: SVG per la pagina (li incorpora build.py) e STL originali
 ├── tools/
 │   ├── make-fonts.mjs  rigenera src/fonts.js dai caratteri
-│   └── make-logos.mjs  rigenera src/logos.js dagli STL dei loghi
+│   ├── make-logos.mjs  rigenera src/logos.js dagli STL dei loghi
+│   └── make-emoji.mjs  rigenera src/emoji.js dai Fluent Emoji
 └── docs/img/       immagini per questo README
 ```
 
@@ -239,7 +244,7 @@ python3 build.py
 
 Lo script incorpora three.js, Manifold (compreso il file WebAssembly), i caratteri e i sorgenti in un solo HTML da circa 1,8 MB, che funziona offline.
 
-Per cambiare i caratteri delle scritte modifica l'elenco in `tools/make-fonts.mjs` e lancia `npm run fonts`. Per cambiare i loghi sostituisci gli STL e gli SVG in `assets/` e lancia `node tools/make-logos.mjs`.
+Per cambiare i caratteri delle scritte modifica l'elenco in `tools/make-fonts.mjs` e lancia `npm run fonts`. Per cambiare i loghi sostituisci gli STL e gli SVG in `assets/` e lancia `npm run logos`. Per aggiungere o togliere disegni dalla libreria modifica l'elenco in `tools/make-emoji.mjs` e lancia `npm run emoji`.
 
 ### Come funziona
 - **Geometria:** [Manifold](https://github.com/elalish/manifold) (WebAssembly) costruisce solidi con operazioni booleane. I modelli escono sempre chiusi e senza errori.
@@ -273,6 +278,7 @@ Per cambiare i caratteri delle scritte modifica l'elenco in `tools/make-fonts.mj
 - Caratteri **IBM Plex**, licenza SIL Open Font License (caricati da Google Fonts quando c'è connessione).
 - Caratteri delle scritte **Fredoka**, **Pacifico** e **Mountains of Christmas**, licenza SIL Open Font License, incorporati nella pagina.
 
+- Disegni **[Fluent Emoji](https://github.com/microsoft/fluentui-emoji)** © Microsoft Corporation, licenza MIT (testo completo in [LICENSE-fluent-emoji.txt](LICENSE-fluent-emoji.txt), riportato anche dentro la pagina).
 - Loghi **SP** e ritratto © Procolo Carannante.
 
 ## Licenza

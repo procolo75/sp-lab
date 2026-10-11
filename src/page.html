@@ -47,6 +47,7 @@ header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding
 .sig { display: flex; align-items: center; justify-content: center; gap: 12px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
 .sig .face { width: 30px; height: 44px; color: var(--ink); opacity: .85; flex: none; }
 .sig b { color: var(--ink); font-weight: 600; }
+.sig a { color: inherit; }
 .brand h1 { margin: 0; font: 700 22px/1 var(--f-head); letter-spacing: .01em; }
 .brand .tagline { font: italic 400 13px/1.2 var(--f-ui); color: var(--muted); }
 .crumbs { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-right: auto; padding-left: 14px; border-left: 1px solid var(--line); min-width: 0; }
@@ -56,6 +57,8 @@ header .hright { margin-left: auto; display: flex; align-items: center; gap: 14p
 header .face-top { width: 27px; height: 40px; color: var(--ink); opacity: .9; flex: none; }
 header .face-top svg { display: block; width: 100%; height: 100%; }
 /* pulsanti per inserire i loghi nelle scritte */
+.svg-load { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.svg-load .fname { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .logo-ins { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--muted); }
 .logo-ins .chip { font: 500 12px var(--f-ui); padding: 3px 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--field); color: var(--ink); cursor: pointer; }
 .logo-ins .chip:hover { border-color: var(--accent); color: var(--accent); }
@@ -183,7 +186,7 @@ dl#info dd { margin: 0; font: 500 12px var(--f-num); font-variant-numeric: tabul
     <div class="home-in">
       <p class="lead">Scegli cosa stampare, regola le misure e scarica il file <b>3MF</b> pronto per lo slicer.</p>
       <div id="cats"></div>
-      <footer class="sig"><span>Funziona offline, nel browser</span></footer>
+      <footer class="sig"><span>Funziona offline, nel browser · disegni <a href="https://github.com/microsoft/fluentui-emoji" target="_blank" rel="noopener">Fluent Emoji</a> © Microsoft, licenza MIT</span></footer>
     </div>
   </section>
   <main id="genView" hidden>

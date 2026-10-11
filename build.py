@@ -15,6 +15,8 @@ parts = [
   'window.__MANIFOLD_WASM__="%s";' % wasm,
   rd('src/fonts.js'),
   rd('src/logos.js'),
+  rd('src/svg.js'),
+  rd('src/emoji.js'),
   rd('src/geom.js'),
   rd('src/natale.js'),
   rd('src/supporti.js'),
