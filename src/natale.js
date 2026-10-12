@@ -3,7 +3,8 @@
 // Colori: ogni parte ha `color` e `group`; le parti dello stesso gruppo diventano un unico oggetto multicolore nel 3MF.
 (function (root) {
   (root.SPRECOLO_EXT = root.SPRECOLO_EXT || []).push(function natale(H) {
-    const { Manifold, CrossSection, reg, union, sub, box, cylZ, coneZ, cylY, hullPts, fmt, knurled } = H;
+    const { Manifold, Mesh, CrossSection, reg, union, sub, box, cylZ, coneZ, cylY, hullPts, fmt, knurled } = H;
+    const smoothW = (v) => { v = Math.min(1, Math.max(0, v)); return v * v * (3 - 2 * v); };
     const FONTS = root.SPRECOLO_FONTS || {};
 
     // ---------- strumenti 2D ----------
@@ -930,6 +931,210 @@
       return sl.isEmpty() ? 0 : sl.bounds().max[0];
     }
 
+    // ============ PALLINA A SPIRALE (intera, senza supporti) ============
+    // Una sfera vuota stampata intera vorrebbe i supporti sotto (fuori) e in cima (dentro, il soffitto).
+    // Qui sopra e sotto la superficie è fatta di spicchi pieghettati: ogni faccia della piega resta entro 45°
+    // dalla verticale, quindi si regge da sola. In mezzo c'è la fascia liscia per scritte e simboli traforati.
+    // Le pieghe possono essere dritte, a spirale o a V. La profondità delle valli si calcola partendo dal polo:
+    //  - la faccia tra cresta e valle non deve sporgere oltre 45° (la cresta segue la sfera e ruota con la spirale);
+    //  - la valle non può allargarsi troppo in fretta salendo (anche lei sporgerebbe).
+    // La superficie interna ha le facce parallele a quelle esterne (spessore misurato perpendicolare alla faccia).
+    const SPIR_SYMBOLS = { stella: 'Stella', cuore: 'Cuore', fiocco: 'Fiocco di neve', albero: 'Albero', campana: 'Campana', luna: 'Luna',
+      pupazzo: 'Pupazzo di neve', regalo: 'Regalo', cometa: 'Stella cometa', candela: 'Candela', renna: 'Renna' };
+    const SPIR_EMO = { fiocco: 'snowflake', albero: 'christmas-tree', campana: 'bell', luna: 'crescent-moon', pupazzo: 'snowman', regalo: 'wrapped-gift',
+      cometa: 'shooting-star', candela: 'candle', renna: 'deer' };
+    function symbolCS(id, S) {
+      if (id === 'stella') return fillHoles(SHAPES.stella(S, { punte: 5 }).base);
+      if (id === 'cuore') return SHAPES.cuore(S).base;
+      const e = EMO_BY[SPIR_EMO[id]];
+      return e ? fillHoles(artGeom(e, S, S * 1.2).sil) : null;
+    }
+    function spirale(p) {
+      const Dm = p.diametro, R = Dm / 2, t = p.spessore, N = Math.max(8, Math.round(p.spicchi / 2) * 2), al = Math.PI / N;
+      const cA = Math.cos(al), sA = Math.sin(al), TB = Math.tan(Math.PI / 4) / 1.2;   // 45° con margine (verificato con OrcaSlicer)
+      const trama = p.trama, TG = trama === 'dritta' ? 0 : Math.tan(Math.max(0, Math.min(25, p.inclinazione)) * Math.PI / 180);
+      const dir = p.verso === 'sinistra' ? -1 : 1, fascia = p.fascia;
+      const notes = [], info = [], big = Dm * 2;
+      // piedino piatto (Ø 0,6 del diametro) e foro per il LED dentro il piedino
+      let rLed = p.foroLed && p.foroLed !== 'nessuno' ? p.diamLed / 2 : 0;
+      const rFoot = Math.max({ piccolo: 0.15, medio: 0.225, grande: 0.3 }[p.piedino] * Dm || 0.15 * Dm, rLed + 4);
+      if (rLed > rFoot - 3) { rLed = rFoot - 3; notes.push(`Foro per il LED ridotto a Ø ${fmt(2 * rLed)} mm`); }
+      const zF = -Math.sqrt(R * R - rFoot * rFoot), zT = R, rh = Math.max(2.2, Dm * 0.05);
+      // ---- profondità delle valli (x = raggio valle / raggio cresta), dal polo verso l'equatore ----
+      const DS = 0.02;
+      const f1 = (x, ap) => (ap * x * sA + TG * Math.abs(1 - x * cA)) / Math.sqrt(1 + x * x - 2 * x * cA);
+      function march(cap) {
+        const X = []; let b = 0;
+        for (let i = Math.round(R / DS); i >= 0; i--) {
+          const s = i * DS, a = Math.sqrt(Math.max(0, R * R - s * s)), ap = a > 1e-6 ? s / a : 1e6;
+          let xr = 0; for (let x = 1; x >= 0; x -= 0.0025) { if (f1(x, ap) <= TB) { xr = x; break; } }
+          const s1 = s + DS, aP = Math.sqrt(Math.max(0, R * R - s1 * s1));
+          let rate;
+          if (aP > 1e-6) { const e = Math.sqrt(aP * aP + b * b - 2 * aP * b * cA); rate = Math.max(0, (TB * e - TG * (b / aP) * Math.abs(aP * cA - b)) / (aP * sA)); }
+          else rate = TB / sA;
+          b = Math.min(xr * a, b + DS * rate, a * cap);
+          X[i] = a > 1e-6 ? b / a : 0;
+        }
+        return X;
+      }
+      const Xc = march(1);
+      // spicchi che continuano nella fascia: stessa profondità che hanno a 45° di latitudine, costante fino all'equatore
+      const iRef = Math.round(R * Math.SQRT1_2 / DS), Xd = fascia === 'continua' ? null : Xc.map((x, i) => (i < iRef ? Math.min(x, Xc[iRef]) : x));
+      const xOf = (X, z) => X[Math.min(X.length - 1, Math.round(Math.abs(z) / DS))];
+      let zB = 0; for (let i = 0; i < Xc.length; i++) { if (Xc[i] < 0.999) { zB = i * DS; break; } }
+      if (fascia !== 'nessuna' && zB < 3) notes.push('Fascia molto stretta: riduci l\'inclinazione della spirale o aumenta il diametro');
+      // ---- rotazione della spirale ----
+      const PSI = []; { let q = 0; for (let i = 0; i <= Math.round(R / DS); i++) { const z = i * DS, a = Math.sqrt(Math.max(1e-6, R * R - z * z)); PSI.push(q); const pleated = fascia === 'continua' ? Xc[i] < 0.999 : true; if (pleated) q += TG * DS / Math.max(a, 1.5); } }
+      const psi = (z) => { const v = PSI[Math.min(PSI.length - 1, Math.round(Math.abs(z) / DS))]; return trama === 'v' ? v : dir * (z < 0 ? -v : v); };
+      // ---- scritte e simboli: un lato ciascuno (davanti, destra, dietro, sinistra) ----
+      const SIDES = [['Davanti', 0], ['Destra', 90], ['Dietro', 180], ['Sinistra', 270]];
+      const hBox = Math.max(3, 2 * zB - 3), holes = [], wins = [];
+      if (fascia !== 'nessuna') {
+        SIDES.forEach(([nm, ang], k) => {
+          const i = k + 1, kind = p['lato' + i];
+          let cs = null, desc = '';
+          if (kind === 'scritta') {
+            const str = String(p['testo' + i] || '').trim(); if (!str) return;
+            const tf = fitText(Object.assign({}, p, { scritta: str, scritta2: '' }), { x: 0, y: 0, w: 1.2 * R * 0.95, h: hBox }, p.altTesto);
+            if (!tf) return;
+            cs = stencil(tf.cs, tf.cap); desc = `"${str}", lettere ${fmt(tf.cap)} mm`;
+            if (tf.reduced) notes.push(`${nm}: scritta ridotta a ${fmt(tf.cap)} mm per stare nella fascia`);
+          } else if (kind === 'simbolo') {
+            const S = Math.min(p.altSimbolo, hBox);
+            let c0 = symbolCS(p['simbolo' + i], S); if (!c0) return;
+            const b0 = bounds(c0), f = Math.min(1, 1.2 * R * 0.95 / b0.w, hBox / b0.h);
+            if (f < 1) c0 = R2(c0.scale([f, f]));
+            const b1 = bounds(c0); cs = MV(c0, -(b1.x0 + b1.x1) / 2, -(b1.y0 + b1.y1) / 2);
+            desc = `${SPIR_SYMBOLS[p['simbolo' + i]] || ''}, alto ${fmt(bounds(cs).h)} mm`;
+            if (S < p.altSimbolo - 0.05 || f < 0.97) notes.push(`${nm}: simbolo ridotto per stare nella fascia`);
+          } else return;
+          if (empty(cs)) return;
+          const bb = bounds(cs), half = Math.asin(Math.min(1, (Math.max(-bb.x0, bb.x1) + 2) / R));
+          holes.push(reg(reg(prismY(cs, 0, -big)).rotate([0, 0, ang])));
+          wins.push({ c: (ang - 90) * Math.PI / 180, half });
+          info.push([nm, desc]);
+        });
+      }
+      // ---- profondità della valle in base a quota e angolo (cartigli: liscio solo attorno a scritte e simboli) ----
+      const FADE = 1.5 * 2 * al;
+      const wAt = (th) => { let w = 0; for (const q of wins) { let d = Math.abs(((th - q.c) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI); const v = d <= q.half ? 1 : d >= q.half + FADE ? 0 : smoothW(1 - (d - q.half) / FADE); w = Math.max(w, v); } return w; };
+      const xAt = (z, th) => fascia === 'continua' ? xOf(Xc, z) : fascia === 'nessuna' ? xOf(Xd, z) : (() => { const d = xOf(Xd, z), c = xOf(Xc, z), w = wAt(th); return d + (c - d) * w; })();
+      // ---- anelli di vertici ----
+      const SUB = Math.max(3, Math.min(8, Math.round(320 / (2 * N))));
+      const u = (th) => [Math.cos(th), Math.sin(th)];
+      function lineOf(P, Q, ridge, thr, ap, vt, inner) {
+        const ex = Q[0] - P[0], ey = Q[1] - P[1], L = Math.hypot(ex, ey) || 1e-9;
+        let nx = ey / L, ny = -ex / L; if (nx * (P[0] + Q[0]) + ny * (P[1] + Q[1]) < 0) { nx = -nx; ny = -ny; }
+        let hh = 0;
+        if (inner) {
+          const ur = u(thr), vx = ap * ur[0] - vt * ur[1], vy = ap * ur[1] + vt * ur[0];   // velocità della cresta salendo (vz = 1)
+          const nzv = ex * vy - ey * vx, nl = Math.hypot(ey, ex, nzv);
+          hh = t / Math.sqrt(Math.max(0.05, 1 - (nzv / nl) ** 2));
+        }
+        return { nx, ny, c: nx * P[0] + ny * P[1] - hh };
+      }
+      const meet = (l1, l2) => { const det = l1.nx * l2.ny - l1.ny * l2.nx; return Math.abs(det) < 1e-9 ? null : [(l1.c * l2.ny - l1.ny * l2.c) / det, (l1.nx * l2.c - l1.c * l2.nx) / det]; };
+      function ring(z, inner) {
+        const a = Math.sqrt(Math.max(0, R * R - z * z)), ap = -z / a, ps = psi(z), vt = a * (psi(z + 0.05) - psi(z - 0.05)) / 0.1;
+        const ri = inner ? Math.sqrt(Math.max(0, (R - t) ** 2 - z * z)) : a;
+        const th = [], xs = [], Rk = [], Vk = [];
+        for (let k = 0; k < N; k++) { th.push(ps + 2 * k * al); const x = xAt(z, ps + (2 * k + 1) * al); xs.push(x); const ur = u(th[k]), uv = u(th[k] + al); Rk.push([a * ur[0], a * ur[1]]); Vk.push([x * a * uv[0], x * a * uv[1]]); }
+        let R2k = Rk, V2k = Vk, rMin = Infinity;
+        if (inner) {
+          const LA = [], LB = [];
+          for (let k = 0; k < N; k++) { const k1 = (k + 1) % N; LA.push(lineOf(Rk[k], Vk[k], 0, th[k], ap, vt, true)); LB.push(lineOf(Vk[k], Rk[k1], 1, th[k1], ap, vt, true)); }
+          R2k = []; V2k = [];
+          for (let k = 0; k < N; k++) {
+            const kp = (k + N - 1) % N; let r = meet(LB[kp], LA[k]), v = meet(LA[k], LB[k]);
+            const ur = u(th[k]), uv = u(th[k] + al);
+            if (!r || r[0] * ur[0] + r[1] * ur[1] <= 0) r = [0.3 * ur[0], 0.3 * ur[1]];
+            if (!v || v[0] * uv[0] + v[1] * uv[1] < 0.3) v = [0.3 * uv[0], 0.3 * uv[1]];
+            R2k.push(r); V2k.push(v); rMin = Math.min(rMin, Math.hypot(...r));
+          }
+        }
+        const pts = [];
+        for (let k = 0; k < N; k++) {
+          const k1 = (k + 1) % N, w = smoothW((xs[k] - 0.995) / 0.005);
+          const segs = [[R2k[k], V2k[k], th[k]], [V2k[k], R2k[k1], th[k] + al]];
+          for (const [A, B, th0] of segs) for (let s = 0; s < SUB; s++) {
+            const f = s / SUB, ang = th0 + f * al;
+            let px = A[0] + (B[0] - A[0]) * f, py = A[1] + (B[1] - A[1]) * f;
+            if (w > 0) { px = px * (1 - w) + ri * Math.cos(ang) * w; py = py * (1 - w) + ri * Math.sin(ang) * w; }
+            pts.push(px, py, z);
+          }
+        }
+        return { pts, rMin };
+      }
+      function loft(rows, zBot, zTop) {
+        const n = rows[0].length / 3, P = [], T = [];
+        for (const r of rows) for (const v of r) P.push(v);
+        const cb = P.length / 3; P.push(0, 0, zBot); const ct = cb + 1; P.push(0, 0, zTop);
+        for (let j = 0; j < rows.length - 1; j++) for (let i = 0; i < n; i++) { const a0 = j * n + i, b0 = j * n + (i + 1) % n, c0 = (j + 1) * n + (i + 1) % n, d0 = (j + 1) * n + i; T.push(a0, b0, c0, a0, c0, d0); }
+        const l = (rows.length - 1) * n;
+        for (let i = 0; i < n; i++) { T.push(cb, (i + 1) % n, i); T.push(ct, l + i, l + (i + 1) % n); }
+        return reg(new Manifold(new Mesh({ numProp: 3, vertProperties: new Float32Array(P), triVerts: new Uint32Array(T) })));
+      }
+      const DZ = Math.max(0.2, Dm / 350);
+      const oRows = []; for (let z = zF; z < zT - 0.3; z += DZ) oRows.push(ring(z, false).pts);
+      const outer = loft(oRows, zF, zT);
+      const iRows = []; let zTopI = zF + t;
+      for (let z = zF + t; z < R - t; z += DZ) { const r = ring(z, true); if (r.rMin < rh - 0.6) { zTopI = z; break; } iRows.push(r.pts); zTopI = z + DZ; }
+      const inner = loft(iRows, zF + t, zTopI);
+      let body = sub(outer, inner);
+      body = sub(body, cylZ(rh, Math.min(R - t * 3 - 2, zTopI - 1), R + 1, 0, 0, 40));   // foro del perno del cappuccio (e delle lucine)
+      if (rLed > 0) body = sub(body, cylZ(rLed, zF - 1, zF + t + 1, 0, 0, 64));
+      if (holes.length) body = sub(body, reg(union(holes).intersect(box(-big, -big, -zB + 0.3, big, big, zB - 0.3))));
+      // ---- cappuccio: sotto segue le pieghe; fessura per il filo delle lucine ----
+      let cap = sub(knurled(2 * (rh + 2.6), zT - 4, zT + 5), outer);
+      cap = sub(cap, reg(reg(Manifold.cylinder(4 * rh + 20, 1.3, 1.3, 20, true)).rotate([0, 90, 0]).translate([0, 0, zT + 2.6])));
+      cap = union([cap, cylZ(rh - p.tolleranza / 2, zT - t - 3, zT + 1, 0, 0, 32)]);
+      if (p.filoLuci) cap = sub(cap, box(-p.fessura / 2, 0, zT - t - 4, p.fessura / 2, big, zT + 7));
+      // ---- fasce colorate: tagli orizzontali a strati interi (0,2 mm dal piatto) ----
+      // con un multicolore sono parti dello stesso oggetto; con un solo ugello basta cambiare filamento a quelle altezze
+      const LH = 0.2, snap = (z) => zF + Math.round((z - zF) / LH) * LH, segs = [];
+      if (p.coloreFascia && fascia !== 'nessuna' && zB > 1) segs.push([snap(-zB), snap(zB), 3]);
+      const nr = Math.max(0, Math.min(6, p.righe | 0));
+      if (nr > 0) {
+        const w = Math.max(2 * LH, Math.round(p.altRighe / LH) * LH), z0 = (fascia === 'nessuna' ? 0 : zB) + 1.5;
+        const spans = [[z0, zT - 6], [z0, -zF - 2]];        // sopra (fino al cappuccio) e sotto (fino al piedino)
+        spans.forEach(([lo, hi], side) => {
+          if (hi - lo < w * 1.5) return;
+          for (let i = 0; i < nr; i++) {
+            const zc = lo + (hi - lo) * (i + 0.5) / nr;
+            const c = side ? -zc : zc; segs.push([snap(c - w / 2), snap(c + w / 2), 4]);
+          }
+        });
+      }
+      const parts = [];
+      if (segs.length) {
+        const slab = (q) => box(-big, -big, q[0], big, big, q[1]);
+        const byCol = { 3: segs.filter(q => q[2] === 3), 4: segs.filter(q => q[2] === 4) };
+        const all = union(segs.map(slab));
+        parts.push(part('Pallina · colore 1', sub(body, all), p.col1, 'Pallina'));
+        if (byCol[3].length) parts.push(part('Pallina · fascia', reg(body.intersect(union(byCol[3].map(slab)))), p.col3, 'Pallina'));
+        if (byCol[4].length) parts.push(part('Pallina · righe', reg(body.intersect(union(byCol[4].map(slab)))), p.col4, 'Pallina'));
+        // cambi di filamento dal basso, in mm dal piatto
+        const ev = []; for (const q of segs) { ev.push([q[0], q[2]]); ev.push([q[1], 1]); }
+        ev.sort((a, b) => a[0] - b[0]);
+        info.push(['Cambi colore', ev.map(([z, c]) => `${fmt(z - zF)} mm → ${c === 1 ? 'colore 1' : c === 3 ? 'colore 3' : 'colore 4'}`).join(' · ')]);
+      } else parts.push(part('Pallina a spirale', body, p.col1, 'Pallina'));
+      parts.push(part('Cappuccio', cap, p.col2, 'Cappuccio', { print: reg(cap.rotate([180, 0, 0])) }));
+      if (rLed > 0 && p.foroLed === 'tappo') {
+        const lid = union([cylZ(rFoot - 0.5, zF - 1.2, zF, 0, 0, 96), cylZ(rLed - p.tolleranza / 2, zF, zF + t + 1.5, 0, 0, 64)]);
+        parts.push(part('Tappo del LED', lid, p.col1, 'Tappo', { at: [R + rFoot + 8, 0, 1.2] }));
+      }
+      const tramaN = trama === 'dritta' ? 'dritti' : trama === 'v' ? `a V, ${p.inclinazione}°` : `a spirale, ${p.inclinazione}°`;
+      info.unshift(['Misure', `Ø ${fmt(Dm)} × ${fmt(zT - zF)} mm, guscio ${fmt(t)} mm`], ['Spicchi', `${N} ${tramaN}`],
+        ['Fascia', fascia === 'nessuna' ? 'nessuna: spicchi dappertutto' : `${fascia === 'continua' ? 'continua' : 'solo attorno a scritte e simboli'}, alta ${fmt(2 * zB)} mm`]);
+      info.push(['Piedino', `Ø ${fmt(2 * rFoot)} mm`]);
+      if (rLed > 0) info.push(['Foro LED', `Ø ${fmt(2 * rLed)} mm${p.foroLed === 'tappo' ? ', con tappo' : ', aperto'}`]);
+      info.push(['Foro in cima', `Ø ${fmt(2 * rh)} mm: perno del cappuccio${p.filoLuci ? ' e lucine su filo' : ''}`]);
+      info.push(['Stampa', 'intera, supporti disattivati, brim']);
+      info.push(['Pezzi', `pallina + cappuccio${parts.length > 2 ? ' + tappo' : ''}`]);
+      for (const x of notes) info.push(['Nota', x]);
+      return { parts: ok(parts), info, view: [-0.3, -1, 0.3] };
+    }
+
     // ============ ALBERO 3D ============
     function albero(p) {
       const Ht = p.altezza, R = p.diametro / 2, n = Math.max(3, Math.min(12, p.punte | 0)), parts = [], info = [], notes = [];
@@ -1092,6 +1297,6 @@
 
     // ogni generatore riporta in fondo gli avvisi sui loghi
     const withNotes = (fn) => (p) => { NOTES.clear(); const r = fn(p); for (const n of NOTES) r.info.push(['Nota', n]); NOTES.clear(); return r; };
-    return { pallina: withNotes(pallina), piatto: withNotes(piatto), palla: withNotes(palla), albero: withNotes(albero), stella, lanterna: withNotes(lanterna), formina: withNotes(formina) };
+    return { pallina: withNotes(pallina), spirale: withNotes(spirale), piatto: withNotes(piatto), palla: withNotes(palla), albero: withNotes(albero), stella, lanterna: withNotes(lanterna), formina: withNotes(formina) };
   });
 })(typeof globalThis !== 'undefined' ? globalThis : this);

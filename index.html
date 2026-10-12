@@ -2615,7 +2615,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
     }
 
     // estensioni (altri file, es. natale.js): ricevono gli strumenti del motore e restituiscono { tipo: funzione }
-    const H = { Manifold, CrossSection, reg, union, sub, box, cylZ, coneZ, cylY, hullPts, slab, rr, fmt, knurled, roundCyl,
+    const H = { Manifold, Mesh: wasm.Mesh, CrossSection, reg, union, sub, box, cylZ, coneZ, cylY, hullPts, slab, rr, fmt, knurled, roundCyl,
       csPoly, csCircle, csRect, csUnion, csSub };
     const EXT = {};
     for (const f of (root.SPRECOLO_EXT || [])) Object.assign(EXT, f(H));
@@ -2673,7 +2673,8 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
 // Colori: ogni parte ha `color` e `group`; le parti dello stesso gruppo diventano un unico oggetto multicolore nel 3MF.
 (function (root) {
   (root.SPRECOLO_EXT = root.SPRECOLO_EXT || []).push(function natale(H) {
-    const { Manifold, CrossSection, reg, union, sub, box, cylZ, coneZ, cylY, hullPts, fmt, knurled } = H;
+    const { Manifold, Mesh, CrossSection, reg, union, sub, box, cylZ, coneZ, cylY, hullPts, fmt, knurled } = H;
+    const smoothW = (v) => { v = Math.min(1, Math.max(0, v)); return v * v * (3 - 2 * v); };
     const FONTS = root.SPRECOLO_FONTS || {};
 
     // ---------- strumenti 2D ----------
@@ -3600,6 +3601,210 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       return sl.isEmpty() ? 0 : sl.bounds().max[0];
     }
 
+    // ============ PALLINA A SPIRALE (intera, senza supporti) ============
+    // Una sfera vuota stampata intera vorrebbe i supporti sotto (fuori) e in cima (dentro, il soffitto).
+    // Qui sopra e sotto la superficie è fatta di spicchi pieghettati: ogni faccia della piega resta entro 45°
+    // dalla verticale, quindi si regge da sola. In mezzo c'è la fascia liscia per scritte e simboli traforati.
+    // Le pieghe possono essere dritte, a spirale o a V. La profondità delle valli si calcola partendo dal polo:
+    //  - la faccia tra cresta e valle non deve sporgere oltre 45° (la cresta segue la sfera e ruota con la spirale);
+    //  - la valle non può allargarsi troppo in fretta salendo (anche lei sporgerebbe).
+    // La superficie interna ha le facce parallele a quelle esterne (spessore misurato perpendicolare alla faccia).
+    const SPIR_SYMBOLS = { stella: 'Stella', cuore: 'Cuore', fiocco: 'Fiocco di neve', albero: 'Albero', campana: 'Campana', luna: 'Luna',
+      pupazzo: 'Pupazzo di neve', regalo: 'Regalo', cometa: 'Stella cometa', candela: 'Candela', renna: 'Renna' };
+    const SPIR_EMO = { fiocco: 'snowflake', albero: 'christmas-tree', campana: 'bell', luna: 'crescent-moon', pupazzo: 'snowman', regalo: 'wrapped-gift',
+      cometa: 'shooting-star', candela: 'candle', renna: 'deer' };
+    function symbolCS(id, S) {
+      if (id === 'stella') return fillHoles(SHAPES.stella(S, { punte: 5 }).base);
+      if (id === 'cuore') return SHAPES.cuore(S).base;
+      const e = EMO_BY[SPIR_EMO[id]];
+      return e ? fillHoles(artGeom(e, S, S * 1.2).sil) : null;
+    }
+    function spirale(p) {
+      const Dm = p.diametro, R = Dm / 2, t = p.spessore, N = Math.max(8, Math.round(p.spicchi / 2) * 2), al = Math.PI / N;
+      const cA = Math.cos(al), sA = Math.sin(al), TB = Math.tan(Math.PI / 4) / 1.2;   // 45° con margine (verificato con OrcaSlicer)
+      const trama = p.trama, TG = trama === 'dritta' ? 0 : Math.tan(Math.max(0, Math.min(25, p.inclinazione)) * Math.PI / 180);
+      const dir = p.verso === 'sinistra' ? -1 : 1, fascia = p.fascia;
+      const notes = [], info = [], big = Dm * 2;
+      // piedino piatto (Ø 0,6 del diametro) e foro per il LED dentro il piedino
+      let rLed = p.foroLed && p.foroLed !== 'nessuno' ? p.diamLed / 2 : 0;
+      const rFoot = Math.max({ piccolo: 0.15, medio: 0.225, grande: 0.3 }[p.piedino] * Dm || 0.15 * Dm, rLed + 4);
+      if (rLed > rFoot - 3) { rLed = rFoot - 3; notes.push(`Foro per il LED ridotto a Ø ${fmt(2 * rLed)} mm`); }
+      const zF = -Math.sqrt(R * R - rFoot * rFoot), zT = R, rh = Math.max(2.2, Dm * 0.05);
+      // ---- profondità delle valli (x = raggio valle / raggio cresta), dal polo verso l'equatore ----
+      const DS = 0.02;
+      const f1 = (x, ap) => (ap * x * sA + TG * Math.abs(1 - x * cA)) / Math.sqrt(1 + x * x - 2 * x * cA);
+      function march(cap) {
+        const X = []; let b = 0;
+        for (let i = Math.round(R / DS); i >= 0; i--) {
+          const s = i * DS, a = Math.sqrt(Math.max(0, R * R - s * s)), ap = a > 1e-6 ? s / a : 1e6;
+          let xr = 0; for (let x = 1; x >= 0; x -= 0.0025) { if (f1(x, ap) <= TB) { xr = x; break; } }
+          const s1 = s + DS, aP = Math.sqrt(Math.max(0, R * R - s1 * s1));
+          let rate;
+          if (aP > 1e-6) { const e = Math.sqrt(aP * aP + b * b - 2 * aP * b * cA); rate = Math.max(0, (TB * e - TG * (b / aP) * Math.abs(aP * cA - b)) / (aP * sA)); }
+          else rate = TB / sA;
+          b = Math.min(xr * a, b + DS * rate, a * cap);
+          X[i] = a > 1e-6 ? b / a : 0;
+        }
+        return X;
+      }
+      const Xc = march(1);
+      // spicchi che continuano nella fascia: stessa profondità che hanno a 45° di latitudine, costante fino all'equatore
+      const iRef = Math.round(R * Math.SQRT1_2 / DS), Xd = fascia === 'continua' ? null : Xc.map((x, i) => (i < iRef ? Math.min(x, Xc[iRef]) : x));
+      const xOf = (X, z) => X[Math.min(X.length - 1, Math.round(Math.abs(z) / DS))];
+      let zB = 0; for (let i = 0; i < Xc.length; i++) { if (Xc[i] < 0.999) { zB = i * DS; break; } }
+      if (fascia !== 'nessuna' && zB < 3) notes.push('Fascia molto stretta: riduci l\'inclinazione della spirale o aumenta il diametro');
+      // ---- rotazione della spirale ----
+      const PSI = []; { let q = 0; for (let i = 0; i <= Math.round(R / DS); i++) { const z = i * DS, a = Math.sqrt(Math.max(1e-6, R * R - z * z)); PSI.push(q); const pleated = fascia === 'continua' ? Xc[i] < 0.999 : true; if (pleated) q += TG * DS / Math.max(a, 1.5); } }
+      const psi = (z) => { const v = PSI[Math.min(PSI.length - 1, Math.round(Math.abs(z) / DS))]; return trama === 'v' ? v : dir * (z < 0 ? -v : v); };
+      // ---- scritte e simboli: un lato ciascuno (davanti, destra, dietro, sinistra) ----
+      const SIDES = [['Davanti', 0], ['Destra', 90], ['Dietro', 180], ['Sinistra', 270]];
+      const hBox = Math.max(3, 2 * zB - 3), holes = [], wins = [];
+      if (fascia !== 'nessuna') {
+        SIDES.forEach(([nm, ang], k) => {
+          const i = k + 1, kind = p['lato' + i];
+          let cs = null, desc = '';
+          if (kind === 'scritta') {
+            const str = String(p['testo' + i] || '').trim(); if (!str) return;
+            const tf = fitText(Object.assign({}, p, { scritta: str, scritta2: '' }), { x: 0, y: 0, w: 1.2 * R * 0.95, h: hBox }, p.altTesto);
+            if (!tf) return;
+            cs = stencil(tf.cs, tf.cap); desc = `"${str}", lettere ${fmt(tf.cap)} mm`;
+            if (tf.reduced) notes.push(`${nm}: scritta ridotta a ${fmt(tf.cap)} mm per stare nella fascia`);
+          } else if (kind === 'simbolo') {
+            const S = Math.min(p.altSimbolo, hBox);
+            let c0 = symbolCS(p['simbolo' + i], S); if (!c0) return;
+            const b0 = bounds(c0), f = Math.min(1, 1.2 * R * 0.95 / b0.w, hBox / b0.h);
+            if (f < 1) c0 = R2(c0.scale([f, f]));
+            const b1 = bounds(c0); cs = MV(c0, -(b1.x0 + b1.x1) / 2, -(b1.y0 + b1.y1) / 2);
+            desc = `${SPIR_SYMBOLS[p['simbolo' + i]] || ''}, alto ${fmt(bounds(cs).h)} mm`;
+            if (S < p.altSimbolo - 0.05 || f < 0.97) notes.push(`${nm}: simbolo ridotto per stare nella fascia`);
+          } else return;
+          if (empty(cs)) return;
+          const bb = bounds(cs), half = Math.asin(Math.min(1, (Math.max(-bb.x0, bb.x1) + 2) / R));
+          holes.push(reg(reg(prismY(cs, 0, -big)).rotate([0, 0, ang])));
+          wins.push({ c: (ang - 90) * Math.PI / 180, half });
+          info.push([nm, desc]);
+        });
+      }
+      // ---- profondità della valle in base a quota e angolo (cartigli: liscio solo attorno a scritte e simboli) ----
+      const FADE = 1.5 * 2 * al;
+      const wAt = (th) => { let w = 0; for (const q of wins) { let d = Math.abs(((th - q.c) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI); const v = d <= q.half ? 1 : d >= q.half + FADE ? 0 : smoothW(1 - (d - q.half) / FADE); w = Math.max(w, v); } return w; };
+      const xAt = (z, th) => fascia === 'continua' ? xOf(Xc, z) : fascia === 'nessuna' ? xOf(Xd, z) : (() => { const d = xOf(Xd, z), c = xOf(Xc, z), w = wAt(th); return d + (c - d) * w; })();
+      // ---- anelli di vertici ----
+      const SUB = Math.max(3, Math.min(8, Math.round(320 / (2 * N))));
+      const u = (th) => [Math.cos(th), Math.sin(th)];
+      function lineOf(P, Q, ridge, thr, ap, vt, inner) {
+        const ex = Q[0] - P[0], ey = Q[1] - P[1], L = Math.hypot(ex, ey) || 1e-9;
+        let nx = ey / L, ny = -ex / L; if (nx * (P[0] + Q[0]) + ny * (P[1] + Q[1]) < 0) { nx = -nx; ny = -ny; }
+        let hh = 0;
+        if (inner) {
+          const ur = u(thr), vx = ap * ur[0] - vt * ur[1], vy = ap * ur[1] + vt * ur[0];   // velocità della cresta salendo (vz = 1)
+          const nzv = ex * vy - ey * vx, nl = Math.hypot(ey, ex, nzv);
+          hh = t / Math.sqrt(Math.max(0.05, 1 - (nzv / nl) ** 2));
+        }
+        return { nx, ny, c: nx * P[0] + ny * P[1] - hh };
+      }
+      const meet = (l1, l2) => { const det = l1.nx * l2.ny - l1.ny * l2.nx; return Math.abs(det) < 1e-9 ? null : [(l1.c * l2.ny - l1.ny * l2.c) / det, (l1.nx * l2.c - l1.c * l2.nx) / det]; };
+      function ring(z, inner) {
+        const a = Math.sqrt(Math.max(0, R * R - z * z)), ap = -z / a, ps = psi(z), vt = a * (psi(z + 0.05) - psi(z - 0.05)) / 0.1;
+        const ri = inner ? Math.sqrt(Math.max(0, (R - t) ** 2 - z * z)) : a;
+        const th = [], xs = [], Rk = [], Vk = [];
+        for (let k = 0; k < N; k++) { th.push(ps + 2 * k * al); const x = xAt(z, ps + (2 * k + 1) * al); xs.push(x); const ur = u(th[k]), uv = u(th[k] + al); Rk.push([a * ur[0], a * ur[1]]); Vk.push([x * a * uv[0], x * a * uv[1]]); }
+        let R2k = Rk, V2k = Vk, rMin = Infinity;
+        if (inner) {
+          const LA = [], LB = [];
+          for (let k = 0; k < N; k++) { const k1 = (k + 1) % N; LA.push(lineOf(Rk[k], Vk[k], 0, th[k], ap, vt, true)); LB.push(lineOf(Vk[k], Rk[k1], 1, th[k1], ap, vt, true)); }
+          R2k = []; V2k = [];
+          for (let k = 0; k < N; k++) {
+            const kp = (k + N - 1) % N; let r = meet(LB[kp], LA[k]), v = meet(LA[k], LB[k]);
+            const ur = u(th[k]), uv = u(th[k] + al);
+            if (!r || r[0] * ur[0] + r[1] * ur[1] <= 0) r = [0.3 * ur[0], 0.3 * ur[1]];
+            if (!v || v[0] * uv[0] + v[1] * uv[1] < 0.3) v = [0.3 * uv[0], 0.3 * uv[1]];
+            R2k.push(r); V2k.push(v); rMin = Math.min(rMin, Math.hypot(...r));
+          }
+        }
+        const pts = [];
+        for (let k = 0; k < N; k++) {
+          const k1 = (k + 1) % N, w = smoothW((xs[k] - 0.995) / 0.005);
+          const segs = [[R2k[k], V2k[k], th[k]], [V2k[k], R2k[k1], th[k] + al]];
+          for (const [A, B, th0] of segs) for (let s = 0; s < SUB; s++) {
+            const f = s / SUB, ang = th0 + f * al;
+            let px = A[0] + (B[0] - A[0]) * f, py = A[1] + (B[1] - A[1]) * f;
+            if (w > 0) { px = px * (1 - w) + ri * Math.cos(ang) * w; py = py * (1 - w) + ri * Math.sin(ang) * w; }
+            pts.push(px, py, z);
+          }
+        }
+        return { pts, rMin };
+      }
+      function loft(rows, zBot, zTop) {
+        const n = rows[0].length / 3, P = [], T = [];
+        for (const r of rows) for (const v of r) P.push(v);
+        const cb = P.length / 3; P.push(0, 0, zBot); const ct = cb + 1; P.push(0, 0, zTop);
+        for (let j = 0; j < rows.length - 1; j++) for (let i = 0; i < n; i++) { const a0 = j * n + i, b0 = j * n + (i + 1) % n, c0 = (j + 1) * n + (i + 1) % n, d0 = (j + 1) * n + i; T.push(a0, b0, c0, a0, c0, d0); }
+        const l = (rows.length - 1) * n;
+        for (let i = 0; i < n; i++) { T.push(cb, (i + 1) % n, i); T.push(ct, l + i, l + (i + 1) % n); }
+        return reg(new Manifold(new Mesh({ numProp: 3, vertProperties: new Float32Array(P), triVerts: new Uint32Array(T) })));
+      }
+      const DZ = Math.max(0.2, Dm / 350);
+      const oRows = []; for (let z = zF; z < zT - 0.3; z += DZ) oRows.push(ring(z, false).pts);
+      const outer = loft(oRows, zF, zT);
+      const iRows = []; let zTopI = zF + t;
+      for (let z = zF + t; z < R - t; z += DZ) { const r = ring(z, true); if (r.rMin < rh - 0.6) { zTopI = z; break; } iRows.push(r.pts); zTopI = z + DZ; }
+      const inner = loft(iRows, zF + t, zTopI);
+      let body = sub(outer, inner);
+      body = sub(body, cylZ(rh, Math.min(R - t * 3 - 2, zTopI - 1), R + 1, 0, 0, 40));   // foro del perno del cappuccio (e delle lucine)
+      if (rLed > 0) body = sub(body, cylZ(rLed, zF - 1, zF + t + 1, 0, 0, 64));
+      if (holes.length) body = sub(body, reg(union(holes).intersect(box(-big, -big, -zB + 0.3, big, big, zB - 0.3))));
+      // ---- cappuccio: sotto segue le pieghe; fessura per il filo delle lucine ----
+      let cap = sub(knurled(2 * (rh + 2.6), zT - 4, zT + 5), outer);
+      cap = sub(cap, reg(reg(Manifold.cylinder(4 * rh + 20, 1.3, 1.3, 20, true)).rotate([0, 90, 0]).translate([0, 0, zT + 2.6])));
+      cap = union([cap, cylZ(rh - p.tolleranza / 2, zT - t - 3, zT + 1, 0, 0, 32)]);
+      if (p.filoLuci) cap = sub(cap, box(-p.fessura / 2, 0, zT - t - 4, p.fessura / 2, big, zT + 7));
+      // ---- fasce colorate: tagli orizzontali a strati interi (0,2 mm dal piatto) ----
+      // con un multicolore sono parti dello stesso oggetto; con un solo ugello basta cambiare filamento a quelle altezze
+      const LH = 0.2, snap = (z) => zF + Math.round((z - zF) / LH) * LH, segs = [];
+      if (p.coloreFascia && fascia !== 'nessuna' && zB > 1) segs.push([snap(-zB), snap(zB), 3]);
+      const nr = Math.max(0, Math.min(6, p.righe | 0));
+      if (nr > 0) {
+        const w = Math.max(2 * LH, Math.round(p.altRighe / LH) * LH), z0 = (fascia === 'nessuna' ? 0 : zB) + 1.5;
+        const spans = [[z0, zT - 6], [z0, -zF - 2]];        // sopra (fino al cappuccio) e sotto (fino al piedino)
+        spans.forEach(([lo, hi], side) => {
+          if (hi - lo < w * 1.5) return;
+          for (let i = 0; i < nr; i++) {
+            const zc = lo + (hi - lo) * (i + 0.5) / nr;
+            const c = side ? -zc : zc; segs.push([snap(c - w / 2), snap(c + w / 2), 4]);
+          }
+        });
+      }
+      const parts = [];
+      if (segs.length) {
+        const slab = (q) => box(-big, -big, q[0], big, big, q[1]);
+        const byCol = { 3: segs.filter(q => q[2] === 3), 4: segs.filter(q => q[2] === 4) };
+        const all = union(segs.map(slab));
+        parts.push(part('Pallina · colore 1', sub(body, all), p.col1, 'Pallina'));
+        if (byCol[3].length) parts.push(part('Pallina · fascia', reg(body.intersect(union(byCol[3].map(slab)))), p.col3, 'Pallina'));
+        if (byCol[4].length) parts.push(part('Pallina · righe', reg(body.intersect(union(byCol[4].map(slab)))), p.col4, 'Pallina'));
+        // cambi di filamento dal basso, in mm dal piatto
+        const ev = []; for (const q of segs) { ev.push([q[0], q[2]]); ev.push([q[1], 1]); }
+        ev.sort((a, b) => a[0] - b[0]);
+        info.push(['Cambi colore', ev.map(([z, c]) => `${fmt(z - zF)} mm → ${c === 1 ? 'colore 1' : c === 3 ? 'colore 3' : 'colore 4'}`).join(' · ')]);
+      } else parts.push(part('Pallina a spirale', body, p.col1, 'Pallina'));
+      parts.push(part('Cappuccio', cap, p.col2, 'Cappuccio', { print: reg(cap.rotate([180, 0, 0])) }));
+      if (rLed > 0 && p.foroLed === 'tappo') {
+        const lid = union([cylZ(rFoot - 0.5, zF - 1.2, zF, 0, 0, 96), cylZ(rLed - p.tolleranza / 2, zF, zF + t + 1.5, 0, 0, 64)]);
+        parts.push(part('Tappo del LED', lid, p.col1, 'Tappo', { at: [R + rFoot + 8, 0, 1.2] }));
+      }
+      const tramaN = trama === 'dritta' ? 'dritti' : trama === 'v' ? `a V, ${p.inclinazione}°` : `a spirale, ${p.inclinazione}°`;
+      info.unshift(['Misure', `Ø ${fmt(Dm)} × ${fmt(zT - zF)} mm, guscio ${fmt(t)} mm`], ['Spicchi', `${N} ${tramaN}`],
+        ['Fascia', fascia === 'nessuna' ? 'nessuna: spicchi dappertutto' : `${fascia === 'continua' ? 'continua' : 'solo attorno a scritte e simboli'}, alta ${fmt(2 * zB)} mm`]);
+      info.push(['Piedino', `Ø ${fmt(2 * rFoot)} mm`]);
+      if (rLed > 0) info.push(['Foro LED', `Ø ${fmt(2 * rLed)} mm${p.foroLed === 'tappo' ? ', con tappo' : ', aperto'}`]);
+      info.push(['Foro in cima', `Ø ${fmt(2 * rh)} mm: perno del cappuccio${p.filoLuci ? ' e lucine su filo' : ''}`]);
+      info.push(['Stampa', 'intera, supporti disattivati, brim']);
+      info.push(['Pezzi', `pallina + cappuccio${parts.length > 2 ? ' + tappo' : ''}`]);
+      for (const x of notes) info.push(['Nota', x]);
+      return { parts: ok(parts), info, view: [-0.3, -1, 0.3] };
+    }
+
     // ============ ALBERO 3D ============
     function albero(p) {
       const Ht = p.altezza, R = p.diametro / 2, n = Math.max(3, Math.min(12, p.punte | 0)), parts = [], info = [], notes = [];
@@ -3762,7 +3967,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
 
     // ogni generatore riporta in fondo gli avvisi sui loghi
     const withNotes = (fn) => (p) => { NOTES.clear(); const r = fn(p); for (const n of NOTES) r.info.push(['Nota', n]); NOTES.clear(); return r; };
-    return { pallina: withNotes(pallina), piatto: withNotes(piatto), palla: withNotes(palla), albero: withNotes(albero), stella, lanterna: withNotes(lanterna), formina: withNotes(formina) };
+    return { pallina: withNotes(pallina), spirale: withNotes(spirale), piatto: withNotes(piatto), palla: withNotes(palla), albero: withNotes(albero), stella, lanterna: withNotes(lanterna), formina: withNotes(formina) };
   });
 })(typeof globalThis !== 'undefined' ? globalThis : this);
 
@@ -4068,7 +4273,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
   const LAYER_STOPS = (() => { const v = new Set(); for (const h of [0.2, 0.28]) for (let k = 1; k * h <= 12.01; k++) v.add(+(k * h).toFixed(2)); return [...v].sort((a, b) => a - b); })();
   const layerP = (o) => Object.assign({ type: 'num', stops: LAYER_STOPS.filter(x => x >= o.min - 1e-6 && x <= o.max + 1e-6), step: 0.01, unit: 'mm' }, o);
   // loghi dentro le scritte: {SP} e {viso}. L'ugello decide quanto si ingrossano le linee quando il logo è piccolo
-  const hasLogo = (p) => ['scritta', 'scritta2', 'scritta3', 'scritta4'].some(k => /\{(sp|viso)\}/i.test(String(p[k] || '')));
+  const hasLogo = (p) => ['scritta', 'scritta2', 'scritta3', 'scritta4', 'testo1', 'testo2', 'testo3', 'testo4'].some(k => /\{(sp|viso)\}/i.test(String(p[k] || '')));
   const nozzleP = (sec, show) => ({ sec, id: 'ugello', label: 'Ugello', type: 'select', def: '0.4', options: [['0.2', '0,2'], ['0.4', '0,4'], ['0.6', '0,6'], ['0.8', '0,8']], unit: 'mm',
     show: p => (!show || show(p)) && (hasLogo(p) || isArtId(p.forma) || (p.figura && p.figura !== 'nessuna')), help: 'Diametro dell\'ugello della stampante. Se il logo è piccolo le sue linee vengono ingrossate fino a questa larghezza, così si stampano.' });
   const FONT_OPTS = [['tondo', 'Tondo'], ['corsivo', 'Corsivo'], ['natalizio', 'Natalizio']];
@@ -4124,6 +4329,17 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
     { sec, id: 'contorno', label: 'Contorno', type: 'num', min: 0, max: 8, step: 0.2, def: 1.6, unit: 'mm', show: p => isArtId(p.forma),
       help: 'Margine attorno alla sagoma del disegno: tiene unite le parti vicine e rende il bordo più robusto.' },
   ];
+  // pallina a spirale: un lato per ogni scritta o simbolo
+  const SPIR_SYM = [['stella', 'Stella'], ['cuore', 'Cuore'], ['fiocco', 'Fiocco di neve'], ['albero', 'Albero'], ['campana', 'Campana'], ['luna', 'Luna'],
+    ['pupazzo', 'Pupazzo di neve'], ['regalo', 'Regalo'], ['cometa', 'Stella cometa'], ['candela', 'Candela'], ['renna', 'Renna']];
+  const spirSideP = (defs) => defs.flatMap(([sec, kind, txt, sym], k) => {
+    const i = k + 1, on = (p) => p.fascia !== 'nessuna';
+    return [
+      { sec, id: 'lato' + i, label: 'Cosa mettere', type: 'select', def: kind, options: [['nessuno', 'Niente'], ['scritta', 'Scritta'], ['simbolo', 'Simbolo']], show: on },
+      { sec, id: 'testo' + i, label: 'Testo', type: 'text', def: txt, placeholder: 'es. un nome', logos: true, show: p => on(p) && p['lato' + i] === 'scritta' },
+      { sec, id: 'simbolo' + i, label: 'Simbolo', type: 'select', def: sym, options: SPIR_SYM, show: p => on(p) && p['lato' + i] === 'simbolo' },
+    ];
+  });
   const MODES = {
     bin: {
       label: 'Contenitore',
@@ -4244,6 +4460,37 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           help: 'Per le lucine su filo di rame: i LED entrano dal foro in cima e il filo esce da una fessura nel cappuccio.' },
         { sec: 'Luce', id: 'fessura', label: 'Larghezza fessura', type: 'num', min: 1, max: 4, step: 0.2, def: 2, unit: 'mm', show: p => p.appendino === 'cappuccio' && p.filoLuci },
         ...colorsP(['Colore 1 · pallina', 'Colore 2 · decorazioni e cappuccio', 'Colore 3 · scritta']),
+      ],
+    },
+    spirale: {
+      label: 'Pallina a spirale',
+      params: [
+        { sec: 'Forma', id: 'diametro', label: 'Diametro', type: 'num', min: 40, max: 120, step: 1, def: 70, unit: 'mm' },
+        { sec: 'Forma', id: 'spessore', label: 'Spessore guscio', type: 'num', min: 0.8, max: 2.4, step: 0.2, def: 1.2, unit: 'mm' },
+        { sec: 'Trama', id: 'trama', label: 'Trama', type: 'select', def: 'spirale', options: [['spirale', 'Spirale'], ['v', 'A V (spina di pesce)'], ['dritta', 'Spicchi dritti']],
+          help: 'Sopra e sotto la pallina è fatta di spicchi pieghettati: è questo che la fa stampare intera senza supporti.' },
+        { sec: 'Trama', id: 'spicchi', label: 'Spicchi', type: 'int', min: 16, max: 36, step: 2, def: 24, help: 'Più spicchi = pieghe più fitte e fascia più alta.' },
+        { sec: 'Trama', id: 'inclinazione', label: 'Inclinazione', type: 'int', min: 5, max: 25, step: 1, def: 15, unit: '°', show: p => p.trama !== 'dritta', help: 'Più è inclinata, più la fascia per scritte e simboli si stringe.' },
+        { sec: 'Trama', id: 'verso', label: 'Verso', type: 'select', def: 'destra', options: [['destra', 'Verso destra'], ['sinistra', 'Verso sinistra']], show: p => p.trama === 'spirale' },
+        { sec: 'Fascia', id: 'fascia', label: 'Fascia liscia', type: 'select', def: 'continua', options: [['continua', 'Continua tutto intorno'], ['cartigli', 'Solo dove c\'è una scritta o un simbolo'], ['nessuna', 'Nessuna: spicchi dappertutto']],
+          help: 'La fascia è la zona liscia a metà pallina dove vanno scritte e simboli traforati. Con "solo dove c\'è" gli spicchi continuano tutto intorno e lasciano liscio solo un riquadro attorno a ogni scritta.' },
+        ...spirSideP([['Davanti', 'scritta', 'Anna', 'stella'], ['Destra', 'simbolo', '', 'fiocco'], ['Dietro', 'scritta', '2026', 'cuore'], ['Sinistra', 'simbolo', '', 'stella']]),
+        { sec: 'Scritte e simboli', id: 'altTesto', label: 'Altezza lettere', type: 'num', min: 4, max: 30, step: 0.5, def: 10, unit: 'mm', show: p => p.fascia !== 'nessuna', help: 'Se non ci stanno nella fascia vengono ridotte da sole. Sono traforate: con un LED dentro si illuminano.' },
+        { sec: 'Scritte e simboli', id: 'altSimbolo', label: 'Altezza simboli', type: 'num', min: 4, max: 40, step: 0.5, def: 14, unit: 'mm', show: p => p.fascia !== 'nessuna' },
+        { sec: 'Scritte e simboli', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS, show: p => p.fascia !== 'nessuna' },
+        nozzleP('Scritte e simboli'),
+        { sec: 'Forma', id: 'piedino', label: 'Piedino', type: 'select', def: 'piccolo', options: [['piccolo', 'Piccolo'], ['medio', 'Medio'], ['grande', 'Grande']],
+          help: 'Il fondo piatto su cui poggia. Piccolo: la pallina resta rotonda. Grande: più stabile sul piatto e più spazio per il foro del LED.' },
+        { sec: 'Luce', id: 'foroLed', label: 'Foro per il LED', type: 'select', def: 'tappo', options: [['nessuno', 'Nessuno'], ['tappo', 'Sul fondo, con tappo'], ['aperto', 'Sul fondo, aperto']],
+          help: 'Il foro è al centro del piedino. Con tappo: per un LED a pila. Aperto: per una lucina della catena dell\'albero.' },
+        { sec: 'Luce', id: 'diamLed', label: 'Diametro foro', type: 'num', min: 5, max: 25, step: 0.5, def: 10, unit: 'mm', show: p => p.foroLed !== 'nessuno', help: 'Misura il LED o la lampadina e aggiungi 1 mm.' },
+        { sec: 'Luce', id: 'filoLuci', label: 'Fessura per il filo', type: 'bool', def: false, help: 'Per le lucine su filo di rame: i LED entrano dal foro in cima e il filo esce da una fessura nel cappuccio.' },
+        { sec: 'Luce', id: 'fessura', label: 'Larghezza fessura', type: 'num', min: 1, max: 4, step: 0.2, def: 2, unit: 'mm', show: p => p.filoLuci },
+        { sec: 'Montaggio', id: 'tolleranza', label: 'Tolleranza', type: 'num', min: 0, max: 0.8, step: 0.05, def: 0.2, unit: 'mm', help: 'Gioco del perno del cappuccio e del tappo.' },
+        { sec: 'Colori', id: 'coloreFascia', label: 'Fascia di un altro colore', type: 'bool', def: false, show: p => p.fascia !== 'nessuna', help: 'Tutta la fascia centrale nel colore 3.' },
+        { sec: 'Colori', id: 'righe', label: 'Righe colorate', type: 'int', min: 0, max: 6, def: 0, help: 'Righe orizzontali nel colore 4, sopra e sotto la fascia (quante per parte). Con una stampante a un colore il riquadro misure dice a che altezza cambiare filamento.' },
+        { sec: 'Colori', id: 'altRighe', label: 'Altezza righe', type: 'num', min: 0.4, max: 10, step: 0.2, def: 2, unit: 'mm', show: p => p.righe > 0 },
+        ...colorsP(['Colore 1 · pallina e tappo', 'Colore 2 · cappuccio', 'Colore 3 · fascia', 'Colore 4 · righe']),
       ],
     },
     piatto: {
@@ -4471,7 +4718,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
 
   // ================= GRUPPI (pagina iniziale) =================
   const GROUPS = [
-    { id: 'natale', title: 'Natale', cat: 'Feste', desc: 'Palline, palle piatte con disegni e nome, decorazioni con il nome, alberi, stelle puntale, lanterne e formine per biscotti. Fino a tre colori.', modes: ['pallina', 'palla', 'piatto', 'albero', 'stella', 'lanterna', 'formina'], thumb: 'pallina' },
+    { id: 'natale', title: 'Natale', cat: 'Feste', desc: 'Palline (anche a spirale, intere senza supporti), palle piatte con disegni e nome, decorazioni con il nome, alberi, stelle puntale, lanterne e formine per biscotti. Fino a tre colori.', modes: ['pallina', 'spirale', 'palla', 'piatto', 'albero', 'stella', 'lanterna', 'formina'], thumb: 'pallina' },
     { id: 'gridfinity', title: 'Gridfinity', cat: 'Organizzazione', desc: 'Contenitori impilabili, cassettiere con cassetti e basi a griglia da 42 mm.', modes: ['bin', 'cab', 'base'], thumb: 'cab' },
     { id: 'rack', title: 'Rack telefoni', cat: 'Organizzazione', desc: 'Rack a fessure per riporre telefoni e tablet, anche di spessori diversi.', modes: ['rack'], thumb: 'rack' },
     { id: 'vasi', title: 'Vasi', cat: 'Casa e giardino', desc: 'Vasi e fioriere per aromatiche, normali con sottovaso o autoirriganti.', modes: ['vaso'], thumb: 'vaso' },
@@ -4690,15 +4937,38 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
   }
   function edgesMat() { return new THREE.LineBasicMaterial({ color: cssVar('--edge') || '#3b4148', transparent: true, opacity: 0.35, clippingPlanes: clipList() }); }
 
-  function makeGrid(w, d) {
-    if (gridObj) { modelGroup.parent.remove(gridObj); gridObj.traverse(o => { o.geometry && o.geometry.dispose(); }); }
-    const P = 42;
-    const nx = Math.ceil(w / P / 2) + 2, ny = Math.ceil(d / P / 2) + 2;
-    const pos = [];
-    for (let i = -nx; i <= nx; i++) pos.push(i * P, -ny * P, -0.05, i * P, ny * P, -0.05);
-    for (let j = -ny; j <= ny; j++) pos.push(-nx * P, j * P, -0.05, nx * P, j * P, -0.05);
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    gridObj = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: cssVar('--grid') || '#b9c0c6', transparent: true, opacity: 0.9 }));
+  // griglia in scala sul piano z = 0: quadretti da 10 mm e linee marcate ogni 50 mm con le misure
+  // (per i generatori Gridfinity il passo è quello della griglia, 42 mm)
+  let gridStep = 10;
+  function makeGrid(bb) {
+    if (gridObj) { scene.remove(gridObj); gridObj.traverse(o => { o.geometry && o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); }
+    const gf = ['bin', 'cab', 'base'].includes(state.mode);
+    const P = gf ? 42 : 10, M = gf ? 42 : 50; gridStep = P;
+    const x0 = Math.floor((Math.min(bb.min.x, 0) - 2 * P) / M) * M, x1 = Math.ceil((Math.max(bb.max.x, 0) + 2 * P) / M) * M;
+    const y0 = Math.floor((Math.min(bb.min.y, 0) - 2 * P) / M) * M, y1 = Math.ceil((Math.max(bb.max.y, 0) + 2 * P) / M) * M;
+    const minor = [], major = [];
+    for (let x = x0; x <= x1 + 1e-6; x += P) (Math.abs(x / M - Math.round(x / M)) < 1e-6 ? major : minor).push(x, y0, -0.05, x, y1, -0.05);
+    for (let y = y0; y <= y1 + 1e-6; y += P) (Math.abs(y / M - Math.round(y / M)) < 1e-6 ? major : minor).push(x0, y, -0.05, x1, y, -0.05);
+    const col = cssVar('--grid') || '#b9c0c6';
+    const lines = (pos, op) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); return new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: op })); };
+    gridObj = new THREE.Group();
+    if (!gf) gridObj.add(lines(minor, 0.45));
+    if (gf) gridObj.add(lines(minor.concat(major), 0.95));
+    else { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(major, 3)); gridObj.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: cssVar('--muted') || '#6b7280', transparent: true, opacity: 0.55 }))); }
+    // misure lungo il bordo davanti (asse x) e a sinistra (asse y), in mm
+    const txtCol = cssVar('--muted') || '#6b7280';
+    const label = (txt, x, y) => {
+      const c = document.createElement('canvas'); c.width = 256; c.height = 96; const g = c.getContext('2d');
+      g.font = '600 52px system-ui, sans-serif'; g.fillStyle = txtCol; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, 128, 48);
+      const t = new THREE.CanvasTexture(c); const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false }));
+      const h = M * 0.16; sp.scale.set(h * 256 / 96, h, 1); sp.position.set(x, y, 0.5); gridObj.add(sp);
+    };
+    // numeri vicino al modello: davanti (asse x) e a sinistra (asse y)
+    const yl = Math.floor((bb.min.y - P) / P) * P - M * 0.12, xl = Math.floor((bb.min.x - P) / P) * P - M * 0.25;
+    const xa = Math.floor(bb.min.x / M) * M, xb = Math.ceil(bb.max.x / M) * M, ya = Math.floor(bb.min.y / M) * M, yb = Math.ceil(bb.max.y / M) * M;
+    for (let x = xa; x <= xb + 1e-6; x += M) label(`${Math.round(x)}`, x, yl);
+    for (let y = ya; y <= yb + 1e-6; y += M) if (Math.round(y) !== 0 || xa !== 0) label(`${Math.round(y)}`, xl, y);
+    label('mm', xb + M * 0.45, yl);
     scene.add(gridObj);
   }
 
@@ -4750,7 +5020,9 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       if (part.role === 'body') { bb.expandByPoint(new THREE.Vector3(...part.mesh.min)); bb.expandByPoint(new THREE.Vector3(...part.mesh.max)); }
     }
     applyOpen();
-    modelGroup.updateMatrixWorld(true); bbAll.setFromObject(modelGroup);
+    modelGroup.position.z = 0; modelGroup.updateMatrixWorld(true); bbAll.setFromObject(modelGroup);
+    // il punto più basso tocca il piano z = 0, come nel file esportato
+    if (isFinite(bbAll.min.z) && Math.abs(bbAll.min.z) > 1e-3) { modelGroup.position.z = -bbAll.min.z; modelGroup.updateMatrixWorld(true); bbAll.setFromObject(modelGroup); }
     // tappi: un piano y = 0 per pezzo, disegnato solo dove la maschera stencil dice "dentro"
     const span = Math.max(10, bbAll.getSize(new THREE.Vector3()).length() * 2), ctr = bbAll.getCenter(new THREE.Vector3());
     for (const { k, part } of caps) {
@@ -4762,7 +5034,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       modelGroup.add(cap);
     }
     const size = bb.getSize(new THREE.Vector3());
-    makeGrid(size.x, size.y);
+    makeGrid(bbAll);
     const key = state.mode;
     if (!fitted || fitted.key !== key || size.length() > fitted.len * 1.3 || size.length() < fitted.len / 1.5) { fitView(bbAll, res.view); fitted = { key, len: size.length() }; }
     // info
@@ -4776,7 +5048,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
     const rp = real(res.parts), bad = rp.find(p => p.mesh.status !== 'NoError');
     const ghosts = res.parts.length - rp.length;
     const nU = printUnits(res.parts).length, nC = new Set(rp.map(p => p.color).filter(Boolean)).size;
-    setStatus(bad ? 'Geometria con errori: prova a cambiare i valori' : (nU === 1 ? '1 pezzo pronto' : `${nU} pezzi pronti`) + (nC > 1 ? ` · ${nC} colori` : '') + (ghosts ? ' · in azzurro gli oggetti di esempio' : ''), bad ? 'err' : 'ok');
+    setStatus(bad ? 'Geometria con errori: prova a cambiare i valori' : (nU === 1 ? '1 pezzo pronto' : `${nU} pezzi pronti`) + (nC > 1 ? ` · ${nC} colori` : '') + (ghosts ? ' · in azzurro gli oggetti di esempio' : '') + ` · griglia ${gridStep} mm`, bad ? 'err' : 'ok');
   }
   function applyOpen() {
     for (const grp of modelGroup.children) {
@@ -4945,6 +5217,7 @@ ${build}</build>
     const slug = (x) => String(x || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24);
     const nm = slug(v.scritta) ? '_' + slug(v.scritta) : '';
     if (state.mode === 'pallina') return `pallina_${v.forma}_${v.diametro}mm${nm}`;
+    if (state.mode === 'spirale') { const n1 = [1, 2, 3, 4].map(i => v['lato' + i] === 'scritta' ? slug(v['testo' + i]) : '').find(Boolean); return `pallina-spirale_${v.diametro}mm${n1 ? '_' + n1 : ''}`; }
     if (state.mode === 'piatto') return `decorazione_${v.forma}${nm}`;
     if (state.mode === 'palla') return `palla-piatta_${v.figura && v.figura !== 'nessuna' ? v.figura : v.sfondo}${nm}`;
     if (state.mode === 'albero') return `albero_${v.stile}_${v.altezza}mm`;

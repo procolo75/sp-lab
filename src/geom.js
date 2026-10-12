@@ -892,7 +892,7 @@
     }
 
     // estensioni (altri file, es. natale.js): ricevono gli strumenti del motore e restituiscono { tipo: funzione }
-    const H = { Manifold, CrossSection, reg, union, sub, box, cylZ, coneZ, cylY, hullPts, slab, rr, fmt, knurled, roundCyl,
+    const H = { Manifold, Mesh: wasm.Mesh, CrossSection, reg, union, sub, box, cylZ, coneZ, cylY, hullPts, slab, rr, fmt, knurled, roundCyl,
       csPoly, csCircle, csRect, csUnion, csSub };
     const EXT = {};
     for (const f of (root.SPRECOLO_EXT || [])) Object.assign(EXT, f(H));
