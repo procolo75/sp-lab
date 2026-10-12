@@ -794,7 +794,8 @@
           if (Math.abs(a0 - 90) < halfA + 2) notes.push(`Scritta ${i} sulla giunzione delle due metà: spostala verso 0° o 180°`);
         }
       }
-      const textM = textMs.length ? union(textMs) : null, zoneM = zonesM.length ? union(zonesM) : null;
+      let textM = textMs.length ? union(textMs) : null;
+      const zoneM = zonesM.length ? union(zonesM) : null;
       const avoid = (a, z) => {
         const aa = ((a + 540) % 360) - 180;
         if (p.costruzione === 'meta') { const d = Math.abs(Math.cos(aa * Math.PI / 180)); if (d < 0.25) return true; }   // lontano dalla giunzione
@@ -838,10 +839,47 @@
         let c = sub(knurled(2 * (rh + 2.6), zT - 4, zT + 5), outer);
         c = sub(c, reg(reg(Manifold.cylinder(4 * rh + 20, 1.3, 1.3, 20, true)).rotate([0, 90, 0]).translate([0, 0, zT + 2.6])));
         c = union([c, cylZ(rh - p.tolleranza / 2, zT - t - 3, zT + 1, 0, 0, 32)]);   // perno che entra nel foro, unito al cappuccio
+        // fessura per il filo delle lucine: taglio verticale dal centro verso il dietro (il nastro passa da sinistra a destra)
+        if (p.filoLuci) c = sub(c, box(-p.fessura / 2, 0, zT - t - 4, p.fessura / 2, big, zT + 7));
         cap = c;
       } else {
         const ro = Math.max(4, Dm * 0.07), ri = ro - 2.2, cz = zT + ri + 0.4;
         body = union([body, reg(sub(cylY(0, cz, ro, -1.4, 1.4, 40), cylY(0, cz, ri, -2, 2, 32)))]);
+      }
+      // foro per il LED sul fondo: per una lucina della catena dell'albero (aperto) o un LED a pila (con tappo).
+      // Con le due metà il foro è tagliato a metà e nella stampa è orizzontale: allora ha due punte a 45°
+      // verso l'alto e verso il basso di ogni metà, così il bordo del foro regge senza supporti.
+      let led = null;
+      if (p.foroLed && p.foroLed !== 'nessuno') {
+        const rMaxL = Math.max(3, pr.rMax * 0.42);
+        const rL = Math.min(p.diamLed / 2, rMaxL);
+        if (rL < p.diamLed / 2 - 0.01) notes.push(`Foro per il LED ridotto a Ø ${fmt(2 * rL)} mm: di più indebolisce la pallina`);
+        const tip = (c, r) => (p.costruzione === 'meta' ? R2(CrossSection.hull([c, C2(0, r * Math.SQRT2, 0.05, 4), C2(0, -r * Math.SQRT2, 0.05, 4)])) : c);
+        const shapeL = (d) => tip(C2(0, 0, rL + d, 64), rL + d);
+        const ext = (p.costruzione === 'meta' ? Math.SQRT2 : 1) * rL;
+        // il foro sale finché la parete interna è più larga del foro
+        let z1 = pr.zBot + t + 1;
+        for (let z = pr.zBot; z < pr.zW; z += 0.5) { if (radiusAt(pr, z) - t > ext + 0.6) { z1 = z + 1; break; } }
+        const hole = EXT(shapeL(0), pr.zBot - 2, z1);
+        const clear = EXT(shapeL(3), pr.zBot - 2, z1 + 3);   // decorazioni e anello stanno lontani dal foro
+        body = sub(body, hole);
+        if (dec) dec = sub(dec, clear);
+        if (textM) textM = sub(textM, clear);
+        led = { rL, z1, clear };
+        if (p.foroLed === 'tappo') {
+          // tappo: perno che entra nel foro e, sotto, un piedino con la faccia piatta che copre il bordo del foro.
+          // Si stampa appoggiato sulla faccia piatta (niente sbalzi) e la pallina ci sta anche in piedi.
+          // Se il fondo è a punta (goccia) il piedino sarebbe un cilindro attorno alla punta: allora il tappo
+          // è solo la punta, a filo, e si stampa capovolto.
+          const zF = pr.zBot - 0.8, ext2 = (p.costruzione === 'meta' ? Math.SQRT2 : 1) * (rL + 2);
+          let zs = null;
+          for (let z = pr.zBot; z < pr.zW; z += 0.25) { if (radiusAt(pr, z) >= ext2) { zs = z; break; } }
+          const plug = reg(EXT(shapeL(-p.tolleranza / 2), zF, z1).intersect(outer));
+          if (zs !== null && zs - pr.zBot < 4) {
+            led.lid = union([sub(EXT(shapeL(2), zF, zs + 0.5), outer), plug]);
+            led.flat = true;
+          } else led.lid = plug;
+        }
       }
       const parts = [];
       const L1 = 'Colore 1', col = [p.col1, p.col2, p.col3];
@@ -857,24 +895,30 @@
         };
         addHalf(front, 'Metà davanti', pf);
         addHalf(back, 'Metà dietro', pb);
+        notes.push('Due metà: fuori non servono supporti, ma dentro la cupola è a sbalzo e lo slicer può chiederli');
         // anello di giunzione: aderisce all'interno sul piano di separazione
         const inr = OFF(pr.cs, -t - p.tolleranza, J);
         let ring = reg(prismY(D(OFF(inr, 1, J), OFF(inr, -1.6, J)), 3, -3).intersect(rev(inr)));   // il bordo esterno lo dà la superficie interna
         ring = sub(ring, cylZ(rh + 3, zT - 12, zT + 2, 0, 0, 32));
+        if (led) ring = sub(ring, led.clear);
         parts.push(part('Anello di giunzione', ring, col[0], 'Anello', { print: reg(ring.rotate([90, 0, 0])) }));
       } else {
         parts.push(part('Pallina · corpo', body, col[0], 'Pallina'));
         if (dec) parts.push(part('Pallina · decorazioni', dec, col[1], 'Pallina'));
         if (textM) parts.push(part('Pallina · scritta', textM, col[2], 'Pallina'));
-        notes.push('Intera serve il supporto sotto: con le due metà invece stampa senza supporti');
+        notes.push('Intera: serve il supporto sotto, e dentro la cupola in cima resta a sbalzo');
       }
       if (cap) parts.push(part('Cappuccio', cap, col[1], 'Cappuccio', { print: reg(cap.rotate([180, 0, 0])) }));
+      if (led && led.lid) parts.push(part('Tappo del LED', led.lid, col[0], 'Tappo', { at: [pr.rMax + 25, 0, 0], print: led.flat ? led.lid : reg(led.lid.rotate([180, 0, 0])) }));
       info.push(['Misure', `Ø ${fmt(2 * pr.rMax)} × ${fmt(pr.zTop - pr.zBot)} mm, guscio ${fmt(t)} mm`]);
       const latoN = (a) => { const x = ((a % 360) + 360) % 360; return x === 0 ? 'davanti' : x === 180 ? 'dietro' : x === 90 ? 'a destra' : x === 270 ? 'a sinistra' : `${x}°`; };
       for (const q of texts) info.push([`Scritta ${q.i}`, `${fmt(q.cap)} mm, ${latoN(q.ang)}`]);
       if (texts.length && p.stileTesto === 'traforata') info.push(['Lettere', 'traforate: con un LED dentro si illuminano']);
-      info.push(['Pezzi', p.costruzione === 'meta' ? `2 metà + anello${cap ? ' + cappuccio' : ''}: incolla le metà sull'anello` : `1${cap ? ' + cappuccio' : ''}`]);
-      if (p.appendino === 'cappuccio') info.push(['Cappuccio', `foro per il nastro Ø 2,6 mm`]);
+      const tap = led && led.lid ? ' + tappo' : '';
+      info.push(['Pezzi', p.costruzione === 'meta' ? `2 metà + anello${cap ? ' + cappuccio' : ''}${tap}: incolla le metà sull'anello` : `1${cap ? ' + cappuccio' : ''}${tap}`]);
+      if (p.appendino === 'cappuccio') info.push(['Cappuccio', `foro per il nastro Ø 2,6 mm${p.filoLuci ? `, fessura per il filo da ${fmt(p.fessura)} mm` : ''}`]);
+      if (p.appendino === 'cappuccio' && p.filoLuci) info.push(['Lucine', `i LED entrano dal foro in cima, Ø ${fmt(2 * rh)} mm`]);
+      if (led) info.push(['Foro LED', `sul fondo, Ø ${fmt(2 * led.rL)} mm${led.lid ? ', con tappo' : ', aperto'}`]);
       if (p.costruzione === 'meta' && (dec || textM)) info.push(['Colori', 'decorazioni e scritta sono sulla cupola: serve una stampante multicolore']);
       for (const x of notes) info.push(['Nota', x]);
       return { parts: ok(parts), info, view: [-0.3, -1, 0.35] };

@@ -16,7 +16,7 @@ La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la 
 
 | Generatore | Cos'è | Parti nel file |
 |---|---|---|
-| **Pallina** | Pallina di Natale sferica, a goccia, a oliva o a cipolla, con decorazioni e scritta | 2 metà, anello, cappuccio |
+| **Pallina** | Pallina di Natale sferica, a goccia, a oliva o a cipolla, con decorazioni e scritta | 2 metà, anello, cappuccio, tappo del LED |
 | **Palla piatta** | Palla di Natale piatta con cappuccio, sfondi (fiocchi, maglione nordico, bosco…), un disegno a colori o il tuo SVG, e il nome, anche su una fascia | 1, più il supporto da tavolo |
 | **Decorazione** | Decorazione piatta da appendere con 57 disegni Fluent Emoji a colori (fino a 4 filamenti) o con il tuo SVG, nome su targhetta, oppure solo il nome | 1, più il supporto da tavolo |
 | **Albero** | Albero a spirale, a strati o da incastrare, con stella in cima e base con scritta | 1 o 2 |
@@ -39,8 +39,11 @@ La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la 
 Tutti gli oggetti di Natale possono avere **fino a tre colori** (abbinamenti pronti oppure colori a scelta) e una **scritta** in tre caratteri: tondo, corsivo e natalizio. Se la scritta non ci sta, viene ridotta da sola e il riquadro misure lo dice.
 
 - **Pallina:** sfera, goccia, oliva o cipolla, liscia o sfaccettata (low poly). Decorazioni: spicchi, anelli, puntini, stelle in rilievo o stelle traforate (con un LED dentro si illumina). Fino a **quattro scritte**, e ognuna la metti dove vuoi: *lato* (0° davanti, 90° a destra, 180° dietro, 270° a sinistra, a passi di 15°), *altezza* (0 = a metà pallina, positivo verso l'alto, negativo verso il basso) e *altezza lettere*. Per esempio il nome davanti, l'anno sotto e una dedica dietro. Le scritte seguono la curva della pallina e possono essere **in rilievo** o **traforate**; le decorazioni si spostano da sole per lasciarle libere. Con le due metà, se una scritta cade sulla giunzione (90° o 270°) il riquadro misure lo segnala.
-  - Si stampa in **due metà** senza supporti, che si incollano su un anello di giunzione. Oppure intera, con il supporto.
+  - Si stampa in **due metà**, che si incollano su un anello di giunzione: fuori non servono supporti, ma dentro la cupola è a sbalzo e lo slicer può chiederli. Oppure intera, con il supporto.
   - Appendino: **cappuccio** a parte con il foro per il nastro, oppure occhiello.
+  - **Luce**, per illuminarla da dentro:
+    - *foro per il LED sul fondo*, con diametro regolabile. **Con tappo** per un LED a pila, che si mette e si toglie dal fondo: il tappo ha la faccia piatta, si stampa senza supporti e la pallina ci sta in piedi (con la goccia il tappo è la punta). **Aperto** per spingere dentro una lucina della catena dell'albero. Con le due metà il foro ha due punte a 45°, così il suo bordo si stampa senza supporti;
+    - *fessura per il filo* nel cappuccio, per le lucine su filo di rame: i LED entrano dal foro in cima e il filo esce dalla fessura.
 - **Palla piatta:** la classica pallina vista di fronte, piatta, con il cappuccio scanalato e l'occhiello. Scrivi il nome (una o due righe, per esempio *Famiglia* e *Rossi 2026*) e componi la palla con due scelte indipendenti, che puoi combinare:
   - **Sfondo**, che riempie la palla attorno al nome: fiocchi di neve, stelle, cuori, pois, righe a bastoncino, spicchi, onde, zig-zag, maglione nordico, ghirlanda sul bordo, oppure una scena (cielo stellato con luna, bosco innevato, paesino con casette, luna con la slitta, regali). *Quantità* e *variante* cambiano quanti elementi ci sono e come sono sparsi; la *fascia dietro il nome* è una striscia che attraversa la palla.
   - **Figura**, un disegno grande sopra il nome, a colori: uno dei disegni Fluent Emoji (pinguino, renna, Babbo Natale…) oppure il tuo SVG, caricato dal riquadro *Il tuo disegno*. Lo sfondo le lascia spazio attorno.
