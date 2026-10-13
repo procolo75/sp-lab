@@ -1,6 +1,6 @@
 {
   "name": "sp-lab",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "private": true,
   "description": "Generatore parametrico di oggetti per la stampa 3D, nel browser: palle piatte e decorazioni di Natale multicolore, reggimensole, ganci, contenitori Gridfinity, cassettiere, basi, rack per telefoni, vasi, viti, bulloni e perni. Esporta 3MF e STL.",
   "scripts": {

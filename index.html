@@ -3690,7 +3690,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       const wAt = (th) => { let w = 0; for (const q of wins) { let d = Math.abs(((th - q.c) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI); const v = d <= q.half ? 1 : d >= q.half + FADE ? 0 : smoothW(1 - (d - q.half) / FADE); w = Math.max(w, v); } return w; };
       const xAt = (z, th) => fascia === 'continua' ? xOf(Xc, z) : fascia === 'nessuna' ? xOf(Xd, z) : (() => { const d = xOf(Xd, z), c = xOf(Xc, z), w = wAt(th); return d + (c - d) * w; })();
       // ---- anelli di vertici ----
-      const SUB = Math.max(3, Math.min(8, Math.round(320 / (2 * N))));
+      const SUB = Math.max(2, Math.min(6, Math.round(144 / (2 * N))));   // ~144 punti per anello: nella fascia la sfera resta entro 0,01 mm
       const u = (th) => [Math.cos(th), Math.sin(th)];
       function lineOf(P, Q, ridge, thr, ap, vt, inner) {
         const ex = Q[0] - P[0], ey = Q[1] - P[1], L = Math.hypot(ex, ey) || 1e-9;
@@ -3745,17 +3745,41 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         return reg(new Manifold(new Mesh({ numProp: 3, vertProperties: new Float32Array(P), triVerts: new Uint32Array(T) })));
       }
       const DZ = Math.max(0.2, Dm / 350);
-      const oRows = []; for (let z = zF; z < zT - 0.3; z += DZ) oRows.push(ring(z, false).pts);
+      // quote degli anelli: si scorre la griglia fine e si salta ogni anello che i vicini già descrivono
+      // (cresta e valli si scostano meno di 0,03 mm dalla retta tra i due anelli tenuti): fitti ai poli e ai bordi della fascia
+      const st = (z) => {
+        const a = Math.sqrt(Math.max(0, R * R - z * z)), ps = psi(z), bc = a * xOf(Xc, z), bd = Xd ? a * xOf(Xd, z) : 0;
+        const c = Math.cos(ps), s = Math.sin(ps), c2 = Math.cos(ps + al), s2 = Math.sin(ps + al);
+        return [z, a * c, a * s, bc * c2, bc * s2, bd * c2, bd * s2, a];
+      };
+      function rowZs(z0, z1) {
+        const S = []; for (let z = z0; z < z1; z += DZ) S.push(st(z));
+        const fits = (A, B, i0, j) => {
+          if (Math.hypot(B[0] - A[0], B[7] - A[7]) > 3) return false;
+          for (let m = i0 + 1; m < j; m++) {
+            const M = S[m], f = (M[0] - A[0]) / (B[0] - A[0]);
+            for (let d = 1; d < 7; d++) if (Math.abs(A[d] + (B[d] - A[d]) * f - M[d]) > 0.03) return false;
+          }
+          return true;
+        };
+        const zs = [S[0][0]]; let i0 = 0;
+        for (let j = 2; j < S.length; j++) if (!fits(S[i0], S[j], i0, j)) { i0 = j - 1; zs.push(S[i0][0]); }
+        if (i0 < S.length - 1) zs.push(S[S.length - 1][0]);
+        return zs;
+      }
+      const oZs = rowZs(zF, zT - 0.3), oRows = oZs.map(z => ring(z, false).pts);
       const outer = loft(oRows, zF, zT);
-      const iRows = []; let zTopI = zF + t;
-      for (let z = zF + t; z < R - t; z += DZ) { const r = ring(z, true); if (r.rMin < rh - 0.6) { zTopI = z; break; } iRows.push(r.pts); zTopI = z + DZ; }
+      const iRows = [], iZs = rowZs(zF + t, R - t); let zTopI = zF + t;
+      for (let j = 0; j < iZs.length; j++) { const z = iZs[j], r = ring(z, true); if (r.rMin < rh - 0.6) { zTopI = z; break; } iRows.push(r.pts); zTopI = j + 1 < iZs.length ? iZs[j + 1] : z + DZ; }
       const inner = loft(iRows, zF + t, zTopI);
-      let body = sub(outer, inner);
-      body = sub(body, cylZ(rh, Math.min(R - t * 3 - 2, zTopI - 1), R + 1, 0, 0, 40));   // foro del perno del cappuccio (e delle lucine)
-      if (rLed > 0) body = sub(body, cylZ(rLed, zF - 1, zF + t + 1, 0, 0, 64));
-      if (holes.length) body = sub(body, reg(union(holes).intersect(box(-big, -big, -zB + 0.3, big, big, zB - 0.3))));
+      const cuts = [inner, cylZ(rh, Math.min(R - t * 3 - 2, zTopI - 1), R + 1, 0, 0, 40)];   // foro del perno del cappuccio (e delle lucine)
+      if (rLed > 0) cuts.push(cylZ(rLed, zF - 1, zF + t + 1, 0, 0, 64));
+      if (holes.length) cuts.push(reg(union(holes).intersect(box(-big, -big, -zB + 0.3, big, big, zB - 0.3))));
+      const body = reg(Manifold.difference([outer, ...cuts]));
       // ---- cappuccio: sotto segue le pieghe; fessura per il filo delle lucine ----
-      let cap = sub(knurled(2 * (rh + 2.6), zT - 4, zT + 5), outer);
+      // basta la calotta del guscio esterno attorno al cappuccio, non tutta la pallina
+      const jTop = Math.max(0, oZs.findIndex(z => z >= zT - 4.5) - 1);
+      let cap = sub(knurled(2 * (rh + 2.6), zT - 4, zT + 5), loft(oRows.slice(jTop), oZs[jTop], zT));
       cap = sub(cap, reg(reg(Manifold.cylinder(4 * rh + 20, 1.3, 1.3, 20, true)).rotate([0, 90, 0]).translate([0, 0, zT + 2.6])));
       cap = union([cap, cylZ(rh - p.tolleranza / 2, zT - t - 3, zT + 1, 0, 0, 32)]);
       if (p.filoLuci) cap = sub(cap, box(-p.fessura / 2, 0, zT - t - 4, p.fessura / 2, big, zT + 7));
@@ -3779,10 +3803,13 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       if (segs.length) {
         const slab = (q) => box(-big, -big, q[0], big, big, q[1]);
         const byCol = { 3: segs.filter(q => q[2] === 3), 4: segs.filter(q => q[2] === 4) };
-        const all = union(segs.map(slab));
-        parts.push(part('Pallina · colore 1', sub(body, all), p.col1, 'Pallina'));
-        if (byCol[3].length) parts.push(part('Pallina · fascia', reg(body.intersect(union(byCol[3].map(slab)))), p.col3, 'Pallina'));
-        if (byCol[4].length) parts.push(part('Pallina · righe', reg(body.intersect(union(byCol[4].map(slab)))), p.col4, 'Pallina'));
+        // un solo taglio sulla pallina intera, poi la parte colorata si divide tra fascia e righe
+        const [inS, outS] = body.split(union(segs.map(slab))).map(reg);
+        parts.push(part('Pallina · colore 1', outS, p.col1, 'Pallina'));
+        let c3 = byCol[3].length ? inS : null, c4 = byCol[4].length ? inS : null;
+        if (c3 && c4) [c3, c4] = inS.split(union(byCol[3].map(slab))).map(reg);
+        if (c3) parts.push(part('Pallina · fascia', c3, p.col3, 'Pallina'));
+        if (c4) parts.push(part('Pallina · righe', c4, p.col4, 'Pallina'));
         // cambi di filamento dal basso, in mm dal piatto
         const ev = []; for (const q of segs) { ev.push([q[0], q[2]]); ev.push([q[1], 1]); }
         ev.sort((a, b) => a[0] - b[0]);
