@@ -185,6 +185,8 @@ Si stampano **sdraiati sul fianco**: gli strati seguono il profilo, così la squ
 
 I valori che imposti restano salvati nel browser. **Ripristina valori** torna a quelli iniziali.
 
+**Se l'anteprima 3D non compare:** l'anteprima usa WebGL, la grafica 3D del browser. Su alcuni PC non è disponibile (scheda video vecchia, driver da aggiornare, accelerazione grafica disattivata, PC aziendali). Il sito funziona lo stesso: schede, parametri, misure ed esportazione ci sono, al posto delle anteprime compare un avviso. Per riaverle, in Chrome o Edge attiva *Impostazioni → Sistema → Usa l'accelerazione grafica se disponibile* e riavvia il browser, oppure prova un altro browser.
+
 **Link diretti:** ogni generatore ha il suo indirizzo, da usare per linkarlo o salvarlo nei preferiti: `#natale` (pallina), `#natale-palla` (palla piatta), `#natale-piatto`, `#natale-albero`, `#natale-stella`, `#natale-lanterna`, `#natale-formina`, `#gridfinity`, `#gridfinity-cab` (cassettiera), `#gridfinity-base`, `#rack`, `#vasi`, `#supporti` (reggimensola), `#supporti-gancio`, `#viteria` (vite), `#viteria-bullone`, `#viteria-perno`.
 
 ### Il file 3MF

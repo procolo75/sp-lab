@@ -690,7 +690,17 @@
 
   // ================= VIEWER 3D =================
   const view = $('#view');
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+  // senza WebGL (scheda video vecchia, accelerazione hardware spenta, PC aziendali) il sito
+  // deve funzionare lo stesso: niente anteprima 3D, ma parametri ed esportazione sì
+  let noGL = false, renderer;
+  try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); }
+  catch (e) {
+    console.warn('WebGL non disponibile', e); noGL = true;
+    renderer = { domElement: document.createElement('canvas'), setPixelRatio() {}, setSize() {}, render() {}, localClippingEnabled: false };
+    const msg = document.createElement('div'); msg.className = 'nogl';
+    msg.textContent = 'Anteprima 3D non disponibile in questo browser (WebGL disattivato). Puoi comunque regolare le misure e scaricare il file.';
+    view.appendChild(msg);
+  }
   renderer.localClippingEnabled = true;
   const clipPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   let sectionOn = false;
@@ -1107,6 +1117,7 @@ ${build}</build>
       const img = document.querySelector(`#card-${g.id} img`), ph = document.querySelector(`#card-${g.id} .ph`);
       if (!img) continue;
       if (!thumbCache[g.id]) {
+        if (noGL) { if (ph) ph.textContent = 'anteprima non disponibile'; continue; }
         try { thumbCache[g.id] = makeThumb(g.thumb); } catch (e) { console.error(e); continue; }
       }
       img.src = thumbCache[g.id]; img.hidden = false; if (ph) ph.hidden = true;
