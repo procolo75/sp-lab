@@ -59,20 +59,38 @@
         else if (t === 'C') { for (let i = 1; i <= 7; i++) { const k = i / 7, u = 1 - k; P(u * u * u * x + 3 * u * u * k * v[0] + 3 * u * k * k * v[2] + k * k * k * v[4], u * u * u * y + 3 * u * u * k * v[1] + 3 * u * k * k * v[3] + k * k * k * v[5]); } x = v[4]; y = v[5]; }
       }
     }
-    // loghi dentro le scritte: {SP} e {viso}. Il logo è alto LOGO_K volte le maiuscole e centrato sulla riga.
+    // loghi dentro le scritte: {SP}, {viso} e {visoNatale}. Il logo è alto LOGO_K volte le maiuscole e centrato sulla riga.
     // Se le linee del logo vengono più sottili dell'ugello, vengono ingrossate fino alla larghezza dell'ugello.
     const LOGOS = root.SPRECOLO_LOGOS || {};
-    const LOGO_K = 1.35, LOGO_RE = /\{(SP|viso)\}/gi;
+    const LOGO_K = 1.35, LOGO_RE = /\{(SP|visoNatale|viso)\}/gi;
     const logoKey = (t) => Object.keys(LOGOS).find(k => k.toLowerCase() === t.toLowerCase());
     let lastLogos = [];   // loghi usati nell'ultima scritta costruita (per gli avvisi)
     const NOTES = new Set();
-    // testo centrato in (0,0); capH = altezza delle maiuscole in mm; noz = diametro dell'ugello
-    function textCS(lines, fontId, capH, noz = 0.4) {
+    // testo centrato in (0,0); capH = altezza delle maiuscole in mm, uguale per tutte le righe o una per riga;
+    // noz = diametro dell'ugello; offs = spostamento di ogni riga [dx, dy] in mm, dopo averle centrate
+    let lastBox = null;   // misure del blocco di righe senza spostamenti (per farlo stare in un riquadro)
+    function textCS(lines0, fontId, capH, noz = 0.4, offs) {
       const F = FONTS[fontId] || FONTS.tondo;
-      lines = lines.map(l => String(l || '').trim()).filter(Boolean);
-      lastLogos = [];
-      if (!F || !lines.length) return null;
-      const s = capH / F.cap, lh = capH * 1.5, polys = [], logoCS = [];
+      const rows = lines0.map((l, i) => ({ l: String(l || '').trim(), cap: Math.max(0.5, +(Array.isArray(capH) ? capH[i] ?? capH[0] : capH) || 5), off: offs && offs[i] }))
+        .filter(r => r.l);
+      lastLogos = []; lastBox = null;
+      if (!F || !rows.length) return null;
+      // centri delle righe: tra una riga e l'altra 0,75 volte la somma delle due altezze (come 1,5 volte con righe uguali)
+      const cy = [0];
+      for (let i = 1; i < rows.length; i++) cy.push(cy[i - 1] - 0.75 * (rows[i - 1].cap + rows[i].cap));
+      const mid = (cy[0] + cy[cy.length - 1]) / 2;
+      const lineCS = rows.map((r, li) => textLine(r.l, F, r.cap, cy[li] - mid, noz));
+      if (lineCS.every(c => !c)) return null;
+      let c = U(lineCS);
+      if (empty(c)) return null;
+      const b = bounds(c), sx = -(b.x0 + b.x1) / 2, sy = -(b.y0 + b.y1) / 2;
+      lastBox = { w: b.w, h: b.h };
+      if (!rows.some(r => r.off && (+r.off[0] || +r.off[1]))) return MV(c, sx, sy);
+      return U(lineCS.map((lc, i) => lc && MV(lc, sx + (+(rows[i].off || [])[0] || 0), sy + (+(rows[i].off || [])[1] || 0))));
+    }
+    // una riga (testo e loghi) centrata in x, con il centro delle maiuscole all'altezza yc
+    function textLine(line, F, capH, yc, noz) {
+      const s = capH / F.cap, polys = [], logoCS = [];
       const LH = capH * LOGO_K, gap = capH * 0.22;
       // ogni riga diventa una sequenza di pezzi: testo oppure logo
       const pieces = (line) => {
@@ -88,11 +106,11 @@
         return out;
       };
       const widthOf = (pc, i, all) => pc.logo ? LOGOS[pc.logo].w * LH + (i > 0 ? gap : 0) + (i < all.length - 1 ? gap : 0) : [...pc.t].reduce((w, ch) => w + (F.g[ch] || F.g['?'])[0] * s, 0);
-      lines.forEach((line, li) => {
+      {
         const pcs = pieces(line);
         let w = 0; pcs.forEach((pc, i) => { w += widthOf(pc, i, pcs); });
         let x = -w / 2;
-        const y = ((lines.length - 1) / 2 - li) * lh - capH / 2;
+        const y = yc - capH / 2;
         pcs.forEach((pc, i) => {
           if (pc.logo) {
             const L = LOGOS[pc.logo];
@@ -108,33 +126,40 @@
             for (const ch of pc.t) { const g = F.g[ch] || F.g['?']; if (g[1]) glyphPolys(g[1], s, x, y, polys); x += g[0] * s; }
           }
         });
-      });
+      }
       const ok = polys.filter(p => p.length >= 3);
       if (!ok.length && !logoCS.length) return null;
-      let c = U([ok.length ? P2s(ok) : null, ...logoCS]);
-      if (empty(c)) return null;
-      const b = bounds(c);
-      return MV(c, -(b.x0 + b.x1) / 2, -(b.y0 + b.y1) / 2);
+      const c = U([ok.length ? P2s(ok) : null, ...logoCS]);
+      return empty(c) ? null : c;
     }
+    // altezze e spostamenti delle due righe di una scritta: Riga 1 alta cap, Riga 2 in proporzione (altTesto2 / altTesto)
+    const capsOf = (p, cap) => [cap, cap * ((+p.altTesto2 || +p.altTesto || cap) / (+p.altTesto || cap))];
+    const offsOf = (p) => [p.pos1, p.pos2];
+    // la scritta di un pezzo (Riga 1 e Riga 2) con le sue altezze e i suoi spostamenti
+    const textOf = (p, cap, noz, moved = true) => textCS([p.scritta, p.scritta2], p.carattere, capsOf(p, cap), noz, moved ? offsOf(p) : null);
     const P2s = (polys) => R2(CrossSection.ofPolygons(polys, 'NonZero'));
     // avvisi sui loghi dell'ultima scritta: quanto sono alti e se le linee sono state ingrossate
     function logoNotes(noz) {
       for (const q of lastLogos) {
-        const nm = q.id === 'SP' ? 'Logo SP' : 'Viso';
+        const nm = q.id === 'SP' ? 'Logo SP' : q.id === 'visoNatale' ? 'Viso di Natale' : 'Viso';
         if (q.d > 0.005) NOTES.add(`${nm} alto ${fmt(q.h)} mm: linee ingrossate a ${fmt2(q.lw + 2 * q.d)} mm per l'ugello da ${fmt2(noz)}. Per avere tutti i dettagli fallo alto almeno ${Math.ceil(q.hmin)} mm (lettere da ${Math.ceil(q.hmin / LOGO_K)} mm)`);
       }
     }
     const fmt2 = (v) => (Math.round(v * 100) / 100).toString().replace('.', ',');
     // scritta adattata a un riquadro {x,y,w,h}; restituisce anche l'altezza effettiva delle lettere
+    // la scritta di un pezzo che deve stare nel riquadro bx; ogni riga ha la sua altezza e il suo spostamento.
+    // Lo spostamento non conta per farla stare: spostandola non si rimpicciolisce (se esce dal pezzo viene tagliata)
     function fitText(p, bx, capWanted) {
-      const lines = [p.scritta, p.scritta2], noz = +p.ugello || 0.4;
-      let c = textCS(lines, p.carattere, capWanted, noz);
+      const noz = +p.ugello || 0.4;
+      let c = textOf(p, capWanted, noz);
       if (!c) return null;
-      const b = bounds(c), f = Math.min(1, bx.w / b.w, bx.h / b.h);
+      const b = lastBox, f = Math.min(1, bx.w / b.w, bx.h / b.h);
       // se va rimpicciolita la ricostruisco alla misura giusta: così i loghi si ingrossano quanto serve
-      if (f < 1) { c = textCS(lines, p.carattere, capWanted * f, noz); const b2 = bounds(c), f2 = Math.min(1, bx.w / b2.w, bx.h / b2.h); if (f2 < 1) c = R2(c.scale([f2, f2])); }
+      if (f < 1) { c = textOf(p, capWanted * f, noz); const b2 = lastBox, f2 = Math.min(1, bx.w / b2.w, bx.h / b2.h); if (f2 < 1) c = R2(c.scale([f2, f2])); }
       logoNotes(noz);
-      return { cs: MV(c, bx.x, bx.y), cap: capWanted * f, reduced: f < 0.97 };
+      const moved = offsOf(p).some(o => o && (+o[0] || +o[1]));
+      const k = f < 1 ? Math.min(1, bx.w / lastBox.w, bx.h / lastBox.h) : 1;
+      return { cs: MV(c, bx.x, bx.y), cap: capWanted * f, reduced: f < 0.97, moved, box: { w: lastBox.w * k, h: lastBox.h * k } };
     }
 
     // ---------- disegni: Fluent Emoji (libreria) e SVG caricati ----------
@@ -258,7 +283,7 @@
         const pos = fig ? -0.3 : ({ bosco: 0.15, paese: 0.15, regali: 0.15, slitta: -0.29 }[d] || 0);
         // misura la scritta alla grandezza chiesta, poi trova la più grande che ci sta:
         // il rettangolo della scritta (w·f × h·f) centrato in ty deve stare nel cerchio Rin
-        const t0 = nl ? textCS([p.scritta, p.scritta2], p.carattere, p.altTesto, +p.ugello || 0.4) : null;
+        const t0 = nl ? textOf(p, p.altTesto, +p.ugello || 0.4, false) : null;
         const w0 = t0 ? bounds(t0).w : 0, h0 = t0 ? bounds(t0).h : 0;
         const fitAt = (y) => { const A = (w0 * w0 + h0 * h0) / 4, B = Math.abs(y) * h0, C = y * y - Rin * Rin; return C >= 0 || !A ? 0 : (-B + Math.sqrt(B * B - 4 * A * C)) / (2 * A); };
         const maxH = 0.46 * S;
@@ -413,7 +438,8 @@
           { name: 'Figura', slots: { 2: I(fsl[2], inner), 3: I(fsl[3], inner), 4: I(fsl[4], inner) }, raise1: figPl ? I(figPl.sil, inner) : null,
             lines: figPl ? I(figPl.lines, inner) : null, linesIn: figPl ? figPl.linesIn : null, styleKey: 'stileFigura', hKey: 'spFigura' },
         ];
-        return { base: U([disc, capC]), groups, decorFix: capDec, box, clear: p.fascia ? 0.9 : 1.6, hang: [0, yc1 + 0.025 * S], F };
+        // lo sfondo arriva fino alla scritta, senza contorno del colore della palla (con i loghi pieni di dettagli si vedeva molto)
+        return { base: U([disc, capC]), groups, decorFix: capDec, box, clear: 0.01, hang: [0, yc1 + 0.025 * S], F };
       },
       medaglione(S) { return { base: C2(0, 0, S / 2, 96), box: { x: 0, y: 0, w: 0.8 * S, h: 0.42 * S }, hang: [0, S / 2] }; },
       targhetta(S) {
@@ -445,7 +471,7 @@
     // decorazione fatta solo dalla scritta: il contorno unisce le lettere
     function nameShape(p) {
       const cap = p.altTesto;
-      let tc = textCS([p.scritta, p.scritta2], p.carattere, cap, +p.ugello || 0.4) || textCS(['Nome'], p.carattere, cap);
+      let tc = textOf(p, cap, +p.ugello || 0.4) || textCS(['Nome'], p.carattere, cap);
       logoNotes(+p.ugello || 0.4);
       const pad = (p.bordo ? p.bordoL : 0) + 1.6, r = cap * 0.35;
       const base = OFF(OFF(tc, pad + r), -r);
@@ -480,7 +506,7 @@
       const pos = p.posNome || 'sotto';
       let box = null, plate = null, clear = 0.9;
       if (has && (pos === 'sotto' || pos === 'sopra')) {
-        const t0 = textCS([p.scritta, p.scritta2], p.carattere, p.altTesto, noz);
+        const t0 = textOf(p, p.altTesto, noz, false);
         if (t0) {
           const tb = bounds(t0), pad = Math.max(2, 0.35 * p.altTesto), pw = Math.max(tb.w + 2 * pad, 0.4 * S), ph = tb.h + 2 * pad;
           const bb = bounds(base), ov = Math.min(ph * 0.35, 0.12 * S);
@@ -528,7 +554,11 @@
         if (sh.box) {
           txt = fitText(p, sh.box, p.altTesto);
           if (txt && txt.reduced) notes.push(`Scritta ridotta a ${fmt(txt.cap)} mm per starci: allunga la forma o accorcia il testo`);
-          if (txt && txt.cs) txt.cs = I(txt.cs, OFF(base, -(p.bordo && !forStamp ? p.bordoL + 0.4 : 0.8)));
+          if (txt && txt.cs) {
+            const a0 = txt.cs.area();
+            txt.cs = I(txt.cs, OFF(base, -(p.bordo && !forStamp ? p.bordoL + 0.4 : 0.8)));
+            if (txt.moved && (!txt.cs || txt.cs.area() < a0 * 0.98)) notes.push('La scritta spostata esce dal pezzo: la parte fuori viene tagliata');
+          }
         } else notes.push(`Il motivo "${SHAPE_NAMES[p.forma]}" non ha spazio per una scritta`);
       }
       if (txt && txt.cap < 4.5) notes.push('Lettere sotto i 4,5 mm: vengono poco leggibili');
@@ -761,7 +791,7 @@
         const rz = Math.max(4, radiusAt(pr, zc));
         // spazio in altezza: fino al bordo della pallina, senza toccare il cappuccio
         const room = Math.max(4, Math.min(pr.zTop - 4 - zc, zc - pr.zBot - 2) * 2 * 0.9);
-        const q = Object.assign({}, p, { scritta: str, scritta2: '' }), keepN = new Set(NOTES);
+        const q = Object.assign({}, p, { scritta: str, scritta2: '', pos1: null, pos2: null }), keepN = new Set(NOTES);
         const undoNotes = () => { for (const n of [...NOTES]) if (!keepN.has(n)) NOTES.delete(n); };   // tengo solo gli avvisi dell'ultima prova
         let tf = fitText(q, { x: 0, y: 0, w: rz * 1.15, h: Math.min(room, (pr.zTop - pr.zBot) * 0.42) }, cap);
         if (!tf) continue;
@@ -995,9 +1025,14 @@
           let cs = null, desc = '';
           if (kind === 'scritta') {
             const str = String(p['testo' + i] || '').trim(); if (!str) return;
-            const tf = fitText(Object.assign({}, p, { scritta: str, scritta2: '' }), { x: 0, y: 0, w: 1.2 * R * 0.95, h: hBox }, p.altTesto);
+            const cap = +p[i === 1 ? 'altTesto' : 'altTesto' + i] || p.altTesto;
+            const tf = fitText(Object.assign({}, p, { scritta: str, scritta2: '', pos1: null, pos2: null }), { x: 0, y: 0, w: 1.2 * R * 0.95, h: hBox }, cap);
             if (!tf) return;
             cs = stencil(tf.cs, tf.cap); desc = `"${str}", lettere ${fmt(tf.cap)} mm`;
+            // spostamento: in su e in giù solo finché resta nella fascia liscia
+            const o = p['pos' + i] || [0, 0], dyMax = Math.max(0, (hBox - tf.box.h) / 2), dy = Math.max(-dyMax, Math.min(dyMax, +o[1] || 0));
+            if (Math.abs(dy - (+o[1] || 0)) > 0.05) notes.push(`${nm}: scritta spostata solo fino al bordo della fascia`);
+            if (+o[0] || dy) cs = MV(cs, +o[0] || 0, dy);
             if (tf.reduced) notes.push(`${nm}: scritta ridotta a ${fmt(tf.cap)} mm per stare nella fascia`);
           } else if (kind === 'simbolo') {
             const S = Math.min(p.altSimbolo, hBox);
@@ -1169,7 +1204,7 @@
       const G = 'Albero';
       let zb = 0, plinth = null, textM = null;
       if (p.base) {
-        const hb = Math.max(Ht * 0.08, p.scritta || p.scritta2 ? p.altTesto * 1.6 + 4 : 0, 6), rb = R * 1.08 + 2;
+        const hb = Math.max(Ht * 0.08, p.scritta || p.scritta2 ? Math.max(p.scritta ? p.altTesto : 0, p.scritta2 ? +p.altTesto2 || p.altTesto : 0) * 1.6 + 4 : 0, 6), rb = R * 1.08 + 2;
         plinth = roundCylZ(rb, 0, hb);
         const tf = (p.scritta || p.scritta2) ? fitText(p, { x: 0, y: hb / 2, w: rb * 1.3, h: hb - 3 }, p.altTesto) : null;
         if (tf) {
@@ -1281,9 +1316,9 @@
       let band = 10, textM = null;
       if (lines.length) {
         const bw = hex ? Dl / Math.sqrt(3) * 0.92 : Dl * 0.8;
-        const tf = fitText(p, { x: 0, y: 0, w: bw, h: Math.max(8, p.altTesto * 2.4) }, p.altTesto);
+        const tf = fitText(p, { x: 0, y: 0, w: bw, h: Math.max(8, 1.2 * (p.altTesto + (p.scritta2 && p.scritta2.trim() ? +p.altTesto2 || p.altTesto : p.altTesto))) }, p.altTesto);
         if (tf) {
-          band = bounds(tf.cs).h + 8;
+          band = tf.box.h + 8;
           const c = MV(tf.cs, 0, band / 2);
           const outer = hex ? prism(R, -1, Hl + 1) : cylZ(R, -1, Hl + 1, 0, 0, 96);
           const sh2 = sub(hex ? prism(R + p.rilievoTesto / Math.cos(Math.PI / 6), 0, Hl) : cylZ(R + p.rilievoTesto, 0, Hl, 0, 0, 96), outer);
@@ -1321,6 +1356,9 @@
 
     // palla piatta: una decorazione piatta con forma e disegni propri
     function palla(p) { return Object.assign(piatto(Object.assign({}, p, { forma: 'palla', altezza: p.diametro, decorazioni: true })), { view: [0, -0.7, 1] }); }
+
+    // scritte e disegni a disposizione degli altri generatori (la cover li usa sul retro)
+    H.decor = { textCS, fitText, logoNotes, artOf, artGeom, artSlots, filaments, isArt, stencil, perforate, NOTES, EMO_BY };
 
     // ogni generatore riporta in fondo gli avvisi sui loghi
     const withNotes = (fn) => (p) => { NOTES.clear(); const r = fn(p); for (const n of NOTES) r.info.push(['Nota', n]); NOTES.clear(); return r; };

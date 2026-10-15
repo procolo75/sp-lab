@@ -28,6 +28,7 @@ La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la 
 | **Cassettiera** | Mobiletto Gridfinity con cassetti, impilabile, maniglie a scelta e divisori nei cassetti | mobile + un pezzo per cassetto |
 | **Base** | Griglia Gridfinity su cui agganciare contenitori e cassettiere | 1 |
 | **Rack telefoni** | Rack a fessure per riporre telefoni e tablet, con spessori diversi per ogni fessura | 1 |
+| **Cover telefono** | Cover per gli iPhone dal 12 al 17 (misure dei disegni Apple) o per qualsiasi telefono con le tue misure: TPU o PLA/PETG a scatto, cavalletto, scritta e il tuo SVG sul retro | 1, più copertura della fotocamera e cavalletto |
 | **Vasi** | Vasi per piante aromatiche: tondi, quadrati, esagonali o fioriera a scomparti; normali con sottovaso oppure autoirriganti | da 1 a 5 |
 | **Reggimensola** | Squadra per mensole con rinforzo a triangolo (pieno o traforato), puntone, raccordo curvo o arco, viti svasate e labbro antiscivolo | quante ne vuoi |
 | **Gancio** | Gancio a muro o appendiabiti con più ganci, sopra porta o anta, per tubo o bastone, a S; fissaggio a viti, biadesivo o magneti | 1 |
@@ -77,9 +78,14 @@ Tutti gli oggetti di Natale possono avere **fino a tre colori** (abbinamenti pro
 - **Lanterna** tonda o esagonale, traforata con stelle, fiocchi, alberi o cuori (sagome Fluent Emoji), con la sede per un lumino LED da 38 mm e una scritta sulla fascia in basso, in rilievo o traforata (la luce passa dalle lettere).
 - **Formina per biscotti** con tutti i disegni, anche a forma di nome o dal tuo SVG, con lama sottile e bordo per premere. Il **timbro** entra nella formina e stampa le linee del disegno e la scritta sul biscotto (è già a specchio).
 
+#### Scritte: altezza e posizione
+- Ogni riga ha la **sua altezza** (*Altezza riga 1*, *Altezza riga 2*): per esempio un nome grande e la data piccola sotto. Nella pallina e nella pallina a spirale ogni scritta ha la sua.
+- Sotto ogni riga c'è una **croce di frecce** per spostarla in su, in giù, a destra e a sinistra: 1 mm a clic, 0,2 mm tenendo premuto Maiusc. Il **pulsante al centro** la rimette al centro; accanto c'è di quanto è spostata. Spostandola la scritta non si rimpicciolisce: se esce dal pezzo (o, nella cover, dalla zona libera sotto la fotocamera) la parte fuori viene tagliata e il riquadro misure lo dice. Nella pallina a spirale la scritta sale e scende solo dentro la fascia liscia. Nella pallina le frecce la girano attorno alla sfera (15° a clic) e la alzano o abbassano (5% a clic); il centro la porta a metà altezza.
+- Nella palla piatta lo sfondo arriva fino alla scritta, senza un contorno del colore della palla attorno alle lettere e ai loghi.
+
 #### Loghi nelle scritte
-In ogni scritta puoi mettere il **logo SP** e il **viso**, da soli o insieme al testo: sotto ogni campo di testo ci sono i pulsanti *Logo SP* e *Viso*, che inseriscono `{SP}` e `{viso}` dove c'è il cursore (per esempio `{SP} Lab` o `{viso} Giulia`).
-- Il logo è alto 1,35 volte le lettere, quindi lo regoli con *Altezza lettere* come il resto della scritta, e segue lo stile scelto (rilievo, a filo, incisa, traforata).
+In ogni scritta puoi mettere il **logo SP**, il **viso** e il **viso di Natale** (con cappello da Babbo Natale e barba piena), da soli o insieme al testo: sotto ogni campo di testo ci sono i pulsanti *Logo SP*, *Viso* e *Viso di Natale*, che inseriscono `{SP}`, `{viso}` e `{visoNatale}` dove c'è il cursore (per esempio `{SP} Lab` o `{visoNatale} Buon Natale`). Il logo è solo il disegno, senza sfondo: lo sfondo è il colore del pezzo.
+- Il logo è alto 1,35 volte le lettere, quindi lo regoli con l'altezza della sua riga come il resto della scritta, e segue lo stile scelto (rilievo, a filo, incisa, traforata).
 - **Ugello:** le linee dei loghi sono sottili (0,86 mm nel logo SP alto 46 mm, 0,70 mm nel viso alto 58 mm). Se il logo è più piccolo, le linee vengono ingrossate fino alla larghezza dell'ugello scelto (0,2 · 0,4 · 0,6 · 0,8 mm), così si stampano comunque. Il riquadro misure dice di quanto e da che altezza in su il logo esce con tutti i dettagli: con ugello da 0,4 mm circa 23 mm per il logo SP e 36 mm per il viso.
 
 #### Colori nel file 3MF
@@ -120,6 +126,23 @@ In ogni scritta puoi mettere il **logo SP** e il **viso**, da soli o insieme al 
 - Base Gridfinity oppure libera, con incavi per piedini in gomma.
 - Orientamento di stampa *in piedi* o *sul fianco*. Sul fianco i separatori sono molto più robusti.
 - Nell'anteprima vedi dei dispositivi di esempio in azzurro, che non finiscono nel file.
+
+### Cover telefono
+![Cover telefono](docs/img/cover.png)
+- **Modelli:** tutti gli iPhone dal 12 al 17: 12 mini, 12, 12 Pro, 12 Pro Max, 13 mini, 13, 13 Pro, 13 Pro Max, 14, 14 Plus, 14 Pro, 14 Pro Max, 15, 15 Plus, 15 Pro, 15 Pro Max, 16e, 16, 16 Plus, 16 Pro, 16 Pro Max, 17, 17 Pro, 17 Pro Max e Air. Le misure (corpo, curva degli angoli, profilo del bordo, tasti, fotocamera, connettore, altoparlanti) vengono dai disegni quotati che Apple pubblica per chi progetta accessori. Le poche quote che il disegno non scrive (il raggio del rialzo della fotocamera, dove finisce il rialzo largo dei 17 Pro e dell'Air) sono misurate in scala sul disegno.
+- **Misure mie:** per qualsiasi altro telefono. I campi partono dalle misure dell'ultimo modello scelto e puoi cambiare tutto: larghezza, altezza, spessore, raggi di angoli e bordo, tasti (centro dalla cima e lunghezza, per esempio `34/7, 48/11`), fotocamera, connettore e fori sul fondo.
+- **Materiale:**
+  - *TPU:* il telefono entra a scatto sotto il bordo, che gira tutto attorno.
+  - *PLA o PETG:* la cover è rigida ma chiusa tutto attorno come quella in TPU. Il bordo sul vetro è più stretto (0,6 mm) e il telefono entra inclinato: prima la cima sotto il bordo, poi si preme giù il fondo, mentre le pareti si piegano di pochi decimi. Il PETG si piega meglio del PLA.
+- **Gioco** sui lati e sullo spessore (cambia da solo quando scegli il materiale), attorno a tasti e connettore e attorno alla fotocamera.
+- **Bordi:** spessore di pareti e retro, quanto il bordo copre il vetro e quanto sporge sopra lo schermo; spigoli arrotondati, smussati o vivi.
+- **Fotocamera:** le lenti degli iPhone sporgono più del retro di una cover sottile. Per proteggerle c'è una **copertura a parte**: chiude tutta la finestra della fotocamera e lascia aperti solo lenti, flash, microfono e sensori (con i fori svasati a 45°, fuori dal campo delle lenti), e sporge oltre le lenti di 0,5 mm (regolabile). Si infila da dentro la cover prima del telefono: passa nella finestra e il suo bordo largo 1 mm (la flangia) resta in un incavo scavato nel retro, dalla parte del telefono. Fuori non esce perché la finestra è più stretta, dentro la tiene ferma il telefono: niente colla. La flangia si allarga a 55°, così si stampa senza supporti. Si stampa con la faccia esterna sul piatto, come il retro della cover (così ha la stessa trama del piatto), senza supporti, in PLA o PETG opaco (un materiale chiaro fa passare la luce del flash nelle foto), anche di un altro colore. Con "Misure mie" le posizioni delle lenti non sono note e diventa un anello attorno alla fotocamera. In alternativa il *retro più spesso*, spesso quanto sporgono le lenti, senza pezzi in più. Su 17 Pro, 17 Pro Max e Air il rialzo della fotocamera è largo quanto il telefono: con la copertura il retro resta dello spessore scelto e la copertura abbraccia il rialzo, sporgendo fuori come una gobba; senza copertura il rialzo entra in una tasca e il retro, piatto fuori, diventa più spesso.
+- **Aperture:** dove ci sono i tasti il fianco è aperto dal retro fino al bordo, come nelle cover in commercio (i tasti vicini, Azione e volume o interruttore e volume, in un'unica apertura): il dito arriva a tutto il tasto. Anche il fondo è aperto per cavo, altoparlante e microfoni, senza toccare gli angoli. Il Camera Control ha un'asola con i 25 mm liberi che chiede Apple. Con il TPU i tasti possono anche essere coperti: la parete si assottiglia sopra il tasto e fuori c'è un rilievo da premere.
+- **Cavalletto:** un pezzo a parte che si infila in una guida a coda di rondine scavata nel retro e tiene il telefono in verticale o in orizzontale, con l'inclinazione che vuoi. Si stampa steso sul fianco.
+- **Retro:** scritta (anche con `{SP}` e `{viso}`) e il tuo disegno SVG, caricato dal riquadro *Il tuo disegno*, *a filo* (a colori nei primi strati, la superficie resta liscia), *inciso* o *traforato*.
+- **MagSafe:** un incavo ad anello per un anello magnetico adesivo (diametri e spessore regolabili, con o senza linguetta di orientamento), centrato sul MagSafe del telefono come nei disegni Apple (sul 17 Pro e sull'Air non è al centro). *Dentro la cover* l'anello resta nascosto tra cover e telefono; *sul retro* resta a vista. Così caricatori e accessori MagSafe si attaccano anche attraverso la cover, e anche sull'iPhone 16e, che ha la ricarica wireless ma non i magneti. Con il cavalletto in verticale la guida va da sola sotto l'anello.
+- **Striscia di prova:** solo la cima o solo il fondo (22 mm), per controllare misure e gioco in pochi minuti prima di stampare tutta la cover.
+- Il riquadro misure avvisa se le lenti sporgono dalla cover, se il retro supera i 2,1 mm (oltre, Apple non garantisce la ricarica MagSafe) e se il bordo entra nella parte piatta dello schermo.
 
 ### Vasi
 ![Vaso autoirrigante in sezione](docs/img/vaso-autoirrigante.png)
@@ -175,8 +198,9 @@ Si stampano **sdraiati sul fianco**: gli strati seguono il profilo, così la squ
 1. Scarica `index.html` e aprilo con un browser (Chrome, Safari, Firefox, Edge). Funziona anche offline.
 2. Nella pagina iniziale scegli cosa generare. Con Gridfinity, in alto passi da contenitore a cassettiera a base. **← Tutti** riporta alla pagina iniziale.
 3. A sinistra regoli i parametri: l'anteprima si aggiorna subito.
-4. Nel riquadro in basso leggi le misure reali (esterno, interno, volumi, avvisi).
-5. Premi **Scarica 3MF**, oppure **STL**, e apri il file nello slicer.
+4. Con **Informazioni**, in alto a destra, apri il riquadro con le misure reali (esterno, interno, volumi, avvisi): così non copre l'anteprima. Il numero rosso sul pulsante dice quante note ci sono; **Esc** lo richiude.
+5. Con **Salva impostazioni**, in fondo ai parametri, dai un nome alle regolazioni e le ritrovi nella lista: un clic le ricarica, ✕ le elimina. Restano nel browser; con **Scarica come file** ottieni un file `.json` da riaprire con **Apri file**, anche su un altro computer.
+6. Premi **Scarica 3MF**, oppure **STL**, e apri il file nello slicer.
 
 **Comandi dell'anteprima**
 - Trascina per ruotare, rotella per lo zoom, tasto destro per spostare.
@@ -187,7 +211,7 @@ I valori che imposti restano salvati nel browser. **Ripristina valori** torna a 
 
 **Se l'anteprima 3D non compare:** l'anteprima usa WebGL, la grafica 3D del browser. Su alcuni PC non è disponibile (scheda video vecchia, driver da aggiornare, accelerazione grafica disattivata, PC aziendali). Il sito funziona lo stesso: schede, parametri, misure ed esportazione ci sono, al posto delle anteprime compare un avviso. Per riaverle, in Chrome o Edge attiva *Impostazioni → Sistema → Usa l'accelerazione grafica se disponibile* e riavvia il browser, oppure prova un altro browser.
 
-**Link diretti:** ogni generatore ha il suo indirizzo, da usare per linkarlo o salvarlo nei preferiti: `#natale` (pallina), `#natale-palla` (palla piatta), `#natale-piatto`, `#natale-albero`, `#natale-stella`, `#natale-lanterna`, `#natale-formina`, `#gridfinity`, `#gridfinity-cab` (cassettiera), `#gridfinity-base`, `#rack`, `#vasi`, `#supporti` (reggimensola), `#supporti-gancio`, `#viteria` (vite), `#viteria-bullone`, `#viteria-perno`.
+**Link diretti:** ogni generatore ha il suo indirizzo, da usare per linkarlo o salvarlo nei preferiti: `#natale` (pallina), `#natale-palla` (palla piatta), `#natale-piatto`, `#natale-albero`, `#natale-stella`, `#natale-lanterna`, `#natale-formina`, `#gridfinity`, `#gridfinity-cab` (cassettiera), `#gridfinity-base`, `#rack`, `#vasi`, `#supporti` (reggimensola), `#supporti-gancio`, `#viteria` (vite), `#viteria-bullone`, `#viteria-perno`, `#cover`.
 
 ### Il file 3MF
 - Ogni pezzo è un oggetto separato e con il suo nome (per esempio "Cassetto 3" o "Cestello pescante 1").
@@ -213,6 +237,7 @@ Ogni stampante è diversa. Il parametro **Tolleranza stampante** (0,3 mm all'ini
 - **Gridfinity:** per la prima prova stampa un contenitore 1×1×3 e una base 2×2, così verifichi incastro e impilamento.
 - **Pareti:** usa spessori multipli del diametro dell'ugello (con 0,4 mm: 0,8, 1,2, 1,6).
 - **Rack:** se i separatori sono alti o sottili, stampalo *sul fianco*.
+- **Cover:** stampa prima la striscia di prova e regola il gioco. TPU (95A) lento, 20–30 mm/s, senza supporti; con PLA o PETG parti da 0,3 mm di gioco. Cavalletto e copertura della fotocamera vanno stampati in PLA o PETG; se la copertura entra dura nella finestra aumenta il suo gioco.
 - **Vasi:** perché tengano l'acqua servono almeno 3 perimetri. Per il vaso esterno dell'autoirrigante e per il sottovaso, il PETG è meglio del PLA.
 - **Reggimensole e ganci:** lasciali sul fianco come escono dal file. 4 o più perimetri e riempimento 40% o più; per pesi veri PETG. Per libri usa squadre da 7 mm di spessore e 25 mm di larghezza in su, con il rinforzo a triangolo pieno.
 - **Viti e bulloni:** stampa prima un bullone M8 corto per tarare il *Gioco filetto*. Usa 4 o più perimetri (o riempimento 100%) e strati sottili (0,12–0,16 mm). Sotto M6 il filetto stampato è delicato. Per viti che lavorano, PETG o nylon.
@@ -234,6 +259,8 @@ Ogni stampante è diversa. Il parametro **Tolleranza stampante** (0,3 mm all'ini
 │   ├── geom.js     geometria dei generatori (filetti compresi)
 │   ├── natale.js   generatori di Natale: forme, scritte, colori
 │   ├── supporti.js reggimensole e ganci
+│   ├── cover.js    cover per telefoni
+│   ├── telefoni.js misure dei telefoni per le cover
 │   ├── fonts.js    contorni dei caratteri (generato)
 │   ├── logos.js    contorni dei loghi per le scritte (generato da assets/)
 │   ├── svg.js      lettore SVG (disegni caricati e libreria)
@@ -290,6 +317,7 @@ Per cambiare i caratteri delle scritte modifica l'elenco in `tools/make-fonts.mj
 - Caratteri delle scritte **Fredoka**, **Pacifico** e **Mountains of Christmas**, licenza SIL Open Font License, incorporati nella pagina.
 
 - Disegni **[Fluent Emoji](https://github.com/microsoft/fluentui-emoji)** © Microsoft Corporation, licenza MIT (testo completo in [LICENSE-fluent-emoji.txt](LICENSE-fluent-emoji.txt), riportato anche dentro la pagina).
+- Misure degli iPhone dai disegni quotati di Apple (*Accessory Design Guidelines*, developer.apple.com). iPhone è un marchio di Apple Inc.; SP Lab non è collegato ad Apple.
 - Loghi **SP** e ritratto © Procolo Carannante.
 
 ## Licenza

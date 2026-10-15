@@ -70,16 +70,26 @@
   // spessori allineati agli strati: multipli di 0,2 e di 0,28 (primo strato a 0,28)
   const LAYER_STOPS = (() => { const v = new Set(); for (const h of [0.2, 0.28]) for (let k = 1; k * h <= 12.01; k++) v.add(+(k * h).toFixed(2)); return [...v].sort((a, b) => a - b); })();
   const layerP = (o) => Object.assign({ type: 'num', stops: LAYER_STOPS.filter(x => x >= o.min - 1e-6 && x <= o.max + 1e-6), step: 0.01, unit: 'mm' }, o);
-  // loghi dentro le scritte: {SP} e {viso}. L'ugello decide quanto si ingrossano le linee quando il logo è piccolo
-  const hasLogo = (p) => ['scritta', 'scritta2', 'scritta3', 'scritta4', 'testo1', 'testo2', 'testo3', 'testo4'].some(k => /\{(sp|viso)\}/i.test(String(p[k] || '')));
+  // loghi dentro le scritte: {SP}, {viso} e {visoNatale}. L'ugello decide quanto si ingrossano le linee quando il logo è piccolo
+  const hasLogo = (p) => ['scritta', 'scritta2', 'scritta3', 'scritta4', 'testo1', 'testo2', 'testo3', 'testo4'].some(k => /\{(sp|visonatale|viso)\}/i.test(String(p[k] || '')));
   const nozzleP = (sec, show) => ({ sec, id: 'ugello', label: 'Ugello', type: 'select', def: '0.4', options: [['0.2', '0,2'], ['0.4', '0,4'], ['0.6', '0,6'], ['0.8', '0,8']], unit: 'mm',
     show: p => (!show || show(p)) && (hasLogo(p) || isArtId(p.forma) || (p.figura && p.figura !== 'nessuna')), help: 'Diametro dell\'ugello della stampante. Se il logo è piccolo le sue linee vengono ingrossate fino a questa larghezza, così si stampano.' });
   const FONT_OPTS = [['tondo', 'Tondo'], ['corsivo', 'Corsivo'], ['natalizio', 'Natalizio']];
+  // due righe di scritta, ognuna con la sua altezza e la sua posizione (frecce per spostarla, il centro la rimette al centro)
+  const linesP = (sec, d1, d2, cap, show, max = 40, help = 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Se la scritta non ci sta viene ridotta da sola.') => {
+    const on = (p) => !show || show(p), has = (k) => (p) => on(p) && String(p[k] || '').trim() !== '';
+    return [
+      { sec, id: 'scritta', label: 'Riga 1', type: 'text', def: d1, placeholder: 'es. un nome', show, logos: true },
+      { sec, id: 'altTesto', label: 'Altezza riga 1', type: 'num', min: 3, max, step: 0.5, def: cap, unit: 'mm', help, show },
+      { sec, id: 'pos1', label: 'Posizione riga 1', type: 'pad', def: [0, 0], show: has('scritta') },
+      { sec, id: 'scritta2', label: 'Riga 2', type: 'text', def: d2, placeholder: 'facoltativa', show, logos: true },
+      { sec, id: 'altTesto2', label: 'Altezza riga 2', type: 'num', min: 3, max, step: 0.5, def: cap, unit: 'mm', show: has('scritta2') },
+      { sec, id: 'pos2', label: 'Posizione riga 2', type: 'pad', def: [0, 0], show: has('scritta2') },
+    ];
+  };
   const textP = (d1, d2, font, cap, show) => [
-    { sec: 'Scritta', id: 'scritta', label: 'Riga 1', type: 'text', def: d1, placeholder: 'es. un nome', show, logos: true },
-    { sec: 'Scritta', id: 'scritta2', label: 'Riga 2', type: 'text', def: d2, placeholder: 'facoltativa', show, logos: true },
+    ...linesP('Scritta', d1, d2, cap, show),
     { sec: 'Scritta', id: 'carattere', label: 'Carattere', type: 'select', def: font, options: FONT_OPTS, show },
-    { sec: 'Scritta', id: 'altTesto', label: 'Altezza lettere', type: 'num', min: 3, max: 40, step: 0.5, def: cap, unit: 'mm', help: 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Se la scritta non ci sta viene ridotta da sola.', show },
     nozzleP('Scritta', show),
     { sec: 'Scritta', id: 'rilievoTesto', label: 'Rilievo scritta', type: 'num', min: 0.4, max: 4, step: 0.2, def: 1.4, unit: 'mm', show: p => (!show || show(p)) && (p.stile === undefined || p.stile === 'rilievo') && p.stileTesto !== 'traforata' },
   ];
@@ -91,6 +101,10 @@
       { sec, id: 'lato' + i, label: 'Lato', type: 'int', min: 0, max: 345, step: 15, def: lato, unit: '°', show: has, wrap: true, help: i === 1 ? '0° davanti, 90° a destra, 180° dietro, 270° a sinistra.' : undefined },
       { sec, id: 'quota' + i, label: 'Altezza', type: 'int', min: -85, max: 85, step: 5, def: quota, unit: '%', show: has, help: i === 1 ? '0 = a metà pallina, valori positivi verso l\'alto, negativi verso il basso.' : undefined },
       { sec, id: i === 1 ? 'altTesto' : 'altTesto' + i, label: 'Altezza lettere', type: 'num', min: 3, max: 40, step: 0.5, def: cap, unit: 'mm', show: has },
+      // sulla sfera le frecce girano la scritta (15° a clic) e la alzano o abbassano (5% a clic); il centro la porta a metà altezza
+      { sec, id: 'pos' + i, label: 'Posizione', type: 'pad', def: [0, 0], show: has,
+        move: (v, dx, dy) => ({ ['lato' + i]: (((Math.round(v['lato' + i] / 15) + dx) * 15) % 360 + 360) % 360, ['quota' + i]: Math.max(-85, Math.min(85, Math.round(v['quota' + i] / 5) * 5 + 5 * dy)) }),
+        center: () => ({ ['quota' + i]: 0 }), text: (v) => `lato ${v['lato' + i]}° · altezza ${v['quota' + i]}%` },
     ];
   });
   // motivi delle decorazioni piatte, divisi per gruppo nel menu
@@ -135,9 +149,57 @@
     return [
       { sec, id: 'lato' + i, label: 'Cosa mettere', type: 'select', def: kind, options: [['nessuno', 'Niente'], ['scritta', 'Scritta'], ['simbolo', 'Simbolo']], show: on },
       { sec, id: 'testo' + i, label: 'Testo', type: 'text', def: txt, placeholder: 'es. un nome', logos: true, show: p => on(p) && p['lato' + i] === 'scritta' },
+      { sec, id: i === 1 ? 'altTesto' : 'altTesto' + i, label: 'Altezza lettere', type: 'num', min: 4, max: 30, step: 0.5, def: 10, unit: 'mm', show: p => on(p) && p['lato' + i] === 'scritta',
+        help: i === 1 ? 'Se non ci stanno nella fascia vengono ridotte da sole.' : undefined },
+      { sec, id: 'pos' + i, label: 'Posizione', type: 'pad', def: [0, 0], show: p => on(p) && p['lato' + i] === 'scritta', help: i === 1 ? 'In su e in giù solo finché resta nella fascia liscia.' : undefined },
       { sec, id: 'simbolo' + i, label: 'Simbolo', type: 'select', def: sym, options: SPIR_SYM, show: p => on(p) && p['lato' + i] === 'simbolo' },
     ];
   });
+  // cover: i telefoni del database (src/telefoni.js), raggruppati per serie, più le misure scritte a mano
+  const PHONES = window.SP_TELEFONI || [];
+  const serie = (t) => (/Air/.test(t.nome) ? '17' : (t.nome.match(/iPhone (\d+)/) || [0, ''])[1]);
+  const PHONE_OPTS = [...PHONES.map(t => [t.id, t.nome, serie(t) === '17' ? 'iPhone 17 e Air' : 'iPhone ' + serie(t)]), ['misure', 'Misure mie', 'Altro']];
+  const mine = (p) => p.modello === 'misure';
+  const PHONE_FIELDS = [
+    { id: 'larghezza', label: 'Larghezza', min: 40, max: 120, def: 71.63 },
+    { id: 'altezza', label: 'Altezza', min: 90, max: 220, def: 147.64 },
+    { id: 'spessore', label: 'Spessore', min: 4, max: 15, def: 7.81 },
+    { id: 'raggioAngoli', label: 'Raggio angoli', min: 1, max: 30, def: 12.85, help: 'Gli angoli del telefono visto di fronte.' },
+    { id: 'raggioBordo', label: 'Raggio bordo', min: 0.2, max: 6, def: 1.22, help: 'Quanto è arrotondato il bordo tra fianco e schermo.' },
+    { id: 'tastiSx', label: 'Tasti a sinistra', type: 'text', def: '34.08/6.9, 48.23/11.2, 62.43/11.2', placeholder: 'centro/lunghezza, …', unit: undefined, help: 'Guardando lo schermo: distanza del centro di ogni tasto dalla cima e sua lunghezza, separati da virgole.' },
+    { id: 'tastiDx', label: 'Tasti a destra', type: 'text', def: '55.33/17.7, 96.23/17.1', placeholder: 'centro/lunghezza, …', unit: undefined },
+    { id: 'tastiA', label: 'Altezza tasti', min: 1, max: 6, def: 2.66 },
+    { id: 'camX', label: 'Fotocamera: dal bordo', min: 0, max: 80, def: 1.09, help: 'Guardando il retro, con la fotocamera in alto a sinistra: distanza dal bordo sinistro.' },
+    { id: 'camY', label: 'Fotocamera: dalla cima', min: 0, max: 80, def: 1.25 },
+    { id: 'camL', label: 'Fotocamera: larghezza', min: 5, max: 90, def: 32.06 },
+    { id: 'camA', label: 'Fotocamera: altezza', min: 5, max: 90, def: 42.47 },
+    { id: 'camR', label: 'Fotocamera: raggio', min: 0, max: 30, def: 12.53 },
+    { id: 'camH', label: 'Sporgenza del rialzo', min: 0, max: 6, def: 1.85 },
+    { id: 'camV', label: 'Sporgenza delle lenti', min: 0, max: 8, def: 3.48, help: 'Dal retro del telefono al vetro delle lenti.' },
+    { id: 'camTutto', label: 'Rialzo largo quanto il telefono', type: 'bool', def: false, unit: undefined },
+    { id: 'camFine', label: 'Fine del rialzo dalla cima', min: 10, max: 90, def: 48, show: p => mine(p) && p.camTutto },
+    { id: 'usbL', label: 'Connettore: larghezza', min: 5, max: 25, def: 12.45 },
+    { id: 'usbA', label: 'Connettore: altezza', min: 2, max: 12, def: 6.6 },
+    { id: 'fondoL', label: 'Fori sul fondo: larghezza', min: 10, max: 90, def: 43.15, help: 'Apertura per altoparlanti e microfoni, centrata.' },
+  ];
+  // misure del modello scelto nei campi "Misure mie": così si parte da un telefono vero
+  const r2 = (v) => Math.round(v * 100) / 100;
+  function phoneFields(id) {
+    const t = PHONES.find(q => q.id === id);
+    if (!t) return null;
+    // raggio del cerchio che taglia l'angolo come la curva del disegno (alla diagonale)
+    let dg = t.a[0][1] * 0.29;
+    for (let i = 0; i < t.a.length - 1; i++) { const [x0, y0] = t.a[i], [x1, y1] = t.a[i + 1]; if (x0 <= y0 && x1 >= y1) { const k = (y0 - x0) / ((y0 - x0) - (y1 - x1)); dg = x0 + k * (x1 - x0); break; } }
+    const pf = t.pf[t.pf.length - 1], c = t.cam;
+    let r = c.tutto ? c.f : c.r;
+    if (c.fori) for (const [x, y, d] of c.fori) r = [Math.min(r[0], x - d / 2), Math.min(r[1], y - d / 2), Math.max(r[2], x + d / 2), Math.max(r[3], y + d / 2), r[4]];
+    const half = t.W / 2, sp = t.sp || [half - 20, half + 20];
+    return { larghezza: t.W, altezza: t.L, spessore: t.T, raggioAngoli: r2(dg / (1 - Math.SQRT1_2)), raggioBordo: r2(pf[1] + 3 * Math.max(0, t.T / 2 - pf[0])),
+      tastiSx: t.sx.map(([cc, l]) => `${cc}/${r2(l)}`).join(', '), tastiDx: t.dx.map(([cc, l]) => `${cc}/${r2(l)}`).join(', '), tastiA: t.w,
+      camX: r2(r[0]), camY: r2(r[1]), camL: r2(r[2] - r[0]), camA: r2(r[3] - r[1]), camR: r[4], camH: c.h, camV: c.v, camTutto: !!c.tutto, camFine: c.tutto ? c.r[3] : 48,
+      usbL: t.usb[1], usbA: t.usb[2], fondoL: r2(2 * Math.max(Math.abs(sp[0] - half), Math.abs(sp[1] - half)) + 2) };
+  }
+
   const MODES = {
     bin: {
       label: 'Contenitore',
@@ -199,6 +261,59 @@
         { sec: 'Base', id: 'piedini', label: 'Incavi per piedini in gomma', type: 'bool', def: true, show: p => p.base === 'libera', help: '4 incavi da 10 mm per piedini adesivi antiscivolo.' },
         ...common.filter(c => c.id !== 'viti').map(c => ({ ...c, sec: 'Base', show: c.show ? (p => p.base === 'gridfinity' && c.show(p)) : (p => p.base === 'gridfinity') })),
         { sec: 'Stampa', id: 'stampa', label: 'Orientamento di stampa', type: 'select', def: 'piedi', options: [['piedi', 'In piedi'], ['fianco', 'Sul fianco']], help: 'Sul fianco gli strati corrono lungo i separatori: molto più robusti, ma serve un piatto alto quanto il rack è largo.' },
+      ],
+    },
+    cover: {
+      label: 'Cover',
+      artKey: 'disegno',
+      params: [
+        { sec: 'Telefono', id: 'modello', label: 'Modello', type: 'select', menu: true, def: 'iphone-16', options: PHONE_OPTS, onSet: (k) => (k === 'misure' ? null : phoneFields(k)),
+          help: 'Misure prese dai disegni quotati che Apple pubblica per chi fa accessori. "Misure mie" parte dall\'ultimo modello scelto e lascia cambiare tutto.' },
+        ...PHONE_FIELDS.map(f => Object.assign({ sec: 'Telefono', type: 'num', step: 0.01, unit: 'mm', show: mine }, f)),
+        { sec: 'Telefono', id: 'tipo', label: 'Tipo', type: 'select', def: 'completa', options: [['completa', 'Cover completa'], ['cavalletto', 'Con cavalletto']] },
+        { sec: 'Materiale e gioco', id: 'materiale', label: 'Materiale', type: 'select', def: 'tpu', options: [['tpu', 'TPU (flessibile)'], ['pla', 'PLA o PETG (rigido)']],
+          onSet: (k) => (k === 'tpu' ? { gioco: 0.15, giocoZ: 0.2, sporgenza: 1 } : { gioco: 0.3, giocoZ: 0.3, sporgenza: 0.6 }),
+          help: 'TPU: il telefono entra a scatto sotto il bordo, come una cover comprata. PLA o PETG sono rigidi: il bordo sul vetro è più stretto e il telefono entra inclinato, prima la cima e poi il fondo, mentre le pareti si piegano un poco. Il PETG si piega meglio del PLA.' },
+        { sec: 'Materiale e gioco', id: 'gioco', label: 'Gioco sui lati', type: 'num', min: 0, max: 1, step: 0.05, def: 0.15, unit: 'mm', help: 'Spazio tra telefono e pareti. Stampa la striscia di prova: se entra stretto aumentalo, se balla diminuiscilo.' },
+        { sec: 'Materiale e gioco', id: 'giocoZ', label: 'Gioco sullo spessore', type: 'num', min: 0, max: 1, step: 0.05, def: 0.2, unit: 'mm' },
+        { sec: 'Materiale e gioco', id: 'giocoTasti', label: 'Gioco attorno ai fori', type: 'num', min: 0.2, max: 2, step: 0.1, def: 0.5, unit: 'mm', help: 'Margine attorno a tasti, connettore e altoparlanti.' },
+        { sec: 'Materiale e gioco', id: 'giocoCam', label: 'Gioco attorno alla fotocamera', type: 'num', min: 0, max: 3, step: 0.1, def: 0.6, unit: 'mm' },
+        { sec: 'Bordi', id: 'pareti', label: 'Spessore pareti', type: 'num', min: 1, max: 3, step: 0.1, def: 1.6, unit: 'mm' },
+        { sec: 'Bordi', id: 'retro', label: 'Spessore retro', type: 'num', min: 1, max: 3, step: 0.1, def: 1.6, unit: 'mm', help: 'Il retro diventa più spesso da solo se servono la tasca per la fotocamera, la guida del cavalletto o il retro più spesso per le lenti.' },
+        { sec: 'Bordi', id: 'sporgenza', label: 'Bordo sul vetro', type: 'num', min: 0.4, max: 3, step: 0.1, def: 1, unit: 'mm', help: 'Quanto il bordo copre il vetro dello schermo, dal contorno del telefono verso l\'interno. Più largo tiene meglio il telefono.' },
+        { sec: 'Bordi', id: 'bordoSchermo', label: 'Altezza sopra lo schermo', type: 'num', min: 0, max: 3, step: 0.1, def: 0.8, unit: 'mm', help: 'Quanto il bordo sporge sopra il vetro: appoggiato a faccia in giù, lo schermo non tocca il tavolo.' },
+        { sec: 'Bordi', id: 'profilo', label: 'Spigoli', type: 'select', def: 'arrotondato', options: [['arrotondato', 'Arrotondati'], ['smussato', 'Smussati'], ['dritto', 'Vivi']] },
+        { sec: 'Bordi', id: 'raggio', label: 'Misura spigoli', type: 'num', min: 0.2, max: 3, step: 0.1, def: 1.2, unit: 'mm', show: p => p.profilo !== 'dritto' },
+        { sec: 'Fotocamera e tasti', id: 'protezione', label: 'Protezione lenti', type: 'select', def: 'cornice', options: [['cornice', 'Copertura a parte'], ['retro', 'Retro più spesso'], ['nessuna', 'Nessuna']],
+          help: 'Copertura a parte: un pezzo stampato a parte (in PLA o PETG) che chiude la finestra della fotocamera, lascia aperti solo lenti, flash e sensori e sporge oltre le lenti. Si mette dentro la cover e la tiene ferma il telefono. Retro più spesso: niente pezzi in più, ma la cover diventa più spessa e pesante.' },
+        { sec: 'Fotocamera e tasti', id: 'alzoCornice', label: 'Oltre le lenti', type: 'num', min: 0.2, max: 2, step: 0.1, def: 0.5, unit: 'mm', show: p => p.protezione !== 'nessuna', help: 'Quanto la protezione sporge oltre il vetro delle lenti.' },
+        { sec: 'Fotocamera e tasti', id: 'giocoCornice', label: 'Gioco della copertura', type: 'num', min: 0, max: 0.5, step: 0.05, def: 0.15, unit: 'mm', show: p => p.protezione === 'cornice', help: 'Tra la copertura e la finestra della cover. Se entra dura aumentalo.' },
+        { sec: 'Fotocamera e tasti', id: 'colCornice', label: 'Colore della copertura', type: 'select', def: '1', options: [['1', '1'], ['2', '2'], ['3', '3'], ['4', '4']], show: p => p.protezione === 'cornice' },
+        { sec: 'Fotocamera e tasti', id: 'tasti', label: 'Tasti', type: 'select', def: 'fori', options: [['fori', 'Scoperti (fianco aperto)'], ['coperti', 'Coperti (solo TPU)']], show: p => p.materiale !== 'pla',
+          help: 'Scoperti: il fianco è aperto dal retro al bordo dove ci sono i tasti. Coperti: la parete si assottiglia sopra il tasto e fuori c\'è un rilievo da premere. Camera Control e interruttore restano sempre scoperti.' },
+        { sec: 'MagSafe', id: 'magsafe', label: 'Incavo per anello magnetico', type: 'select', def: 'no', options: [['no', 'No'], ['dentro', 'Dentro la cover'], ['fuori', 'Sul retro']],
+          help: 'Un incavo ad anello, centrato sul MagSafe, per un anello magnetico adesivo: così caricatori, supporti e accessori MagSafe si attaccano anche attraverso la cover. Dentro: l\'anello resta nascosto tra cover e telefono. Sul retro: resta a vista.' },
+        { sec: 'MagSafe', id: 'magDe', label: 'Anello: diametro esterno', type: 'num', min: 40, max: 70, step: 0.5, def: 56, unit: 'mm', show: p => p.magsafe !== 'no' },
+        { sec: 'MagSafe', id: 'magDi', label: 'Anello: diametro interno', type: 'num', min: 20, max: 65, step: 0.5, def: 46, unit: 'mm', show: p => p.magsafe !== 'no' },
+        { sec: 'MagSafe', id: 'magSp', label: 'Anello: spessore', type: 'num', min: 0.2, max: 2, step: 0.1, def: 0.6, unit: 'mm', show: p => p.magsafe !== 'no', help: 'Misura l\'anello che compri: l\'incavo è 0,3 mm più largo e 0,1 mm più profondo.' },
+        { sec: 'MagSafe', id: 'magCoda', label: 'Linguetta di orientamento', type: 'bool', def: false, show: p => p.magsafe !== 'no', help: 'Alcuni anelli hanno una linguetta sotto il cerchio che orienta gli accessori: l\'incavo la segue (11 × 6 mm).' },
+        { sec: 'Cavalletto', id: 'orientamento', label: 'Telefono', type: 'select', def: 'verticale', options: [['verticale', 'In verticale'], ['orizzontale', 'In orizzontale']], show: p => p.tipo === 'cavalletto' },
+        { sec: 'Cavalletto', id: 'inclinazione', label: 'Inclinazione', type: 'int', min: 10, max: 35, step: 1, def: 20, unit: '°', show: p => p.tipo === 'cavalletto', help: 'Quanto il telefono pende all\'indietro.' },
+        { sec: 'Cavalletto', id: 'giocoCav', label: 'Gioco nella guida', type: 'num', min: 0, max: 0.6, step: 0.05, def: 0.2, unit: 'mm', show: p => p.tipo === 'cavalletto',
+          help: 'Il cavalletto è un pezzo a parte che si infila in una guida a coda di rondine scavata nel retro. Stampalo in PLA o PETG.' },
+        { sec: 'Retro', id: 'svg', label: 'Il tuo disegno (SVG)', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
+        { sec: 'Retro', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
+        { sec: 'Retro', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 10, max: 120, step: 1, def: 45, unit: 'mm', show: p => p.disegno === 'svg' },
+        { sec: 'Retro', id: 'stileRetro', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
+          help: 'Il retro è sul piatto, quindi niente rilievo. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Traforato: si vede il retro del telefono.' },
+        layerP({ sec: 'Retro', id: 'profRetro', label: 'Spessore', min: 0.2, max: 2, def: 0.6, show: p => p.stileRetro !== 'traforata' }),
+        ...linesP('Scritta', '', '', 8, null, 30, 'Se la scritta non ci sta viene ridotta da sola.'),
+        { sec: 'Scritta', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
+        Object.assign(nozzleP('Scritta'), { show: p => hasLogo(p) || isArtId(p.disegno) }),
+        ...colorsP(['Colore 1 · cover', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
+        { sec: 'Colori', id: 'colTesto', label: 'Colore della scritta', type: 'select', def: 'auto', options: [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4']] },
+        { sec: 'Stampa', id: 'prova', label: 'Striscia di prova', type: 'select', def: 'nessuna', options: [['nessuna', 'No, la cover intera'], ['cima', 'Solo la cima (22 mm)'], ['fondo', 'Solo il fondo (22 mm)']],
+          help: 'Un pezzo della cover che si stampa in pochi minuti: provalo sul telefono e regola il gioco prima di stampare tutto.' },
       ],
     },
     vaso: {
@@ -273,7 +388,6 @@
         { sec: 'Fascia', id: 'fascia', label: 'Fascia liscia', type: 'select', def: 'continua', options: [['continua', 'Continua tutto intorno'], ['cartigli', 'Solo dove c\'è una scritta o un simbolo'], ['nessuna', 'Nessuna: spicchi dappertutto']],
           help: 'La fascia è la zona liscia a metà pallina dove vanno scritte e simboli traforati. Con "solo dove c\'è" gli spicchi continuano tutto intorno e lasciano liscio solo un riquadro attorno a ogni scritta.' },
         ...spirSideP([['Davanti', 'scritta', 'Anna', 'stella'], ['Destra', 'simbolo', '', 'fiocco'], ['Dietro', 'scritta', '2026', 'cuore'], ['Sinistra', 'simbolo', '', 'stella']]),
-        { sec: 'Scritte e simboli', id: 'altTesto', label: 'Altezza lettere', type: 'num', min: 4, max: 30, step: 0.5, def: 10, unit: 'mm', show: p => p.fascia !== 'nessuna', help: 'Se non ci stanno nella fascia vengono ridotte da sole. Sono traforate: con un LED dentro si illuminano.' },
         { sec: 'Scritte e simboli', id: 'altSimbolo', label: 'Altezza simboli', type: 'num', min: 4, max: 40, step: 0.5, def: 14, unit: 'mm', show: p => p.fascia !== 'nessuna' },
         { sec: 'Scritte e simboli', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS, show: p => p.fascia !== 'nessuna' },
         nozzleP('Scritte e simboli'),
@@ -519,6 +633,7 @@
     { id: 'natale', title: 'Natale', cat: 'Feste', desc: 'Palline (anche a spirale, intere senza supporti), palle piatte con disegni e nome, decorazioni con il nome, alberi, stelle puntale, lanterne e formine per biscotti. Fino a tre colori.', modes: ['pallina', 'spirale', 'palla', 'piatto', 'albero', 'stella', 'lanterna', 'formina'], thumb: 'pallina' },
     { id: 'gridfinity', title: 'Gridfinity', cat: 'Organizzazione', desc: 'Contenitori impilabili, cassettiere con cassetti e basi a griglia da 42 mm.', modes: ['bin', 'cab', 'base'], thumb: 'cab' },
     { id: 'rack', title: 'Rack telefoni', cat: 'Organizzazione', desc: 'Rack a fessure per riporre telefoni e tablet, anche di spessori diversi.', modes: ['rack'], thumb: 'rack' },
+    { id: 'cover', title: 'Cover telefono', cat: 'Accessori', desc: 'Cover per iPhone dal 12 al 17 con le misure dei disegni Apple, o per qualsiasi telefono con le tue misure. TPU o PLA/PETG a scatto, cornice per le lenti, cavalletto, scritta e il tuo SVG sul retro.', modes: ['cover'], thumb: 'cover' },
     { id: 'vasi', title: 'Vasi', cat: 'Casa e giardino', desc: 'Vasi e fioriere per aromatiche, normali con sottovaso o autoirriganti.', modes: ['vaso'], thumb: 'vaso' },
     { id: 'supporti', title: 'Reggimensole e ganci', cat: 'Casa e giardino', desc: 'Squadre per mensole con rinforzo e viti, ganci a muro, appendiabiti, ganci sopra porta, per tubi e a S.', modes: ['mensola', 'gancio'], thumb: 'gancio' },
     { id: 'viteria', title: 'Viti e bulloni', cat: 'Meccanica', desc: 'Viti e bulloni con filetto metrico ISO, dadi, rondelle e perni a scatto.', modes: ['vite', 'bullone', 'perno'], thumb: 'bullone' },
@@ -539,7 +654,7 @@
       if (p.type === 'select' && p.options && !p.options.some(o => o[0] === v[p.id])) v[p.id] = p.def;
     }
     // "Colori del disegno" senza colori scelti: prendo quelli del disegno
-    if (v.tavolozza === 'disegno' && !(state.values[mode] && state.values[mode].col1 !== undefined)) Object.assign(v, artPal(v) || {});
+    if (v.tavolozza === 'disegno' && !(state.values[mode] && state.values[mode].col1 !== undefined)) Object.assign(v, artPal(v, MODES[mode].artKey) || {});
     return v;
   }
 
@@ -580,7 +695,7 @@
           // pulsanti per inserire i loghi dove c'è il cursore
           const bar = document.createElement('div');
           bar.className = 'logo-ins';
-          bar.innerHTML = `<span>Inserisci</span><button type="button" class="chip" data-t="{SP}">Logo SP</button><button type="button" class="chip" data-t="{viso}">Viso</button>`;
+          bar.innerHTML = `<span>Inserisci</span><button type="button" class="chip" data-t="{SP}">Logo SP</button><button type="button" class="chip" data-t="{viso}">Viso</button><button type="button" class="chip" data-t="{visoNatale}">Viso di Natale</button>`;
           bar.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
             const a = ti.selectionStart ?? ti.value.length, z = ti.selectionEnd ?? a, t = b.dataset.t;
             ti.value = ti.value.slice(0, a) + t + ti.value.slice(z);
@@ -631,6 +746,37 @@
         card.addEventListener('drop', (e) => { e.preventDefault(); card.classList.remove('drag'); load(e.dataTransfer.files && e.dataTransfer.files[0]); });
         const u = row.querySelector('.use'); if (u) u.addEventListener('click', () => apply(cur, p.use));
         const n = row.querySelector('.unuse'); if (n) n.addEventListener('click', () => apply(cur, p.unuse));
+      } else if (p.type === 'pad') {
+        // croce di frecce per spostare la scritta: 1 mm a clic (0,2 mm tenendo premuto Maiusc), il centro la rimette al centro.
+        // Con move/center (pallina) le frecce cambiano altri valori, per esempio lato e altezza sulla sfera
+        row.classList.add('pad-row');
+        const B = (d, cls, lbl, sym) => `<button type="button" class="${cls}" data-d="${d}" aria-label="${lbl}" title="${lbl}">${sym}</button>`;
+        row.innerHTML = `<label>${p.label}</label><div class="pad-box"><div class="pad" role="group" aria-label="${esc(p.label)}">${B('0,1', 'up', 'Su', '▲')}${B('-1,0', 'lt', 'A sinistra', '◀')}${B('c', 'mid', 'Al centro', '●')}${B('1,0', 'rt', 'A destra', '▶')}${B('0,-1', 'dn', 'Giù', '▼')}</div><span class="pad-val"></span></div>`;
+        const out = row.querySelector('.pad-val');
+        const fmtMm = (n) => String(+Math.abs(n).toFixed(1)).replace('.', ',');
+        const show = () => {
+          const cv = values(state.mode);
+          if (p.text) { out.textContent = p.text(cv); return; }
+          const [x, y] = cv[p.id] || [0, 0], t = [];
+          if (Math.abs(x) > 0.01) t.push(`${x > 0 ? 'destra' : 'sinistra'} ${fmtMm(x)}`);
+          if (Math.abs(y) > 0.01) t.push(`${y > 0 ? 'su' : 'giù'} ${fmtMm(y)}`);
+          out.textContent = t.length ? t.join(' · ') + ' mm' : 'al centro';
+        };
+        show();
+        row.querySelectorAll('button').forEach(b => b.addEventListener('click', (e) => {
+          const cv = values(state.mode), d = b.dataset.d;
+          if (p.move) {
+            const upd = d === 'c' ? p.center(cv) : p.move(cv, ...d.split(',').map(Number));
+            Object.assign((state.values[state.mode] ||= {}), upd);
+            save(); renderParams(); schedule(60);
+            return;
+          }
+          const st = e.shiftKey ? 0.2 : 1, [x, y] = cv[p.id] || [0, 0];
+          const [dx, dy] = d === 'c' ? [0, 0] : d.split(',').map(Number);
+          const clamp = (n) => +Math.max(-200, Math.min(200, n)).toFixed(1);
+          set(p, d === 'c' ? [0, 0] : [clamp(x + dx * st), clamp(y + dy * st)]);
+          show();
+        }));
       } else if (p.type === 'select' && p.menu) {
         // elenco lungo: menu a tendina con i gruppi
         row.classList.add('sel');
@@ -853,6 +999,9 @@
     }).join('');
     const vol = real(res.parts).reduce((s, p) => s + p.mesh.volume, 0) / 1000;
     info.innerHTML += `<div><dt>Volume materiale</dt><dd>${vol.toFixed(1).replace('.', ',')} cm³</dd></div>`;
+    // le note restano visibili come numero sul pulsante, anche a riquadro chiuso
+    const nNote = res.info.filter(([k]) => k === 'Nota').length, badge = $('#infoBadge');
+    badge.hidden = !nNote; badge.textContent = nNote; badge.title = nNote === 1 ? '1 nota' : `${nNote} note`;
     const rp = real(res.parts), bad = rp.find(p => p.mesh.status !== 'NoError');
     const ghosts = res.parts.length - rp.length;
     const nU = printUnits(res.parts).length, nC = new Set(rp.map(p => p.color).filter(Boolean)).size;
@@ -1021,6 +1170,7 @@ ${build}</build>
   function fileBase() {
     const v = values(state.mode);
     const s = state.mode === 'bin' ? `contenitore_${v.gridX}x${v.gridY}x${v.altU}` : state.mode === 'vaso' ? `vaso_${v.forma}_${Math.round(v.larghezza)}x${Math.round(v.altezza)}_${v.tipo}` : state.mode === 'rack' ? `rack_${String(v.spessoriLista || '').trim() ? 'misto' : v.fessure + 'x' + v.spessore + 'mm'}_${v.base}` : state.mode === 'cab' ? `cassettiera_${v.gridX}x${v.gridY}x${v.altU}_${v.righe * v.colonne}cassetti` : state.mode === 'base' ? `base_${v.gridX}x${v.gridY}` : null;
+    if (state.mode === 'cover') { const nm = String(v.scritta || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24); return `cover_${v.modello}_${v.materiale}${v.tipo === 'cavalletto' ? '_cavalletto' : ''}${v.prova !== 'nessuna' ? '_prova-' + v.prova : ''}${nm ? '_' + nm : ''}`; }
     if (s) return s;
     const slug = (x) => String(x || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24);
     const nm = slug(v.scritta) ? '_' + slug(v.scritta) : '';
@@ -1089,6 +1239,7 @@ ${build}</build>
     $('#home').hidden = !inHome; $('#genView').hidden = inHome; $('#crumbs').hidden = inHome; $('#actions').hidden = inHome;
     if (inHome) { renderThumbs(); return; }
     if (mode !== state.mode || !current) { state.mode = mode; save(); renderParams(); fitted = null; schedule(0); } else renderHeader();
+    if (!$('#presets').hidden) { $('#prName').value = ''; renderPresets(); }
     requestAnimationFrame(resize);
   }
   window.addEventListener('hashchange', route);
@@ -1155,8 +1306,70 @@ ${build}</build>
 
   // ================= EVENTI =================
   $('#reset').addEventListener('click', () => { delete state.values[state.mode]; save(); renderParams(); schedule(0); });
+  // impostazioni salvate con un nome, per generatore; restano nel browser e si possono scaricare e riaprire come file
+  const LSP = 'gp3d.salvate';
+  const loadPresets = () => { try { const o = JSON.parse(localStorage.getItem(LSP) || '{}'); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; } };
+  const storePresets = (o) => { try { localStorage.setItem(LSP, JSON.stringify(o)); return true; } catch (e) { return false; } };
+  function addPreset(mode, name, vals) {
+    const all = loadPresets(), list = (all[mode] || []).filter(q => q.name !== name);
+    list.unshift({ name, date: new Date().toISOString(), values: vals });
+    all[mode] = list;
+    return storePresets(all);
+  }
+  function usePreset(mode, q) {
+    state.values[mode] = JSON.parse(JSON.stringify(q.values || {}));
+    save(); renderParams(); schedule(0); setStatus('Impostazioni caricate: ' + q.name, 'ok');
+  }
+  function renderPresets() {
+    const list = loadPresets()[state.mode] || [], ul = $('#prList');
+    ul.innerHTML = list.length ? list.map((q, i) => `<li><button class="btn pr-name" type="button" data-use="${i}" title="Carica queste impostazioni">${esc(q.name)}<small>${new Date(q.date).toLocaleDateString('it-IT')}</small></button><button class="btn" type="button" data-del="${i}" title="Elimina" aria-label="Elimina ${esc(q.name)}">✕</button></li>`).join('')
+      : '<li class="pr-empty">Ancora nessuna</li>';
+  }
+  const showPresets = (on) => {
+    $('#presets').hidden = !on; $('#prOpen').setAttribute('aria-expanded', on);
+    if (on) { renderPresets(); const n = $('#prName'); if (!n.value) n.value = fileBase(); n.focus(); n.select(); }
+  };
+  $('#prOpen').addEventListener('click', () => showPresets($('#presets').hidden));
+  $('#prForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = $('#prName').value.trim() || fileBase();
+    if (addPreset(state.mode, name, values(state.mode))) { setStatus('Impostazioni salvate: ' + name, 'ok'); $('#prName').value = ''; renderPresets(); }
+    else setStatus('Il browser non lascia salvare qui: usa "Scarica come file"', 'err');
+  });
+  $('#prList').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    const all = loadPresets(), list = all[state.mode] || [];
+    if (b.dataset.use !== undefined) { const q = list[+b.dataset.use]; if (q) usePreset(state.mode, q); }
+    if (b.dataset.del !== undefined) { const q = list.splice(+b.dataset.del, 1)[0]; all[state.mode] = list; storePresets(all); renderPresets(); if (q) setStatus('Eliminate: ' + q.name, 'ok'); }
+  });
+  $('#prExport').addEventListener('click', () => {
+    const name = $('#prName').value.trim() || fileBase();
+    const data = { splab: 1, mode: state.mode, name, values: values(state.mode) };
+    deliver(name.replace(/[^\w.-]+/g, '_') + '.json', new TextEncoder().encode(JSON.stringify(data, null, 1)), 'application/json');
+  });
+  $('#prImport').addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      let d = null; try { d = JSON.parse(String(rd.result || '')); } catch (err) { d = null; }
+      if (!d || !d.values || !MODES[d.mode]) { setStatus('Il file non contiene impostazioni di SP Lab', 'err'); return; }
+      const name = String(d.name || f.name.replace(/\.json$/i, '')).slice(0, 60);
+      addPreset(d.mode, name, d.values);
+      if (d.mode === state.mode) { usePreset(d.mode, { name, values: d.values }); renderPresets(); return; }
+      // il file è di un altro generatore: ci vado con quei valori
+      state.values[d.mode] = JSON.parse(JSON.stringify(d.values)); save(); showPresets(false); go(d.mode);
+      setStatus('Impostazioni caricate: ' + name, 'ok');
+    };
+    rd.readAsText(f);
+  });
   $('#section').addEventListener('click', () => { sectionOn = !sectionOn; $('#section').setAttribute('aria-pressed', sectionOn); if (current) showResult(current); });
   $('#fit').addEventListener('click', () => { fitted = null; if (current) showResult(current); });
+  // riquadro delle informazioni: si apre col pulsante in alto a destra, così non copre l'anteprima
+  const showInfo = (on) => { state.info = on; $('#infoPanel').hidden = !on; $('#infoBtn').setAttribute('aria-pressed', on); save(); };
+  $('#infoBtn').addEventListener('click', () => showInfo(!state.info));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.info) showInfo(false); });
+  showInfo(!!state.info);
   const openIn = $('#open'); openIn.value = state.open;
   openIn.addEventListener('input', () => { state.open = +openIn.value; applyOpen(); save(); });
   const mq = window.matchMedia('(prefers-color-scheme: dark)');

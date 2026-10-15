@@ -4,7 +4,18 @@ import fs from 'fs';
 import Module from '../node_modules/manifold-3d/manifold.js';
 const wasm = await Module(); wasm.setup();
 const { CrossSection } = wasm;
-const LOGOS = { SP: 'assets/logo-sp.stl', viso: 'assets/logo-volto-40mm.stl' };
+const LOGOS = { SP: 'assets/logo-sp.stl', viso: 'assets/logo-volto-40mm.stl', visoNatale: 'assets/logo-viso-natale.stl' };
+// ritocchi al disegno originale. Viso di Natale: il cappello (tutto quello sopra y 10,6 mm, dove la tesa poggia sui contorni
+// della testa) è più largo della testa. Lo rimpicciolisco in proporzione attorno a quel punto: la tesa passa da 44,9 a 40 mm,
+// meno delle orecchie (41,8 mm), e il cappello resta appoggiato sulla testa
+const FIX = {
+  visoNatale(cs) {
+    const yb = 10.6, k = 20 / 22.45, big = 500;
+    const above = CrossSection.square([big, big]).translate([-big / 2, yb]);
+    const hat = cs.intersect(above), head = cs.subtract(above);
+    return CrossSection.union([head, hat.translate([0, -yb]).scale([k, k]).translate([0, yb])]);
+  },
+};
 const out = {};
 for (const [id, file] of Object.entries(LOGOS)) {
   const d = fs.readFileSync(new URL('../' + file, import.meta.url)), n = d.readUInt32LE(80);
@@ -17,6 +28,7 @@ for (const [id, file] of Object.entries(LOGOS)) {
     if (Math.abs(a) > 1e-9) tris.push(a > 0 ? p : [p[0], p[2], p[1]]);
   }
   let cs = CrossSection.union(tris.map(t => new CrossSection([t], 'Positive'))).offset(0.01, 'Miter').offset(-0.01, 'Miter').simplify(0.005);
+  if (FIX[id]) cs = FIX[id](cs).simplify(0.005);
   const b = cs.bounds(), H = b.max[1] - b.min[1], W = b.max[0] - b.min[0], A0 = cs.area();
   // spessore minimo delle linee: la più piccola erosione che fa sparire più del 3% dell'area
   let wmin = 0;

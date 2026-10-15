@@ -17,9 +17,11 @@ parts = [
   rd('src/logos.js'),
   rd('src/svg.js'),
   rd('src/emoji.js'),
+  rd('src/telefoni.js'),
   rd('src/geom.js'),
   rd('src/natale.js'),
   rd('src/supporti.js'),
+  rd('src/cover.js'),
   rd('src/app.js'),
 ]
 def tag(js): return '<script>\n' + js.replace('</script', '<\\/script') + '\n</script>'
