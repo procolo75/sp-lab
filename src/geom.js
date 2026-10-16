@@ -600,10 +600,10 @@
       return out.map(([x, y]) => [x, y]);
     }
     // barra filettata da z = 0 a z = len; la fase è la stessa per ogni z multiplo del passo
-    function threadRod(sp, len, c, left) {
+    function threadRod(sp, len, c, left, div = 1) {   // div < 1: meno suddivisioni dell'elica (modello più leggero, usato per le viti stampate dei box)
       const N = segFor(sp.D), turns = len / sp.P;
       const cs = reg(CrossSection.ofPolygons([threadSection(sp.D, sp.P, c, N, left)]));
-      return reg(cs.extrude(len, Math.max(1, Math.ceil(turns * N)), (left ? -360 : 360) * turns));
+      return reg(cs.extrude(len, Math.max(1, Math.ceil(turns * N * div)), (left ? -360 : 360) * turns));
     }
     const coneZ = (r0, r1, z0, z1, seg = 48) => reg(reg(Manifold.cylinder(z1 - z0, r0, r1, seg)).translate([0, 0, z0]));
     const cylY = (x, z, r, y0, y1, seg = 32) => reg(reg(reg(Manifold.cylinder(y1 - y0, r, r, seg)).rotate([-90, 0, 0])).translate([x, y0, z]));
@@ -678,7 +678,7 @@
       // gambo: parte filettata dalla punta, poi liscia fino alla testa
       const Lt = p.filettata > 0 ? Math.min(p.filettata, zH) : zH;
       const rodLen = Lt < zH ? Lt : (testa === 'nessuna' ? zH : zH + 0.5);
-      let rod = threadRod(sp, rodLen, c, left);
+      let rod = threadRod(sp, rodLen, c, left, p.div || 1);
       // smusso in punta (e in cima se è una barra senza testa)
       const r0 = Math.max(0.4, Rmin - 0.3);
       rod = reg(rod.intersect(coneZ(r0, r0 + rodLen + 2, 0, rodLen + 2, segFor(D))));
@@ -896,9 +896,10 @@
     // Misure minime con ugello da 0,4: M6 al limite, M8 consigliata, M10 robusta (sotto M6 il filetto non viene).
     const VITI_STAMPA = ['M6', 'M8', 'M10'];
     const viteSpec = (m) => threadSpec({ misura: ISO[m] ? m : 'M6' });
+    const VITE_DIV = 0.5;   // viti e fori filettati dei box: elica a 22,5° per passo di suddivisione
     function viteStampata(m, L, g, impronta) {
       const sp = viteSpec(m);
-      const s = screwSolid(sp, { gioco: g, lunghezza: L, testa: 'svasata', filettata: 0, sinistro: false, testaSu: false, impronta: impronta || 'taglio', stampa: 'in piedi' });
+      const s = screwSolid(sp, { gioco: g, lunghezza: L, testa: 'svasata', filettata: 0, sinistro: false, testaSu: false, impronta: impronta || 'taglio', stampa: 'in piedi', div: VITE_DIV });
       return { sp, m: s.m, L: s.L, notes: s.notes, print: reg(s.m.rotate([180, 0, 0])), testa: dimsOfHead(sp) };
     }
     const dimsOfHead = (sp) => ({ w: 2 * sp.D, h: sp.D / 2 });
@@ -906,7 +907,7 @@
     function viteForo(m, len, g, openBottom) {
       const sp = viteSpec(m), D = sp.D, P = sp.P, c = g / 2;
       const Rmin = D / 2 - T_DEPTH * P + c, Rc = D / 2 + c + 0.3;
-      let h = union([reg(threadRod(sp, len + 1, c, false)), coneZ(Rmin - 0.01, Rc + 1, len - (Rc - Rmin), len + 1, segFor(D))]);
+      let h = union([reg(threadRod(sp, len + 1, c, false, VITE_DIV)), coneZ(Rmin - 0.01, Rc + 1, len - (Rc - Rmin), len + 1, segFor(D))]);
       if (openBottom) h = reg(reg(h.rotate([180, 0, 0])).translate([0, 0, len]));
       return h;
     }

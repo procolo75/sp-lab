@@ -162,6 +162,30 @@
       return { cs: MV(c, bx.x, bx.y), cap: capWanted * f, reduced: f < 0.97, moved, box: { w: lastBox.w * k, h: lastBox.h * k } };
     }
 
+    // due righe impaginate una sotto l'altra, ognuna con la sua rotazione (attorno al proprio centro) e il suo spostamento:
+    // le frecce spostano sempre nel verso del pezzo, anche con la riga girata. bx = { x, y, w, h, hMax }; rots = [gradi riga 1, gradi riga 2]
+    function fitLines(p, bx, rots) {
+      const L = [[p.scritta, +p.altTesto, p.pos1, rots[0]], [p.scritta2, +p.altTesto2 || +p.altTesto, p.pos2, rots[1]]].filter(l => l[0] && String(l[0]).trim());
+      if (!L.length) return null;
+      const tH = L.reduce((a, l) => a + 1.5 * l[1], 0);
+      let top = bx.y + tH / 2, cap = Infinity, reduced = false, moved = false;
+      const out = [];
+      for (const [t, a, o, r] of L) {
+        const h = 1.5 * a, yc = top - h / 2; top -= h;
+        const th = (((+r || 0) % 360) + 360) % 360, sw = th % 180 === 90;
+        const q = Object.assign({}, p, { scritta: t, scritta2: '', altTesto: a, altTesto2: a, pos1: [0, 0], pos2: [0, 0] });
+        const f = fitText(q, { x: bx.x, y: yc, w: sw ? (bx.hMax || bx.w) : bx.w, h: Math.max(4, h) }, a);
+        if (!f) continue;
+        let c = f.cs;
+        if (th) c = R2(R2(R2(c.translate([-bx.x, -yc])).rotate(th)).translate([bx.x, yc]));
+        const ox = +(o && o[0]) || 0, oy = +(o && o[1]) || 0;
+        if (ox || oy) { c = R2(c.translate([ox, oy])); moved = true; }
+        out.push(c); cap = Math.min(cap, f.cap); reduced = reduced || f.reduced;
+      }
+      if (!out.length) return null;
+      return { cs: out.length === 1 ? out[0] : R2(CrossSection.union(out)), cap, reduced, moved };
+    }
+
     // ---------- disegni: Fluent Emoji (libreria) e SVG caricati ----------
     // Un "disegno" è { f: forme a colori, h: versione a linea (può mancare), pal: 4 colori } in un quadrato 32×32, y in alto.
     const EMO = root.SPLAB_EMOJI || [], EMO_BY = {};
@@ -1358,7 +1382,7 @@
     function palla(p) { return Object.assign(piatto(Object.assign({}, p, { forma: 'palla', altezza: p.diametro, decorazioni: true })), { view: [0, -0.7, 1] }); }
 
     // scritte e disegni a disposizione degli altri generatori (la cover li usa sul retro)
-    H.decor = { textCS, fitText, logoNotes, artOf, artGeom, artSlots, filaments, isArt, stencil, perforate, NOTES, EMO_BY };
+    H.decor = { textCS, fitText, fitLines, logoNotes, artOf, artGeom, artSlots, filaments, isArt, stencil, perforate, NOTES, EMO_BY };
 
     // ogni generatore riporta in fondo gli avvisi sui loghi
     const withNotes = (fn) => (p) => { NOTES.clear(); const r = fn(p); for (const n of NOTES) r.info.push(['Nota', n]); NOTES.clear(); return r; };

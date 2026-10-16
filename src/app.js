@@ -87,6 +87,9 @@
       { sec, id: 'pos2', label: 'Posizione riga 2', type: 'pad', def: [0, 0], show: has('scritta2') },
     ];
   };
+  // righe con la loro rotazione (coperchi di Powerbank e Box schede): "Rotazione riga N" subito dopo "Posizione riga N"
+  const withRot = (list) => list.flatMap(q => (q.id === 'pos1' || q.id === 'pos2') ? [q, { sec: q.sec, id: q.id === 'pos1' ? 'rotTesto' : 'rotTesto2', label: q.id === 'pos1' ? 'Rotazione riga 1' : 'Rotazione riga 2', type: 'int', min: 0, max: 345, step: 15, def: 0, unit: '°', wrap: true, show: q.show,
+    help: q.id === 'pos1' ? 'Gira la riga attorno al suo centro, 15° a clic. Le frecce la spostano sempre a destra/sinistra e su/giù del coperchio.' : undefined }] : [q]);
   const textP = (d1, d2, font, cap, show) => [
     ...linesP('Scritta', d1, d2, cap, show),
     { sec: 'Scritta', id: 'carattere', label: 'Carattere', type: 'select', def: font, options: FONT_OPTS, show },
@@ -205,7 +208,7 @@
   const dimTxt = (v) => `${String(v.L).replace('.', ',')} × ${String(v.W).replace('.', ',')} mm`;
   const schedeOpts = (ruolo) => Object.entries(SCHEDE_DB).filter(([, v]) => v.ruolo === ruolo).map(([k, v]) => [k, `${v.nome} · ${dimTxt(v)}`]);
   const schedeMods = () => [['nessuno', 'Nessuno'], ...schedeOpts('mod'), ['altro', 'Altra scheda (le tue misure)']];
-  const PIN_OPTS = [['sotto', 'Sotto'], ['sopra', 'Sopra']];
+  const PIN_OPTS = [['sotto', 'Sotto'], ['sopra', 'Sopra'], ['capovolta', 'Sotto · capovolta'], ['capovoltaSopra', 'Sopra · capovolta']];
   const schedeAltro = (p) => p.cpu === 'altro' || [p.mod1, p.mod2, p.mod3, p.mod4, p.mod5].includes('altro');
   const MODES = {
     bin: {
@@ -683,23 +686,25 @@
         { sec: 'Coperchio decorato', id: 'svg', label: 'Il tuo disegno (SVG)', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
         { sec: 'Coperchio decorato', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 8, max: 80, step: 1, def: 30, unit: 'mm', show: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'rotDisegno', label: 'Rotazione disegno', type: 'int', min: 0, max: 345, step: 15, def: 0, unit: '°', wrap: true, show: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
         layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.6, show: p => p.stileCop !== 'traforata' }),
-        ...linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.'),
+        ...withRot(linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
         { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
         ...colorsP(['Colore 1 · coperchio', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
         { sec: 'Colori', id: 'colTesto', label: 'Colore della scritta', type: 'select', def: 'auto', options: [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4']], help: 'Solo con lo stile a filo. Auto: il colore che si legge meglio sul coperchio.' },
         { sec: 'Forma', id: 'raggio', label: 'Raggio angoli', type: 'num', min: 1, max: 12, step: 0.5, def: 6, unit: 'mm' },
-        { sec: 'Forma', id: 'pareti', label: 'Spessore pareti', type: 'num', min: 1.6, max: 3.2, step: 0.4, def: 2, unit: 'mm' },
-        { sec: 'Forma', id: 'fondo', label: 'Spessore fondo', type: 'num', min: 1.2, max: 3, step: 0.2, def: 1.6, unit: 'mm' },
+        { sec: 'Forma', id: 'pareti', label: 'Spessore pareti', type: 'num', min: 0.8, max: 3.2, step: 0.4, def: 2, unit: 'mm', help: 'Sotto 1,6 mm solo con il coperchio a viti (la slitta si scava nelle pareti). Con ugello 0,4: 0,8 = 2 passate, 1,2 = 3, 1,6 = 4. 1,2 basta; 0,8 si piega quando infili le spine.' },
+        { sec: 'Forma', id: 'fondo', label: 'Spessore fondo', type: 'num', min: 0.8, max: 3, step: 0.2, def: 1.6, unit: 'mm', help: 'Sotto 1,2 mm solo con il coperchio a viti. 0,8 = 4 strati da 0,2: le celle pesano, meglio almeno 1 mm.' },
         { sec: 'Stampa', id: 'prova', label: 'Pezzi di prova', type: 'select', def: 'nessuna', options: [['nessuna', 'Nessuno: scatola intera'], ['fronte', 'Fronte con le porte'], ['chiusura', 'Chiusura (slitta o viti)'], ['tutte', 'Fronte e chiusura']],
           help: 'Pezzi piccoli che si stampano in pochi minuti prima della scatola intera. Fronte: la parete con porte e pulsante, per vedere se la scheda combacia. Chiusura: con la slitta un tratto di guida e un pezzo di coperchio da far scorrere; con le viti un angolo con la colonnina e il suo pezzo di coperchio da avvitare.' },
       ],
     },
     schede: {
       label: 'Box schede ESP',
+      artKey: 'disegno',
       params: [
         { sec: 'Processore', id: 'cpu', label: 'Processore', type: 'select', menu: true, def: 'd1mini', options: [...schedeOpts('cpu'), ['altro', 'Altra scheda (le tue misure)']],
           help: 'Misure dei produttori e dei venditori; quello che è stimato (altezze, posizione dei piedini e delle finestre) è scritto nel riquadro misure. Se la tua scheda non c\'è, scegli "Altra scheda" e scrivi le misure.' },
@@ -710,12 +715,22 @@
         { sec: 'Moduli', id: 'mod4', label: 'Modulo 4', type: 'select', menu: true, def: 'nessuno', options: schedeMods() },
         { sec: 'Moduli', id: 'mod5', label: 'Modulo 5', type: 'select', menu: true, def: 'nessuno', options: schedeMods() },
         { sec: 'Piedini saldati', id: 'cpuPin', label: 'Processore', type: 'select', def: 'sotto', options: PIN_OPTS,
-          help: 'Da che lato hai saldato i piedini (la plastica dell\'header). Sotto: dal lato opposto ai componenti, come nelle schede da breadboard. Sopra: dal lato dei componenti. Cambia dove stanno i dupont: sotto o sopra la scheda.' },
-        ...[1, 2, 3, 4, 5].map(i => ({ sec: 'Piedini saldati', id: 'mod' + i + 'Pin', label: 'Modulo ' + i, type: 'select', def: 'sotto', options: PIN_OPTS, show: p => p['mod' + i] && p['mod' + i] !== 'nessuno' })),
+          help: 'Da che lato hai saldato i piedini (la plastica dell\'header). Sotto: dal lato opposto ai componenti, come nelle schede da breadboard. Sopra: dal lato dei componenti. Capovolta: la scheda è montata al contrario, con i componenti verso il fondo (la USB esce sotto il circuito, niente finestra nel coperchio). Sotto · capovolta: i piedini puntano in su e i dupont salgono verso il coperchio. Sopra · capovolta: i piedini puntano in giù e i dupont stanno nel vano sotto la scheda. I moduli invece stanno sempre su una torre (sezione Torri dei moduli).' },
+        { sec: 'Piedini saldati', id: 'cpuCav', label: 'Spazio sotto il processore', type: 'num', min: 8, max: 45, step: 1, def: 22, unit: 'mm', show: p => ['sotto', 'capovoltaSopra', 'coperchio', 'coperchioCapo'].includes(p.cpuPin || 'sotto'), help: 'Spazio libero sotto questa scheda per l\'header (2,5 mm), il connettore dupont (14 mm) e la curva dei fili. Vale per le schede con i piedini in giù; ogni scheda ha il suo. La scatola è alta quanto serve alla scheda più alta.' },
+        ...[1, 2, 3, 4, 5].flatMap(i => {
+          const on = p => p['mod' + i] && p['mod' + i] !== 'nessuno';
+          return [
+            { sec: 'Torri dei moduli', id: 'mod' + i + 'Apre', label: 'Modulo ' + i + ': apertura', type: 'select', def: 'dx', options: [['dx', 'A destra'], ['sx', 'A sinistra'], ['su', 'In su (dietro)'], ['giu', 'In giù (davanti)']], show: on,
+              help: i === 1 ? 'Ogni modulo sta su una torre con il muretto su tre lati: il lato aperto è quello dei piedini, da cui escono i fili. Scegli da che parte deve guardare (vista dall\'alto): il modulo si gira per portarci i piedini. I piedini vanno in giù (header saldato dal lato opposto ai componenti) e i dupont stanno sotto il modulo.' : undefined },
+            { sec: 'Torri dei moduli', id: 'mod' + i + 'Cav', label: 'Spazio sotto il modulo ' + i, type: 'num', min: 8, max: 45, step: 1, def: 22, unit: 'mm', show: on, help: i === 1 ? 'Spazio sotto il modulo per header (2,5 mm), dupont (14 mm) e curva dei fili. La scatola è alta quanto serve alla scheda più alta.' : undefined },
+            { sec: 'Torri dei moduli', id: 'mod' + i + 'Cop', label: 'Sotto il coperchio', type: 'select', def: 'no', options: [['no', 'No'], ['si', 'Sì']], show: on, help: i === 1 ? 'Sì: la torre porta il modulo a pochi mm dal coperchio (distanza qui sotto). Per lettori NFC/RFID e sensori di temperatura, CO₂, luce.' : undefined },
+          ];
+        }),
+        { sec: 'Torri dei moduli', id: 'distCop', label: 'Distanza dal coperchio', type: 'num', min: 0.5, max: 8, step: 0.5, def: 1.5, unit: 'mm', show: p => [1, 2, 3, 4, 5].some(i => p['mod' + i] && p['mod' + i] !== 'nessuno' && p['mod' + i + 'Cop'] === 'si'), help: 'Aria tra i componenti dei moduli "sotto il coperchio" e il coperchio. Un RC522 legge le tessere anche con qualche mm in più.' },
         { sec: 'Piedini saldati', id: 'antenna', label: 'Antenna ESP32-CAM', type: 'select', def: 'interna', show: p => p.cpu === 'esp32cam' || p.cpu === 'esp32cammb', options: [['interna', 'Interna (sul circuito)'], ['esterna', 'Esterna (connettore SMA sulla parete)']],
           help: 'Esterna: foro nella parete sinistra per un connettore SMA da pannello, collegato al connettore IPEX con un cavo U.FL–SMA. Va anche spostata la resistenza da 0 Ω accanto al connettore.' },
         { sec: 'Posizione', id: 'cpuPos', label: 'Processore', type: 'pad', def: [0, 0],
-          help: 'Le schede partono in fila e la scatola si allarga da sola. Le frecce le spostano di 1 mm a clic (0,2 mm con Maiusc): su = verso il retro, giù = verso il davanti; il centro rimette la posizione automatica. A sinistra e davanti non si esce dal bordo. Il riquadro misure avvisa se due schede si toccano.' },
+          help: 'Le schede partono in fila e la scatola si allarga da sola. Le frecce le spostano del passo scelto sotto la croce (0,5 · 1 · 5 · 10 mm; 0,2 mm con Maiusc): su = verso il retro, giù = verso il davanti; il centro rimette la posizione automatica. A sinistra e davanti non si esce dal bordo. Il riquadro misure avvisa se due schede si toccano.' },
         ...[1, 2, 3, 4, 5].map(i => ({ sec: 'Posizione', id: 'mod' + i + 'Pos', label: 'Modulo ' + i, type: 'pad', def: [0, 0], show: p => p['mod' + i] && p['mod' + i] !== 'nessuno' })),
         { sec: 'Altra scheda', id: 'altL', label: 'Lunghezza', type: 'num', min: 8, max: 200, step: 0.1, def: 40, unit: 'mm', show: schedeAltro, help: 'Lato lungo della scheda, piedini e connettori esclusi. La scatola lascia il gioco scelto in "Scatola".' },
         { sec: 'Altra scheda', id: 'altW', label: 'Larghezza', type: 'num', min: 8, max: 200, step: 0.1, def: 25, unit: 'mm', show: schedeAltro },
@@ -726,30 +741,48 @@
         { sec: 'LED', id: 'ledN', label: 'LED sul coperchio', type: 'int', min: 0, max: 4, def: 1, help: 'Fori sulla fascia davanti del coperchio, con un anello che tiene il LED. Si collegano ai pin del processore con i dupont. I pannelli WS2812B sono un modulo a parte.' },
         { sec: 'LED', id: 'ledTipo', label: 'Tipo di LED', type: 'select', def: 'led5', show: p => p.ledN > 0, options: [['led3', 'LED 3 mm'], ['led5', 'LED 5 mm'], ['led8', 'LED 8 mm'], ['diffuso', 'Diffuso: la luce passa dal coperchio']],
           help: 'Diffuso: sopra al LED il coperchio resta spesso 0,6 mm e la luce passa (meglio con filamento chiaro): va bene anche per un WS2812B singolo.' },
+        { sec: 'LED', id: 'ledSporg', label: 'Il LED', type: 'select', def: 'sporgente', show: p => p.ledN > 0 && p.ledTipo !== 'diffuso', options: [['sporgente', 'Sporge'], ['filo', 'A filo'], ['incassato', 'Incassato']],
+          help: 'Sporge: il LED esce dal coperchio (5 mm: circa 4 mm). A filo: sotto il coperchio c\'è un tubetto più lungo e la punta del LED arriva alla superficie. Incassato: la punta resta 1 mm sotto. Misure tipiche dei LED: controlla i tuoi.' },
         { sec: 'LED', id: 'pannelloFin', label: 'Finestra del pannello LED', type: 'select', def: 'diffusore', options: [['diffusore', 'Diffusore (pelle da 0,6 mm)'], ['aperto', 'Aperta']],
           show: p => [p.mod1, p.mod2, p.mod3, p.mod4, p.mod5].some(k => /^ws/.test(k)),
           help: 'Diffusore: i pixel si vedono solo accesi, la luce passa attraverso 0,6 mm di coperchio (meglio chiaro). Aperta: si vedono i LED.' },
-        { sec: 'Scatola', id: 'cavita', label: 'Spazio sotto le schede', type: 'num', min: 12, max: 45, step: 1, def: 22, unit: 'mm', help: 'Vale solo per le schede con i piedini sotto: è lo spazio sotto il circuito per l\'header (2,5 mm), il connettore dupont (14 mm) e la curva dei fili. Con i piedini sopra non serve (restano 1,5 mm) e il valore è ignorato: i dupont salgono verso il coperchio. Con piedini misti conta la scheda che ne ha bisogno di più.' },
+        { sec: 'Stampa', id: 'prova', label: 'Pezzo di prova', type: 'select', def: 'nessuna', options: [['nessuna', 'Nessuno: scatola intera'], ['culle', 'Solo base, culle e prese delle pareti']],
+          help: 'Esce un pezzo basso: il fondo da 1 mm (bordo, sotto le culle e una traversina per scheda), le culle e i pezzi di parete con le aperture (USB, antenna), nella stessa posizione della scatola vera. Con i piedini in giù la culla è accorciata a 11 mm sotto la scheda: prova senza i dupont. Pochi grammi: serve a provare che le schede entrino e che la spina arrivi giusta prima di stampare tutta la scatola.' },
+        { sec: 'Scatola', id: 'cavita', label: 'Spazio sotto le schede', type: 'num', min: 8, max: 45, step: 1, def: 22, unit: 'mm', show: () => false },
         { sec: 'Scatola', id: 'distanza', label: 'Distanza tra le schede', type: 'num', min: 5, max: 25, step: 0.5, def: 6, unit: 'mm', help: 'Tra una culla e l\'altra passano i fili. Sotto 5 mm le culle si toccano.' },
         { sec: 'Scatola', id: 'largMax', label: 'Larghezza massima interna', type: 'num', min: 50, max: 400, step: 5, def: 140, unit: 'mm', help: 'Superata questa larghezza le schede vanno a capo su una nuova fila.' },
         { sec: 'Scatola', id: 'gioco', label: 'Gioco attorno alle schede', type: 'num', min: 0.1, max: 1, step: 0.1, def: 0.3, unit: 'mm', help: 'Per lato. Le misure dei venditori hanno qualche decimo di errore: con 0,3 mm le schede entrano senza ballare.' },
         { sec: 'Scatola', id: 'passacavi', label: 'Passacavi dietro', type: 'int', min: 0, max: 3, def: 1, help: 'Fori sulla parete dietro, nel vano dei fili: per l\'alimentazione (ESP32-CAM e altre schede senza USB) o per sensori esterni.' },
         { sec: 'Scatola', id: 'cavoD', label: 'Diametro passacavi', type: 'num', min: 4, max: 14, step: 0.5, def: 7, unit: 'mm', show: p => p.passacavi > 0 },
         { sec: 'Scatola', id: 'raggio', label: 'Raggio angoli', type: 'num', min: 1, max: 10, step: 0.5, def: 4, unit: 'mm' },
-        { sec: 'Scatola', id: 'pareti', label: 'Spessore pareti', type: 'num', min: 1.6, max: 3.2, step: 0.4, def: 2, unit: 'mm' },
-        { sec: 'Scatola', id: 'fondo', label: 'Spessore fondo', type: 'num', min: 1.2, max: 3, step: 0.2, def: 2, unit: 'mm' },
+        { sec: 'Scatola', id: 'pareti', label: 'Spessore pareti', type: 'num', min: 0.8, max: 3.2, step: 0.4, def: 2, unit: 'mm', help: 'Meglio un multiplo dell\'ugello: con 0,4 mm → 0,8 (2 passate) · 1,2 (3) · 1,6 (4) · 2 (5). 1,2 basta per una scatola piccola; 0,8 si piega e la spina USB spinge proprio sulla parete.' },
+        { sec: 'Scatola', id: 'fondo', label: 'Spessore fondo', type: 'num', min: 0.8, max: 3, step: 0.2, def: 2, unit: 'mm', help: 'Con strati da 0,2 mm: 0,8 = 4 strati, 1,2 = 6. Sotto 1 mm il fondo si flette e le prese d\'aria sul fondo lo indeboliscono ancora; le culle e le colonnine poggiano sul fondo.' },
         { sec: 'Supporto', id: 'supporto', label: 'Supporto a sfera per la camera', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['parete', 'Snodo a parete (viti)'], ['magnete', 'Snodo magnetico'], ['treppiede', 'Snodo per treppiede 1/4"']],
           help: 'Come nei progetti per ESP32-CAM più scaricati (MakerWorld e Printables): una sfera si avvita sotto il fondo e si spinge in uno snodo a scatto, che si fissa con viti, con un magnete o su un treppiede. Si regola l\'angolo come con una testa a sfera. Escono due pezzi, "Sfera" e "Snodo", in più rispetto alla scatola.' },
         { sec: 'Supporto', id: 'sfera', label: 'Diametro della sfera', type: 'num', min: 10, max: 20, step: 1, def: 14, unit: 'mm', show: p => p.supporto && p.supporto !== 'nessuno', help: 'Più grande è, più tiene (e più pesa lo snodo). 14 mm va bene per scatole leggere.' },
         { sec: 'Supporto', id: 'magnete', label: 'Magnete', type: 'select', def: '10x2', options: [['10x2', '10 × 2 mm'], ['8x2', '8 × 2 mm']], show: p => p.supporto === 'magnete', help: 'Disco al neodimio da incollare nella sede dello snodo.' },
         { sec: 'Supporto', id: 'spPos', label: 'Posizione della sfera', type: 'pad', def: [0, 0], show: p => p.supporto && p.supporto !== 'nessuno', help: 'Parte dal centro del fondo. Destra e su guardando dall\'alto con il davanti in basso. Spostala se cade sotto i dupont (il riquadro misure avvisa).' },
-        { sec: 'Coperchio', id: 'vite', label: 'Viti', type: 'select', def: 'M3', show: p => p.viteTipo !== 'stampata', options: [['M3', 'M3'], ['M2.5', 'M2,5']], help: 'Quattro viti a testa svasata dall\'alto, in colonnine agli angoli. Pre-foro per viti autofilettanti.' },
+        { sec: 'Coperchio', id: 'chiusura', label: 'Chiusura', type: 'select', def: 'coperchio', options: [['coperchio', 'Coperchio avvitato'], ['campana', 'Base + campana']],
+          help: 'Base + campana: la base è il fondo piatto con le culle e i 4 fori; pareti e coperchio sono un pezzo solo (la campana) che si appoggia sopra e si avvita da sotto la base. Monti e colleghi le schede con tutto aperto. Sulla parete della USB la campana ha una tacca aperta in basso, chiusa da un dentino della base.' },
+        { sec: 'Coperchio', id: 'vite', label: 'Viti', type: 'select', def: 'M3', show: p => p.viteTipo !== 'stampata', options: [['M3', 'M3'], ['M2.5', 'M2,5']], help: 'Quattro viti a testa svasata in colonnine agli angoli, pre-foro per viti autofilettanti. Con il coperchio avvitato entrano dall\'alto; con base + campana entrano da sotto la base.' },
         { sec: 'Coperchio', id: 'viteTipo', label: 'Tipo di viti', type: 'select', def: 'metallica', options: [['metallica', 'Metalliche (le compri)'], ['stampata', 'Stampate (le stampi)']],
           help: 'Stampate: le viti del coperchio (e quelle della sfera, se c\'è) escono come pezzi da stampare, con il filetto ISO del generatore Viti e bulloni. Si avvitano dal basso nel coperchio, che ha boccole filettate.' },
         { sec: 'Coperchio', id: 'viteM', label: 'Misura delle viti stampate', type: 'select', def: 'M6', show: p => p.viteTipo === 'stampata', options: [['M6', 'M6 (la più piccola che viene)'], ['M8', 'M8 (più robusta)'], ['M10', 'M10']],
           help: 'Con ugello da 0,4 mm sotto M6 il filetto non viene (i fianchi sono più sottili di una passata). M6 va stampata con strati sottili e almeno 4 perimetri; M8 e M10 sono molto più resistenti. Più è grande la vite, più grosse sono le colonnine e più cresce la scatola.' },
         { sec: 'Coperchio', id: 'viteGioco', label: 'Gioco del filetto', type: 'num', min: 0.1, max: 0.8, step: 0.05, def: 0.3, unit: 'mm', show: p => p.viteTipo === 'stampata', help: 'Spazio tra i fianchi della vite e del foro, come in Viti e bulloni. Se la vite è dura aumentalo, se balla diminuiscilo: stampa prima una vite sola.' },
         { sec: 'Coperchio', id: 'spCoperchio', label: 'Spessore coperchio', type: 'num', min: 1.6, max: 3, step: 0.2, def: 2, unit: 'mm', help: 'L\'RC522 legge bene attraverso 2 mm di plastica.' },
+        { sec: 'Coperchio decorato', id: 'svg', label: 'Il tuo disegno (SVG)', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
+        { sec: 'Coperchio decorato', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 8, max: 80, step: 1, def: 30, unit: 'mm', show: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'rotDisegno', label: 'Rotazione disegno', type: 'int', min: 0, max: 345, step: 15, def: 0, unit: '°', wrap: true, show: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
+          help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
+        layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.6, show: p => p.stileCop !== 'traforata' }),
+        ...withRot(linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
+        { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
+        Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
+        ...colorsP(['Colore 1 · coperchio', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
+        { sec: 'Colori', id: 'colTesto', label: 'Colore della scritta', type: 'select', def: 'auto', options: [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4']], help: 'Solo con lo stile a filo. Auto: il colore che si legge meglio sul coperchio.' },
         { sec: 'Coperchio', id: 'margineFin', label: 'Margine delle finestre', type: 'num', min: 0, max: 4, step: 0.5, def: 1.5, unit: 'mm', help: 'Quanto le finestre dei display e dei sensori sono più grandi dell\'area attiva. La posizione sul modulo è presa in scala dalle foto: stampa prima il coperchio per controllarla.' },
         { sec: 'Coperchio', id: 'finLuce', label: 'Finestra del sensore di luce', type: 'select', def: 'foro', show: p => [p.mod1, p.mod2, p.mod3, p.mod4, p.mod5].includes('veml7700'), options: [['foro', 'Foro'], ['sottile', 'Pelle da 0,6 mm']],
           help: 'Foro: il sensore vede tutta la luce. Pelle sottile: il coperchio resta chiuso (misura un po\' meno luce; correggila con il fattore di vetro di ESPHome).' },
@@ -759,8 +792,8 @@
         { sec: 'Prese d\'aria', id: 'ariaL', label: 'Lunghezza fessure', type: 'num', min: 4, max: 60, step: 1, def: 14, unit: 'mm', show: p => p.ariaTipo === 'fessure' },
         { sec: 'Prese d\'aria', id: 'ariaGap', label: 'Bordo tra le aperture', type: 'num', min: 1, max: 6, step: 0.2, def: 2, unit: 'mm', show: p => p.ariaTipo !== 'nessuna', help: 'Plastica che resta tra un\'apertura e l\'altra. Con meno di 1,2 mm diventa fragile.' },
         { sec: 'Prese d\'aria', id: 'ariaMargine', label: 'Distanza dai bordi', type: 'num', min: 3, max: 30, step: 1, def: 6, unit: 'mm', show: p => p.ariaTipo !== 'nessuna', help: 'Dai bordi della zona (e, sulle pareti, dagli angoli con le viti). Le aperture non toccano mai finestre, LED, viti, USB e passacavi.' },
-        { sec: 'Prese d\'aria', id: 'ariaCop', label: 'Coperchio', type: 'select', def: 'tutta', show: p => p.ariaTipo !== 'nessuna', options: [['no', 'No'], ['tutta', 'Su tutta la superficie'], ['processore', 'Sopra il processore'], ['moduli', 'Sopra i moduli']] },
-        { sec: 'Prese d\'aria', id: 'ariaFondo', label: 'Fondo', type: 'select', def: 'no', show: p => p.ariaTipo !== 'nessuna', options: [['no', 'No'], ['tutto', 'Su tutto il fondo'], ['processore', 'Sotto il processore'], ['moduli', 'Sotto i moduli']], help: 'Servono piedini di gomma, altrimenti il tavolo chiude le aperture.' },
+        { sec: 'Prese d\'aria', id: 'ariaCop', label: 'Coperchio', type: 'select', def: 'tutta', show: p => p.ariaTipo !== 'nessuna', options: [['no', 'No'], ['tutta', 'Su tutta la superficie'], ['processore', 'Sopra il processore'], ['moduli', 'Sopra i moduli'], ['schede', 'Sopra processore e moduli']] },
+        { sec: 'Prese d\'aria', id: 'ariaFondo', label: 'Fondo', type: 'select', def: 'no', show: p => p.ariaTipo !== 'nessuna', options: [['no', 'No'], ['tutto', 'Su tutto il fondo'], ['processore', 'Sotto il processore'], ['moduli', 'Sotto i moduli'], ['schede', 'Sotto processore e moduli']], help: 'Servono piedini di gomma, altrimenti il tavolo chiude le aperture.' },
         ...[['ariaDietro', 'Parete dietro', 'basso'], ['ariaDavanti', 'Parete davanti', 'no'], ['ariaDestra', 'Parete destra', 'alto'], ['ariaSinistra', 'Parete sinistra', 'no']].map(([id, label, def]) => ({ sec: 'Prese d\'aria', id, label, type: 'select', def, show: p => p.ariaTipo !== 'nessuna', options: [['no', 'No'], ['alto', 'In alto'], ['centro', 'Al centro'], ['basso', 'In basso'], ['tutta', 'Tutta l\'altezza']] })),
         { sec: 'Prese d\'aria', id: 'ariaAlt', label: 'Altezza della zona sulle pareti', type: 'num', min: 4, max: 60, step: 1, def: 12, unit: 'mm', show: p => p.ariaTipo !== 'nessuna', help: 'Altezza della fascia di aperture sulle pareti (non vale per "Tutta l\'altezza"). Dietro, le aperture saltano i passacavi; a sinistra saltano USB e antenna.' },
       ],
@@ -892,7 +925,7 @@
         // Con move/center (pallina) le frecce cambiano altri valori, per esempio lato e altezza sulla sfera
         row.classList.add('pad-row');
         const B = (d, cls, lbl, sym) => `<button type="button" class="${cls}" data-d="${d}" aria-label="${lbl}" title="${lbl}">${sym}</button>`;
-        row.innerHTML = `<label>${p.label}</label><div class="pad-box"><div class="pad" role="group" aria-label="${esc(p.label)}">${B('0,1', 'up', 'Su', '▲')}${B('-1,0', 'lt', 'A sinistra', '◀')}${B('c', 'mid', 'Al centro', '●')}${B('1,0', 'rt', 'A destra', '▶')}${B('0,-1', 'dn', 'Giù', '▼')}</div><span class="pad-val"></span></div>`;
+        row.innerHTML = `<label>${p.label}</label><div class="pad-box"><div class="pad" role="group" aria-label="${esc(p.label)}">${B('0,1', 'up', 'Su', '▲')}${B('-1,0', 'lt', 'A sinistra', '◀')}${B('c', 'mid', 'Al centro', '●')}${B('1,0', 'rt', 'A destra', '▶')}${B('0,-1', 'dn', 'Giù', '▼')}</div><div class="pad-side"><span class="pad-val"></span>${p.move ? '' : `<div class="pad-step" role="group" aria-label="Passo delle frecce">${[0.5, 1, 5, 10].map(v => `<button type="button" data-st="${v}" title="${String(v).replace('.', ',')} mm a clic">${String(v).replace('.', ',')}</button>`).join('')}<span>mm</span></div>`}</div></div>`;
         const out = row.querySelector('.pad-val');
         const fmtMm = (n) => String(+Math.abs(n).toFixed(1)).replace('.', ',');
         const show = () => {
@@ -904,7 +937,11 @@
           out.textContent = t.length ? t.join(' · ') + ' mm' : 'al centro';
         };
         show();
-        row.querySelectorAll('button').forEach(b => b.addEventListener('click', (e) => {
+        // passo delle frecce: lo stesso per tutte le croci (0,5 · 1 · 5 · 10 mm), Maiusc = 0,2 mm
+        const markStep = () => row.querySelectorAll('.pad-step button').forEach(x => x.classList.toggle('on', +x.dataset.st === (+state.padStep || 1)));
+        markStep();
+        row.querySelectorAll('.pad-step button').forEach(b => b.addEventListener('click', () => { state.padStep = +b.dataset.st; save(); document.querySelectorAll('.pad-step button').forEach(x => x.classList.toggle('on', +x.dataset.st === state.padStep)); }));
+        row.querySelectorAll('.pad button').forEach(b => b.addEventListener('click', (e) => {
           const cv = values(state.mode), d = b.dataset.d;
           if (p.move) {
             const upd = d === 'c' ? p.center(cv) : p.move(cv, ...d.split(',').map(Number));
@@ -912,7 +949,7 @@
             save(); renderParams(); schedule(60);
             return;
           }
-          const st = e.shiftKey ? 0.2 : 1, [x, y] = cv[p.id] || [0, 0];
+          const st = e.shiftKey ? 0.2 : (+state.padStep || 1), [x, y] = cv[p.id] || [0, 0];
           const [dx, dy] = d === 'c' ? [0, 0] : d.split(',').map(Number);
           const clamp = (n) => +Math.max(-200, Math.min(200, n)).toFixed(1);
           set(p, d === 'c' ? [0, 0] : [clamp(x + dx * st), clamp(y + dy * st)]);

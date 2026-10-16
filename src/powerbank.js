@@ -114,7 +114,9 @@
       const info = [], notes = [];
       const B = SCHEDE[p.scheda] || SCHEDE.lcd24, C = CELLE[p.cella] || CELLE.normale;
       const n = p.contatti === 'portapile' ? Math.max(1, Math.min(6, p.ppN | 0)) * Math.max(1, Math.min(6, p.ppCelle | 0)) : Math.max(1, Math.min(8, p.celle | 0));
-      const w = p.pareti, f = p.fondo, tl = p.spCoperchio, tol = p.tolleranza;
+      // pareti e fondo sottili solo con il coperchio a viti: la slitta a coda di rondine si scava nelle pareti (servono 1,6 mm)
+      const vitiC = p.coperchio === 'viti';
+      const w = vitiC ? Math.max(0.8, +p.pareti) : Math.max(1.6, +p.pareti), f = vitiC ? Math.max(0.8, +p.fondo) : Math.max(1.2, +p.fondo), tl = p.spCoperchio, tol = p.tolleranza;
       const g = p.gioco + (B.prec || 0);
       const viti = p.coperchio === 'viti';
       // portapile già pronto: le misure le scrive chi lo usa (lunghezza lungo le celle, larghezza, altezza); più portapile uno accanto all'altro
@@ -334,6 +336,7 @@
         box0 = sub(box0, U(cuts));
         const pp = posts.map(([x, y]) => cylZ(x, y, f - 0.01, vm ? Zw - bossLen - 0.2 : Zw - 6.2, pr, pr, 40));
         box0 = U([box0, ...adds, ...pp]);
+        box0 = X(box0, S);   // con pareti sottili niente deve uscire dal guscio
         const holes = [];
         for (const [x, y] of posts) {
           if (vm) { const rh = (vm.D + 0.8) / 2, r0 = vm.D + 0.5; holes.push(cylZ(x, y, -1, Zw + 0.1, rh, rh, 32), cylZ(x, y, -0.01, r0 - rh, r0, rh, 40)); continue; }
@@ -343,7 +346,7 @@
         }
         box0 = sub(box0, U(holes));
         lid = X(S, box(-1, -1, Zw + 0.01, Xo + 1, Yo + 1, Htot + 1));
-        const bosses = posts.map(([x, y]) => vm ? X(cylZ(x, y, Zw - bossLen, Zw + 0.02, pr, pr, 40), cuts[0]) : cylZ(x, y, Zw - 6, Zw + 0.02, pr, pr, 40));
+        const bosses = posts.map(([x, y]) => X(vm ? cylZ(x, y, Zw - bossLen, Zw + 0.02, pr, pr, 40) : cylZ(x, y, Zw - 6, Zw + 0.02, pr, pr, 40), cuts[0]));   // tagliate col vano: negli angoli arrotondati non toccano la parete
         lid = U([lid, ...bosses]);
         if (vm) lidCuts.push(...posts.map(([x, y]) => reg(VT.hole(p.viteM, bossLen + tl - 0.8, vg, true).translate([x, y, Zw - bossLen]))));
         else lidCuts.push(...posts.map(([x, y]) => cylZ(x, y, Zw - 7, Htot - 0.8, dv * 0.42, dv * 0.42, 24)));
@@ -396,19 +399,23 @@
         const ax0 = zr0[0] + m, ax1 = Math.min(zr0[2] - m, viti ? Infinity : Xo - 12), ay0 = zr0[1] + (side ? m : 2), ay1 = zr0[3] - m + 1;
         const area = RECT(ax0, ay0, ax1, ay1);
         if ((art || hasT) && ax1 - ax0 > 15 && ay1 - ay0 > 12) {
+          // il disegno si gira con "Rotazione disegno" attorno al suo centro; le righe di testo hanno ognuna la sua rotazione
+          const thA = (((+p.rotDisegno || 0) % 360) + 360) % 360;
+          const zcx = (ax0 + ax1) / 2, zcy = (ay0 + ay1) / 2, lw = ax1 - ax0, lh = ay1 - ay0;
           const has1 = p.scritta && String(p.scritta).trim(), has2 = p.scritta2 && String(p.scritta2).trim();
           const tH = hasT ? 1.5 * ((has1 ? p.altTesto : 0) + (has2 ? +p.altTesto2 || p.altTesto : 0)) : 0, gap = art && hasT ? 4 : 0;
-          const Sa = art ? Math.max(8, Math.min(p.altDisegno, ay1 - ay0 - tH - gap, ax1 - ax0)) : 0;
-          const cx = (ax0 + ax1) / 2, cy = (ay0 + ay1) / 2 + (Sa + gap + tH) / 2;
+          const Sa = art ? Math.max(8, Math.min(p.altDisegno, lh - tH - gap, lw)) : 0;
+          const cx = zcx, cy = zcy + (Sa + gap + tH) / 2;
           let artCS = null, txt = null; const slots = {};
           if (art) {
-            const g0 = DEC.artGeom(art, Sa, ax1 - ax0), place = (c) => (c ? MV(c, cx, cy - Sa / 2) : null);
+            const g0 = DEC.artGeom(art, Sa, lw), acx = cx, acy = cy - Sa / 2;
+            const place = (c) => (c ? (thA ? R2(R2(R2(MV(c, acx, acy).translate([-acx, -acy])).rotate(thA)).translate([acx, acy])) : MV(c, acx, acy)) : null);
             const sil = place(g0.sil);
             artCS = st === 'filo' ? sil : st === 'inciso' ? (g0.lines ? place(g0.lines) : sil) : (g0.lines ? place(CI(g0.lines, OFF(g0.sil, -1.3 * g0.k))) : sil);
             if (st === 'filo') { const sl = DEC.artSlots(g0, F, OFF(g0.sil, 0.01), noz, notes); for (const k of [2, 3, 4]) if (sl[k]) slots[k] = place(sl[k]); }
           }
           if (hasT) {
-            txt = DEC.fitText(p, { x: cx, y: cy - Sa - gap - tH / 2, w: ax1 - ax0, h: Math.max(4, tH) }, p.altTesto);
+            txt = DEC.fitLines ? DEC.fitLines(p, { x: cx, y: cy - Sa - gap - tH / 2, w: lw, h: Math.max(4, tH), hMax: lh }, [p.rotTesto, p.rotTesto2]) : DEC.fitText(p, { x: cx, y: cy - Sa - gap - tH / 2, w: lw, h: Math.max(4, tH) }, p.altTesto);
             if (txt && txt.reduced) notes.push(`Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
             if (txt && txt.moved) { const kc = CI(txt.cs, area); if (emptyC(kc) || kc.area() < txt.cs.area() * 0.98) notes.push('La scritta spostata esce dalla zona libera del coperchio: la parte fuori viene tagliata'); }
           }
@@ -497,7 +504,9 @@
         const Ls = Math.floor((Htot - 1.3) * 2) / 2, sc = VT.screw(p.viteM, Ls, vg, 'taglio');
         const mkF = (th) => reg(reg(reg(sc.m.rotate([0, 0, th])).rotate([180, 0, 0])).translate([0, 0, sc.L]));
         const tgL = sub(cylZ(0, 0, Zw - bossLen, Zw + tl, prP, prP, 48), reg(VT.hole(p.viteM, bossLen + tl - 0.8, vg, true).translate([0, 0, Zw - bossLen])));
-        let best = null; for (let k = 0; k < 16; k++) { const vol = X(mkF(k * 22.5), tgL).volume(); if (!best || vol < best.vol) best = { th: k * 22.5, vol }; }
+        const zA = Zw - bossLen + 1, zB = zA + 3 * vm.P, win = box(-60, -60, zA, 60, 60, zB), tW = X(tgL, win);   // solo una fetta di filetto: il filetto è un'elica, la fase si vede già lì
+        const sW = X(mkF(0), win);
+        let best = null; for (let k = 0; k < 16; k++) { const vol = X(reg(sW.rotate([0, 0, -k * 22.5])), tW).volume(); if (!best || vol < best.vol) best = { th: k * 22.5, vol }; }
         const flipS = mkF(best.th);
         screwAsm = U(posts.map(([x, y]) => reg(flipS.translate([x, y, 0]))));
         const step = 2 * vm.D + 3, nP = posts.length;
@@ -533,6 +542,9 @@
       info.push(['Coperchio', viti && vm ? `a viti nascoste: ${posts.length} viti stampate ${p.viteM} da sotto, che si avvitano nel coperchio. Sopra non si vede niente` : viti ? `a viti nascoste: 4 viti ${p.vite} svasate da sotto, lunghe ${dv === 3 ? 16 : 16}–20 mm, che si avvitano nel coperchio. Sopra non si vede niente` : 'a slitta: entra dal fianco destro nelle guide a coda di rondine; la tacca vicino al bordo serve per tirarlo']);
       if (decoInfo) info.push(['Coperchio decorato', decoInfo]);
       info.push(['Stampa', 'PETG o ASA (il PLA si deforma al sole in auto). Scatola aperta in su, coperchio capovolto: senza supporti']);
+      if (!vitiC && (+p.pareti < 1.6 || +p.fondo < 1.2)) notes.push(`Coperchio a slitta: pareti almeno 1,6 mm e fondo almeno 1,2 mm (le guide si scavano nelle pareti). Uso ${fmt(w)} e ${fmt(f)} mm; per andare più sottile scegli il coperchio a viti`);
+      if (vitiC && w < 1.2) notes.push(`Pareti da ${fmt(w)} mm (2 passate con ugello 0,4): leggere ma flessibili. Le porte USB sono sulla parete davanti: tieni la scatola quando infili le spine`);
+      if (vitiC && f < 1.0) notes.push(`Fondo da ${fmt(f)} mm: si flette un po', e le celle pesano (circa 45 g l'una)`);
       notes.push('Le piazzole B+ e B− della scheda sono da saldare: sono le uniche due saldature, tutto il resto è a contatti e morsetti. Se non saldi, fattele fare (bastano due minuti a chi ha un saldatore)');
       notes.push('Metti nella scatola solo celle uguali e cariche allo stesso modo, con il + verso destra: al contrario la scheda si brucia');
       if (pp && pp.H < 19) notes.push(`Portapile alto ${fmt(pp.H)} mm: controlla la misura, una 18650 è alta 18,5 mm`);

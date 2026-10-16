@@ -85,6 +85,11 @@ header .face-top svg { display: block; width: 100%; height: 100%; }
 .pad button:hover { border-color: var(--accent); color: var(--accent); }
 .pad .up { grid-area: 1 / 2; } .pad .lt { grid-area: 2 / 1; } .pad .mid { grid-area: 2 / 2; font-size: 9px; } .pad .rt { grid-area: 2 / 3; } .pad .dn { grid-area: 3 / 2; }
 .pad-val { font: 500 12px var(--f-num); color: var(--muted); }
+.pad-side { display: flex; flex-direction: column; gap: 6px; }
+.pad-step { display: flex; align-items: center; gap: 3px; }
+.pad-step button { border: 1px solid var(--line); background: var(--field); color: var(--muted); border-radius: 5px; cursor: pointer; font: 500 11px var(--f-num); padding: 2px 6px; }
+.pad-step button.on { border-color: var(--accent); color: var(--accent); }
+.pad-step span { font: 500 11px var(--f-num); color: var(--muted); margin-left: 2px; }
 .home { overflow-y: auto; min-height: 0; }
 .home-in { max-width: 1080px; margin: 0 auto; padding: 28px 16px 48px; display: grid; gap: 28px; }
 .lead { margin: 0; font-size: 16px; color: var(--muted); max-width: 60ch; }
@@ -2519,10 +2524,10 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       return out.map(([x, y]) => [x, y]);
     }
     // barra filettata da z = 0 a z = len; la fase è la stessa per ogni z multiplo del passo
-    function threadRod(sp, len, c, left) {
+    function threadRod(sp, len, c, left, div = 1) {   // div < 1: meno suddivisioni dell'elica (modello più leggero, usato per le viti stampate dei box)
       const N = segFor(sp.D), turns = len / sp.P;
       const cs = reg(CrossSection.ofPolygons([threadSection(sp.D, sp.P, c, N, left)]));
-      return reg(cs.extrude(len, Math.max(1, Math.ceil(turns * N)), (left ? -360 : 360) * turns));
+      return reg(cs.extrude(len, Math.max(1, Math.ceil(turns * N * div)), (left ? -360 : 360) * turns));
     }
     const coneZ = (r0, r1, z0, z1, seg = 48) => reg(reg(Manifold.cylinder(z1 - z0, r0, r1, seg)).translate([0, 0, z0]));
     const cylY = (x, z, r, y0, y1, seg = 32) => reg(reg(reg(Manifold.cylinder(y1 - y0, r, r, seg)).rotate([-90, 0, 0])).translate([x, y0, z]));
@@ -2597,7 +2602,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       // gambo: parte filettata dalla punta, poi liscia fino alla testa
       const Lt = p.filettata > 0 ? Math.min(p.filettata, zH) : zH;
       const rodLen = Lt < zH ? Lt : (testa === 'nessuna' ? zH : zH + 0.5);
-      let rod = threadRod(sp, rodLen, c, left);
+      let rod = threadRod(sp, rodLen, c, left, p.div || 1);
       // smusso in punta (e in cima se è una barra senza testa)
       const r0 = Math.max(0.4, Rmin - 0.3);
       rod = reg(rod.intersect(coneZ(r0, r0 + rodLen + 2, 0, rodLen + 2, segFor(D))));
@@ -2815,9 +2820,10 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
     // Misure minime con ugello da 0,4: M6 al limite, M8 consigliata, M10 robusta (sotto M6 il filetto non viene).
     const VITI_STAMPA = ['M6', 'M8', 'M10'];
     const viteSpec = (m) => threadSpec({ misura: ISO[m] ? m : 'M6' });
+    const VITE_DIV = 0.5;   // viti e fori filettati dei box: elica a 22,5° per passo di suddivisione
     function viteStampata(m, L, g, impronta) {
       const sp = viteSpec(m);
-      const s = screwSolid(sp, { gioco: g, lunghezza: L, testa: 'svasata', filettata: 0, sinistro: false, testaSu: false, impronta: impronta || 'taglio', stampa: 'in piedi' });
+      const s = screwSolid(sp, { gioco: g, lunghezza: L, testa: 'svasata', filettata: 0, sinistro: false, testaSu: false, impronta: impronta || 'taglio', stampa: 'in piedi', div: VITE_DIV });
       return { sp, m: s.m, L: s.L, notes: s.notes, print: reg(s.m.rotate([180, 0, 0])), testa: dimsOfHead(sp) };
     }
     const dimsOfHead = (sp) => ({ w: 2 * sp.D, h: sp.D / 2 });
@@ -2825,7 +2831,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
     function viteForo(m, len, g, openBottom) {
       const sp = viteSpec(m), D = sp.D, P = sp.P, c = g / 2;
       const Rmin = D / 2 - T_DEPTH * P + c, Rc = D / 2 + c + 0.3;
-      let h = union([reg(threadRod(sp, len + 1, c, false)), coneZ(Rmin - 0.01, Rc + 1, len - (Rc - Rmin), len + 1, segFor(D))]);
+      let h = union([reg(threadRod(sp, len + 1, c, false, VITE_DIV)), coneZ(Rmin - 0.01, Rc + 1, len - (Rc - Rmin), len + 1, segFor(D))]);
       if (openBottom) h = reg(reg(h.rotate([180, 0, 0])).translate([0, 0, len]));
       return h;
     }
@@ -3044,6 +3050,30 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       const moved = offsOf(p).some(o => o && (+o[0] || +o[1]));
       const k = f < 1 ? Math.min(1, bx.w / lastBox.w, bx.h / lastBox.h) : 1;
       return { cs: MV(c, bx.x, bx.y), cap: capWanted * f, reduced: f < 0.97, moved, box: { w: lastBox.w * k, h: lastBox.h * k } };
+    }
+
+    // due righe impaginate una sotto l'altra, ognuna con la sua rotazione (attorno al proprio centro) e il suo spostamento:
+    // le frecce spostano sempre nel verso del pezzo, anche con la riga girata. bx = { x, y, w, h, hMax }; rots = [gradi riga 1, gradi riga 2]
+    function fitLines(p, bx, rots) {
+      const L = [[p.scritta, +p.altTesto, p.pos1, rots[0]], [p.scritta2, +p.altTesto2 || +p.altTesto, p.pos2, rots[1]]].filter(l => l[0] && String(l[0]).trim());
+      if (!L.length) return null;
+      const tH = L.reduce((a, l) => a + 1.5 * l[1], 0);
+      let top = bx.y + tH / 2, cap = Infinity, reduced = false, moved = false;
+      const out = [];
+      for (const [t, a, o, r] of L) {
+        const h = 1.5 * a, yc = top - h / 2; top -= h;
+        const th = (((+r || 0) % 360) + 360) % 360, sw = th % 180 === 90;
+        const q = Object.assign({}, p, { scritta: t, scritta2: '', altTesto: a, altTesto2: a, pos1: [0, 0], pos2: [0, 0] });
+        const f = fitText(q, { x: bx.x, y: yc, w: sw ? (bx.hMax || bx.w) : bx.w, h: Math.max(4, h) }, a);
+        if (!f) continue;
+        let c = f.cs;
+        if (th) c = R2(R2(R2(c.translate([-bx.x, -yc])).rotate(th)).translate([bx.x, yc]));
+        const ox = +(o && o[0]) || 0, oy = +(o && o[1]) || 0;
+        if (ox || oy) { c = R2(c.translate([ox, oy])); moved = true; }
+        out.push(c); cap = Math.min(cap, f.cap); reduced = reduced || f.reduced;
+      }
+      if (!out.length) return null;
+      return { cs: out.length === 1 ? out[0] : R2(CrossSection.union(out)), cap, reduced, moved };
     }
 
     // ---------- disegni: Fluent Emoji (libreria) e SVG caricati ----------
@@ -4242,7 +4272,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
     function palla(p) { return Object.assign(piatto(Object.assign({}, p, { forma: 'palla', altezza: p.diametro, decorazioni: true })), { view: [0, -0.7, 1] }); }
 
     // scritte e disegni a disposizione degli altri generatori (la cover li usa sul retro)
-    H.decor = { textCS, fitText, logoNotes, artOf, artGeom, artSlots, filaments, isArt, stencil, perforate, NOTES, EMO_BY };
+    H.decor = { textCS, fitText, fitLines, logoNotes, artOf, artGeom, artSlots, filaments, isArt, stencil, perforate, NOTES, EMO_BY };
 
     // ogni generatore riporta in fondo gli avvisi sui loghi
     const withNotes = (fn) => (p) => { NOTES.clear(); const r = fn(p); for (const n of NOTES) r.info.push(['Nota', n]); NOTES.clear(); return r; };
@@ -5012,7 +5042,9 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       const info = [], notes = [];
       const B = SCHEDE[p.scheda] || SCHEDE.lcd24, C = CELLE[p.cella] || CELLE.normale;
       const n = p.contatti === 'portapile' ? Math.max(1, Math.min(6, p.ppN | 0)) * Math.max(1, Math.min(6, p.ppCelle | 0)) : Math.max(1, Math.min(8, p.celle | 0));
-      const w = p.pareti, f = p.fondo, tl = p.spCoperchio, tol = p.tolleranza;
+      // pareti e fondo sottili solo con il coperchio a viti: la slitta a coda di rondine si scava nelle pareti (servono 1,6 mm)
+      const vitiC = p.coperchio === 'viti';
+      const w = vitiC ? Math.max(0.8, +p.pareti) : Math.max(1.6, +p.pareti), f = vitiC ? Math.max(0.8, +p.fondo) : Math.max(1.2, +p.fondo), tl = p.spCoperchio, tol = p.tolleranza;
       const g = p.gioco + (B.prec || 0);
       const viti = p.coperchio === 'viti';
       // portapile già pronto: le misure le scrive chi lo usa (lunghezza lungo le celle, larghezza, altezza); più portapile uno accanto all'altro
@@ -5232,6 +5264,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         box0 = sub(box0, U(cuts));
         const pp = posts.map(([x, y]) => cylZ(x, y, f - 0.01, vm ? Zw - bossLen - 0.2 : Zw - 6.2, pr, pr, 40));
         box0 = U([box0, ...adds, ...pp]);
+        box0 = X(box0, S);   // con pareti sottili niente deve uscire dal guscio
         const holes = [];
         for (const [x, y] of posts) {
           if (vm) { const rh = (vm.D + 0.8) / 2, r0 = vm.D + 0.5; holes.push(cylZ(x, y, -1, Zw + 0.1, rh, rh, 32), cylZ(x, y, -0.01, r0 - rh, r0, rh, 40)); continue; }
@@ -5241,7 +5274,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         }
         box0 = sub(box0, U(holes));
         lid = X(S, box(-1, -1, Zw + 0.01, Xo + 1, Yo + 1, Htot + 1));
-        const bosses = posts.map(([x, y]) => vm ? X(cylZ(x, y, Zw - bossLen, Zw + 0.02, pr, pr, 40), cuts[0]) : cylZ(x, y, Zw - 6, Zw + 0.02, pr, pr, 40));
+        const bosses = posts.map(([x, y]) => X(vm ? cylZ(x, y, Zw - bossLen, Zw + 0.02, pr, pr, 40) : cylZ(x, y, Zw - 6, Zw + 0.02, pr, pr, 40), cuts[0]));   // tagliate col vano: negli angoli arrotondati non toccano la parete
         lid = U([lid, ...bosses]);
         if (vm) lidCuts.push(...posts.map(([x, y]) => reg(VT.hole(p.viteM, bossLen + tl - 0.8, vg, true).translate([x, y, Zw - bossLen]))));
         else lidCuts.push(...posts.map(([x, y]) => cylZ(x, y, Zw - 7, Htot - 0.8, dv * 0.42, dv * 0.42, 24)));
@@ -5294,19 +5327,23 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         const ax0 = zr0[0] + m, ax1 = Math.min(zr0[2] - m, viti ? Infinity : Xo - 12), ay0 = zr0[1] + (side ? m : 2), ay1 = zr0[3] - m + 1;
         const area = RECT(ax0, ay0, ax1, ay1);
         if ((art || hasT) && ax1 - ax0 > 15 && ay1 - ay0 > 12) {
+          // il disegno si gira con "Rotazione disegno" attorno al suo centro; le righe di testo hanno ognuna la sua rotazione
+          const thA = (((+p.rotDisegno || 0) % 360) + 360) % 360;
+          const zcx = (ax0 + ax1) / 2, zcy = (ay0 + ay1) / 2, lw = ax1 - ax0, lh = ay1 - ay0;
           const has1 = p.scritta && String(p.scritta).trim(), has2 = p.scritta2 && String(p.scritta2).trim();
           const tH = hasT ? 1.5 * ((has1 ? p.altTesto : 0) + (has2 ? +p.altTesto2 || p.altTesto : 0)) : 0, gap = art && hasT ? 4 : 0;
-          const Sa = art ? Math.max(8, Math.min(p.altDisegno, ay1 - ay0 - tH - gap, ax1 - ax0)) : 0;
-          const cx = (ax0 + ax1) / 2, cy = (ay0 + ay1) / 2 + (Sa + gap + tH) / 2;
+          const Sa = art ? Math.max(8, Math.min(p.altDisegno, lh - tH - gap, lw)) : 0;
+          const cx = zcx, cy = zcy + (Sa + gap + tH) / 2;
           let artCS = null, txt = null; const slots = {};
           if (art) {
-            const g0 = DEC.artGeom(art, Sa, ax1 - ax0), place = (c) => (c ? MV(c, cx, cy - Sa / 2) : null);
+            const g0 = DEC.artGeom(art, Sa, lw), acx = cx, acy = cy - Sa / 2;
+            const place = (c) => (c ? (thA ? R2(R2(R2(MV(c, acx, acy).translate([-acx, -acy])).rotate(thA)).translate([acx, acy])) : MV(c, acx, acy)) : null);
             const sil = place(g0.sil);
             artCS = st === 'filo' ? sil : st === 'inciso' ? (g0.lines ? place(g0.lines) : sil) : (g0.lines ? place(CI(g0.lines, OFF(g0.sil, -1.3 * g0.k))) : sil);
             if (st === 'filo') { const sl = DEC.artSlots(g0, F, OFF(g0.sil, 0.01), noz, notes); for (const k of [2, 3, 4]) if (sl[k]) slots[k] = place(sl[k]); }
           }
           if (hasT) {
-            txt = DEC.fitText(p, { x: cx, y: cy - Sa - gap - tH / 2, w: ax1 - ax0, h: Math.max(4, tH) }, p.altTesto);
+            txt = DEC.fitLines ? DEC.fitLines(p, { x: cx, y: cy - Sa - gap - tH / 2, w: lw, h: Math.max(4, tH), hMax: lh }, [p.rotTesto, p.rotTesto2]) : DEC.fitText(p, { x: cx, y: cy - Sa - gap - tH / 2, w: lw, h: Math.max(4, tH) }, p.altTesto);
             if (txt && txt.reduced) notes.push(`Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
             if (txt && txt.moved) { const kc = CI(txt.cs, area); if (emptyC(kc) || kc.area() < txt.cs.area() * 0.98) notes.push('La scritta spostata esce dalla zona libera del coperchio: la parte fuori viene tagliata'); }
           }
@@ -5395,7 +5432,9 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         const Ls = Math.floor((Htot - 1.3) * 2) / 2, sc = VT.screw(p.viteM, Ls, vg, 'taglio');
         const mkF = (th) => reg(reg(reg(sc.m.rotate([0, 0, th])).rotate([180, 0, 0])).translate([0, 0, sc.L]));
         const tgL = sub(cylZ(0, 0, Zw - bossLen, Zw + tl, prP, prP, 48), reg(VT.hole(p.viteM, bossLen + tl - 0.8, vg, true).translate([0, 0, Zw - bossLen])));
-        let best = null; for (let k = 0; k < 16; k++) { const vol = X(mkF(k * 22.5), tgL).volume(); if (!best || vol < best.vol) best = { th: k * 22.5, vol }; }
+        const zA = Zw - bossLen + 1, zB = zA + 3 * vm.P, win = box(-60, -60, zA, 60, 60, zB), tW = X(tgL, win);   // solo una fetta di filetto: il filetto è un'elica, la fase si vede già lì
+        const sW = X(mkF(0), win);
+        let best = null; for (let k = 0; k < 16; k++) { const vol = X(reg(sW.rotate([0, 0, -k * 22.5])), tW).volume(); if (!best || vol < best.vol) best = { th: k * 22.5, vol }; }
         const flipS = mkF(best.th);
         screwAsm = U(posts.map(([x, y]) => reg(flipS.translate([x, y, 0]))));
         const step = 2 * vm.D + 3, nP = posts.length;
@@ -5431,6 +5470,9 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       info.push(['Coperchio', viti && vm ? `a viti nascoste: ${posts.length} viti stampate ${p.viteM} da sotto, che si avvitano nel coperchio. Sopra non si vede niente` : viti ? `a viti nascoste: 4 viti ${p.vite} svasate da sotto, lunghe ${dv === 3 ? 16 : 16}–20 mm, che si avvitano nel coperchio. Sopra non si vede niente` : 'a slitta: entra dal fianco destro nelle guide a coda di rondine; la tacca vicino al bordo serve per tirarlo']);
       if (decoInfo) info.push(['Coperchio decorato', decoInfo]);
       info.push(['Stampa', 'PETG o ASA (il PLA si deforma al sole in auto). Scatola aperta in su, coperchio capovolto: senza supporti']);
+      if (!vitiC && (+p.pareti < 1.6 || +p.fondo < 1.2)) notes.push(`Coperchio a slitta: pareti almeno 1,6 mm e fondo almeno 1,2 mm (le guide si scavano nelle pareti). Uso ${fmt(w)} e ${fmt(f)} mm; per andare più sottile scegli il coperchio a viti`);
+      if (vitiC && w < 1.2) notes.push(`Pareti da ${fmt(w)} mm (2 passate con ugello 0,4): leggere ma flessibili. Le porte USB sono sulla parete davanti: tieni la scatola quando infili le spine`);
+      if (vitiC && f < 1.0) notes.push(`Fondo da ${fmt(f)} mm: si flette un po', e le celle pesano (circa 45 g l'una)`);
       notes.push('Le piazzole B+ e B− della scheda sono da saldare: sono le uniche due saldature, tutto il resto è a contatti e morsetti. Se non saldi, fattele fare (bastano due minuti a chi ha un saldatore)');
       notes.push('Metti nella scatola solo celle uguali e cariche allo stesso modo, con il + verso destra: al contrario la scheda si brucia');
       if (pp && pp.H < 19) notes.push(`Portapile alto ${fmt(pp.H)} mm: controlla la misura, una 18650 è alta 18,5 mm`);
@@ -5641,9 +5683,9 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
   for (const k of Object.keys(SCHEDE)) SCHEDE[k].id = k;
   // LED singoli sul coperchio: foro, anello che tiene il LED, diametro dell'anello
   const LED = {
-    led3: { nome: 'LED 3 mm', r: 1.6, anello: 3.5 },
-    led5: { nome: 'LED 5 mm', r: 2.6, anello: 4.3 },
-    led8: { nome: 'LED 8 mm', r: 4.1, anello: 6.0 },
+    led3: { nome: 'LED 3 mm', r: 1.6, anello: 3.5, h: 4.5 },     // h: corpo sopra il collarino (misure tipiche)
+    led5: { nome: 'LED 5 mm', r: 2.6, anello: 4.3, h: 7.6 },
+    led8: { nome: 'LED 8 mm', r: 4.1, anello: 6.0, h: 10.5 },
     diffuso: { nome: 'LED diffuso (luce che passa dal coperchio)', r: 4.0, anello: 0, pelle: 0.6 },
   };
 
@@ -5694,6 +5736,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       const w = p.pareti, f = p.fondo, tl = p.spCoperchio, g = p.gioco;
       const dv = p.vite === 'M2.5' ? 2.5 : 3;
       // viti stampate (M6, M8 o M10): colonnine più grosse, viti dal basso nel coperchio con boccole filettate
+      const campana = p.chiusura === 'campana';   // base con le culle + campana (pareti e coperchio in un pezzo), viti da sotto la base
       const VT = H.vite, vm = p.viteTipo === 'stampata' ? VT.spec(p.viteM || 'M6') : null, vg = Math.max(0.1, +p.viteGioco || 0.3);
       const prP = vm ? vm.D / 2 + 2.5 : 0, pc = vm ? prP + 0.3 : 3.2, bossLen = vm ? Math.max(6, 1.5 * vm.D) : 0;
       // scheda personalizzata: misure scritte da chi la usa
@@ -5708,9 +5751,43 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         };
       };
       const get = (id) => (id === 'altro' ? custom() : SCHEDE[id]);
-      const cpu = Object.assign({}, get(p.cpu) || SCHEDE.d1mini, { su: p.cpuPin === 'sopra' });
+      // scheda capovolta: montata con i componenti in giù (piedini in su se saldati sotto, in giù se saldati sopra)
+      // (ribaltata attorno all'asse lungo: la USB resta a sinistra, il lato davanti e quello dietro si scambiano)
+      const capoNotes = [];
+      const mount = (b, v) => {
+        // quattro montaggi: piedini saldati sotto o sopra (rispetto ai componenti) × scheda normale o capovolta
+        //   sotto: componenti su, piedini giù · sopra: componenti su, piedini su
+        //   capovolta (saldata sotto): componenti giù, piedini su · capovoltaSopra (saldata sopra): componenti giù, piedini giù
+        // sotto il coperchio (solo moduli): torre dal fondo che porta la scheda a pochi mm dal coperchio (distanza scelta), piedini in giù
+        if (v === 'coperchio' && b.ruolo !== 'cpu') return Object.assign({}, b, { su: false, lidM: true });
+        const lidC = v === 'coperchioCapo' && b.ruolo !== 'cpu';   // sotto il coperchio e capovolta: saldata sopra, componenti e piedini in giù, il retro verso il coperchio
+        if (v !== 'capovolta' && v !== 'capovoltaSopra' && !lidC) return Object.assign({}, b, { su: v === 'sopra' });
+        const sw = { S: 'N', N: 'S', W: 'W', E: 'E' };
+        if (b.finestra) capoNotes.push(`${b.nome} capovolta: i componenti guardano il fondo, quindi niente finestra nel coperchio`);
+        return Object.assign({}, b, { su: v === 'capovolta', capo: true, lidM: lidC || undefined, finestra: null, usb: b.usb ? Object.assign({}, b.usb, { y: b.W - b.usb.y }) : null,
+          pines: b.pines.map(q => Object.assign({}, q, { lato: sw[q.lato] })) });
+      };
+      // moduli: la torre è aperta solo dal lato dei piedini; per averlo a destra o a sinistra il modulo si gira (di 90° o 180°)
+      const giraMod = (b, to) => {
+        const e0 = b.pines && b.pines[0] && b.pines[0].lato;
+        if (!e0 || e0 === to) return Object.assign({}, b, { giro: 0 });
+        const L = b.L, W = b.W;
+        const R = { ccw: { m: { S: 'E', E: 'N', N: 'W', W: 'S' }, rev: { S: 0, E: 1, N: 0, W: 1 }, pt: (x, y) => [W - y, x], sw: true, deg: 90 },
+          cw: { m: { S: 'W', W: 'N', N: 'E', E: 'S' }, rev: { S: 1, W: 0, N: 1, E: 0 }, pt: (x, y) => [y, L - x], sw: true, deg: -90 },
+          half: { m: { S: 'N', N: 'S', E: 'W', W: 'E' }, rev: { S: 1, N: 1, E: 1, W: 1 }, pt: (x, y) => [L - x, W - y], sw: false, deg: 180 } };
+        const k = Object.keys(R).find(q => R[q].m[e0] === to), r = R[k];
+        const pines = b.pines.map(q => Object.assign({}, q, { lato: r.m[q.lato], c: r.rev[q.lato] ? 1 - (q.c === undefined ? 0.5 : q.c) : q.c }));
+        let fin = b.finestra;
+        if (fin) {
+          if (fin.x0 !== undefined) { const a = r.pt(fin.x0, fin.y0), c = r.pt(fin.x1, fin.y1); fin = Object.assign({}, fin, { x0: Math.min(a[0], c[0]), y0: Math.min(a[1], c[1]), x1: Math.max(a[0], c[0]), y1: Math.max(a[1], c[1]) }); }
+          else { const a = r.pt(fin.cx, fin.cy); fin = Object.assign({}, fin, { cx: a[0], cy: a[1] }, fin.w && r.sw ? { w: fin.h, h: fin.w } : {}); }
+        }
+        return Object.assign({}, b, { L: r.sw ? W : L, W: r.sw ? L : W, pines, finestra: fin, giro: r.deg });
+      };
+      const cavOf = (k) => Math.max(8, Math.min(45, +p[k + 'Cav'] || +p.cavita || 22));   // spazio sotto la scheda, per ogni scheda
+      const cpu = Object.assign(mount(get(p.cpu) || SCHEDE.d1mini, p.cpuPin), { cav: cavOf('cpu') });
       const mods = [];
-      for (let i = 1; i <= 5; i++) { const id = p['mod' + i]; if (id && id !== 'nessuno' && get(id)) mods.push(Object.assign({}, get(id), { su: p['mod' + i + 'Pin'] === 'sopra', slot: i })); }
+      for (let i = 1; i <= 5; i++) { const id = p['mod' + i]; if (id && id !== 'nessuno' && get(id)) mods.push(Object.assign(giraMod(get(id), ({ sx: 'W', su: 'N', giu: 'S' })[p['mod' + i + 'Apre']] || 'E'), { su: false, lidM: p['mod' + i + 'Cop'] === 'si' || undefined, slot: i, cav: cavOf('mod' + i) })); }   // moduli: sempre sulla torre, piedini in giù
       const items = [cpu, ...mods];
       const dupH = DUP.plastica + DUP.corpo;
 
@@ -5744,24 +5821,29 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
 
       // ---- altezze ----
       // piedini sotto: sotto la scheda il vano dei dupont; piedini sopra: i dupont salgono verso il coperchio (16,5 mm + 3 mm per la curva dei fili)
-      const above = (it) => (it.su ? Math.max(it.hTop, dupH + 3) : it.hTop);
-      const Hin = Math.max(...items.map(i => (i.su ? 1.5 : p.cavita) + i.pcb + above(i))) + 0.6;
+      const above = (it) => (it.capo ? (it.su ? dupH + 3 : 3) : it.su ? Math.max(it.hTop, dupH + 3) : it.hTop);   // capovolta con i piedini giù: sopra restano solo le punte saldate (3 mm)
+      // capovolta: sotto il circuito ci stanno i componenti e la USB, più 1 mm d'aria
+      const under = (it) => (!it.su ? it.cav : it.capo ? Math.max(it.hTop, it.usb ? CONN[it.usb.tipo].z1 : 0) + 1.0 : 1.5);
+      const gapCop = Math.max(0.3, Math.min(8, +p.distCop || 1.5));
+      const Hin = Math.max(...items.map(i => under(i) + i.pcb + above(i) + (i.lidM ? gapCop : 0.6)));
       const R = Math.min(p.raggio, w + 4.5), ri = Math.max(0.5, R - w);
       const Xo = Xin + 2 * w, Yo = Yin + 2 * w, Zw = f + Hin, Htot = Zw + tl;
       const ox = w, oy = w;
-      const zbOf = (it) => Zw - 0.6 - above(it) - it.pcb;       // faccia di sotto della scheda: i componenti più alti arrivano a 0,6 mm dal coperchio
+      // ogni scheda sta alla sua altezza: sul fondo più il suo spazio sotto; quelle "sotto il coperchio" alla distanza scelta dal coperchio
+      const zbOf = (it) => (it.lidM ? Zw - gapCop - above(it) - it.pcb : f + under(it));   // sotto il coperchio: i componenti arrivano alla distanza scelta       // faccia di sotto della scheda: i componenti più alti arrivano a 0,6 mm dal coperchio
 
       const S = shell(Xo, Yo, R, Htot, Math.min(1.2, f * 0.75), 0.8);
       const cuts = [slab(Xin, Yin, ri, f, Htot + 1, ox + Xin / 2, oy + Yin / 2)];
       const adds = [], lidCuts = [], lidAdds = [], ghost = [];
-      const lip = 1.2, ft = 1.6, gOut = g;            // sotto la scheda 1,2 mm, fuori 1,6 mm di muretto
+      const lip0 = 1.2, ft = 1.6, gOut = g;            // sotto la scheda 1,2 mm, fuori 1,6 mm di muretto
 
       // ---- culle ----
       for (const pl of place) {
         const it = pl.it, L = it.L, Wd = it.W;
         const bx = ox + pl.px + g, by = oy + pl.py + g, zb = zbOf(it), zt = zb + it.pcb;
         const pinEdges = new Set(it.su ? [] : it.pines.map(q => q.lato));
-        const solids = [], keeps = [];
+        const pegS = [];   // dentini fuori dal bordo con i piedini: non si tagliano con i vani dei dupont (resterebbero sospesi)
+        const solids = [], keeps = [], lip = it.capo ? 0.8 : lip0;   // capovolta: sotto il bordo ci sono i componenti, il muretto entra solo 0,8 mm
         const longOf = (e) => (e === 'S' || e === 'N' ? L : Wd);
         // vani dei connettori dupont: niente muretti dove stanno i piedini
         for (const q of (it.su ? [] : it.pines)) {
@@ -5783,10 +5865,10 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           else {                                                               // bordo con i piedini: due dentini fuori dalla scheda, alle estremità
             const pl5 = Math.min(5, len / 3);
             const pegs = (a0, a1) => {
-              if (e === 'S') solids.push(box(bx + a0, by - gOut - ft, f - 0.01, bx + a1, by - gOut, zb + it.pcb));
-              if (e === 'N') solids.push(box(bx + a0, by + Wd + gOut, f - 0.01, bx + a1, by + Wd + gOut + ft, zb + it.pcb));
-              if (e === 'W') solids.push(box(bx - gOut - ft, by + a0, f - 0.01, bx - gOut, by + a1, zb + it.pcb));
-              if (e === 'E') solids.push(box(bx + L + gOut, by + a0, f - 0.01, bx + L + gOut + ft, by + a1, zb + it.pcb));
+              if (e === 'S') pegS.push(box(bx + a0, by - gOut - ft, f - 0.01, bx + a1, by - gOut, zb + it.pcb));
+              if (e === 'N') pegS.push(box(bx + a0, by + Wd + gOut, f - 0.01, bx + a1, by + Wd + gOut + ft, zb + it.pcb));
+              if (e === 'W') pegS.push(box(bx - gOut - ft, by + a0, f - 0.01, bx - gOut, by + a1, zb + it.pcb));
+              if (e === 'E') pegS.push(box(bx + L + gOut, by + a0, f - 0.01, bx + L + gOut + ft, by + a1, zb + it.pcb));
             };
             pegs(0.8, 0.8 + pl5); pegs(len - 0.8 - pl5, len - 0.8);
           }
@@ -5794,19 +5876,20 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         let cr = U(solids);
         if (cr && keeps.length) cr = sub(cr, U(keeps));
         if (cr) adds.push(cr);
+        if (pegS.length) adds.push(U(pegS));
 
         // ---- USB del processore: apertura nella parete sinistra, con l'incavo per la spina ----
         if (it.usb && pl === place[0]) {
           const c = CONN[it.usb.tipo], g2 = 0.6, cyc = by + it.usb.y;
-          const hw = c.w / 2 + g2, z0 = zt + c.z0 - g2, z1 = zt + c.z1 + g2, zc = (z0 + z1) / 2;
+          const hw = c.w / 2 + g2, z0 = it.capo ? zb - c.z1 - g2 : zt + c.z0 - g2, z1 = it.capo ? zb - c.z0 + g2 : zt + c.z1 + g2, zc = (z0 + z1) / 2;
           cuts.push(opening('x', cyc - hw, z0, cyc + hw, z1, 0.8, -1, Math.max(w + 0.5, bx + 0.5), 0.6, 't0'));
           const sw = Math.max(c.spina[0], 2 * hw) / 2 + 0.4, sh = Math.max(c.spina[1], z1 - z0) / 2 + 0.4;
           if (w > 1.4) {
             const xr = Math.max(w - 1.0, bx - 1.5);       // se il processore è lontano dalla parete l'incavo arriva fino alla scheda
             const rec = opening('x', cyc - sw, Math.max(f + 0.6, zc - sh), cyc + sw, Math.min(Zw - 0.8, zc + sh), 1.6, -1, xr, 0.6, 't0');
             cuts.push(rec);
-            pl.recesso = box(-2, cyc - sw, zb - 8, xr, cyc + sw, zb + 12);   // il muretto non riempie l'incavo
-          }
+            pl.recesso = it.capo ? box(-2, cyc - sw, z0 - 1, bx + 7, cyc + sw, zt + 12) : box(-2, cyc - sw, zb - 8, xr, cyc + sw, zb + 12);   // capovolta: la USB sta sotto il bordo, il muretto lì non c'è   // il muretto non riempie l'incavo
+          } else if (it.capo) pl.recesso = box(-2, cyc - sw, z0 - 1, bx + 7, cyc + sw, zt + 12);   // parete sottile: niente incavo, ma sotto il bordo il muretto va tolto lo stesso
         }
         // ---- ESP32-CAM con antenna esterna: foro per il connettore SMA da pannello nella parete sinistra ----
         if ((it.id === 'esp32cam' || it.id === 'esp32cammb') && p.antenna === 'esterna' && pl === place[0]) {
@@ -5839,16 +5922,16 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         }
         // ---- esempio (solo anteprima): circuito, componenti, header e connettori dupont ----
         ghost.push(box(bx, by, zb, bx + L, by + Wd, zt));
-        ghost.push(box(bx + 1.2, by + 1.2, zt, bx + L - 1.2, by + Wd - 1.2, zt + it.hTop));
+        ghost.push(it.capo ? box(bx + 1.2, by + 1.2, zb - it.hTop, bx + L - 1.2, by + Wd - 1.2, zb) : box(bx + 1.2, by + 1.2, zt, bx + L - 1.2, by + Wd - 1.2, zt + it.hTop));
         for (const q of it.pines) {
           const half = q.n * DUP.passo / 2, len = longOf(q.lato), c = (q.c === undefined ? 0.5 : q.c) * len, hw = 1.3;
-          const gz0 = it.su ? zt : zb - dupH, gz1 = it.su ? zt + dupH : zb;
+          const gz0 = it.su ? zt : Math.max(f + 0.05, zb - dupH), gz1 = it.su ? zt + dupH : zb;   // con poco spazio sotto il dupont dritto non ci sta: l'esempio si ferma sul fondo
           if (q.lato === 'S') ghost.push(box(bx + c - half, by + q.off - hw, gz0, bx + c + half, by + q.off + hw, gz1));
           if (q.lato === 'N') ghost.push(box(bx + c - half, by + Wd - q.off - hw, gz0, bx + c + half, by + Wd - q.off + hw, gz1));
           if (q.lato === 'W') ghost.push(box(bx + q.off - hw, by + c - half, gz0, bx + q.off + hw, by + c + half, gz1));
           if (q.lato === 'E') ghost.push(box(bx + L - q.off - hw, by + c - half, gz0, bx + L - q.off + hw, by + c + half, gz1));
         }
-        if (it.usb && pl === place[0]) { const c = CONN[it.usb.tipo]; ghost.push(box(bx - 0.8, by + it.usb.y - c.w / 2, zt + Math.max(0, c.z0), bx + 4, by + it.usb.y + c.w / 2, zt + c.z1)); }
+        if (it.usb && pl === place[0]) { const c = CONN[it.usb.tipo]; ghost.push(it.capo ? box(bx - 0.8, by + it.usb.y - c.w / 2, zb - c.z1, bx + 4, by + it.usb.y + c.w / 2, zb - Math.max(0, c.z0)) : box(bx - 0.8, by + it.usb.y - c.w / 2, zt + Math.max(0, c.z0), bx + 4, by + it.usb.y + c.w / 2, zt + c.z1)); }
       }
       // gli incavi per le spine tolgono il muretto
       const recessi = place.map(pl => pl.recesso).filter(Boolean);
@@ -5863,7 +5946,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       if (vm) for (const [x, y] of postXY) { const rh = (vm.D + 0.8) / 2, r0 = vm.D + 0.5; postHoles.push(cylZ(x, y, -1, Zw + 0.1, rh, rh, 32), cylZ(x, y, -0.01, r0 - rh, r0, rh, 40)); }
       // passacavi sulla parete dietro, nel vano sotto le schede
       const nCav = Math.max(0, Math.min(3, p.passacavi | 0)), cavR = p.cavoD / 2;
-      const zCav = items.every(q => q.su) ? Math.max(f + cavR + 1.5, Zw - cavR - 4) : Math.max(f + cavR + 1.5, f + Math.min(p.cavita, 20) / 2);   // con i piedini tutti sopra i fili stanno in alto
+      const zCav = items.every(q => q.su) ? Math.max(f + cavR + 1.5, Zw - cavR - 4) : Math.max(f + cavR + 1.5, f + Math.min(Math.min(...items.filter(q => !q.su).map(q => q.cav)), 20) / 2);   // con i piedini tutti sopra i fili stanno in alto
       for (let i = 0; i < nCav; i++) {
         const xx = ox + 12 + (nCav === 1 ? (Xin - 24) / 2 : i * (Xin - 24) / (nCav - 1));
         cuts.push(cylY(xx, zCav, Yo - w - 1, Yo + 1, cavR, 40));
@@ -5908,7 +5991,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         };
         const cuadro = (r, q) => [Math.max(r[0], q[0]), Math.max(r[1], q[1]), Math.min(r[2], q[2]), Math.min(r[3], q[3])];
         const rectOf = (pl) => [ox + pl.px + g, oy + pl.py + g, ox + pl.px + g + pl.it.L, oy + pl.py + g + pl.it.W];
-        const regioni = (modo, tot) => modo === 'processore' ? [cuadro(rectOf(place[0]), tot)] : modo === 'moduli' ? place.slice(1).map(q => cuadro(rectOf(q), tot)) : [tot];
+        const regioni = (modo, tot) => modo === 'processore' ? [cuadro(rectOf(place[0]), tot)] : modo === 'moduli' ? place.slice(1).map(q => cuadro(rectOf(q), tot)) : modo === 'schede' ? place.map(q => cuadro(rectOf(q), tot)) : [tot];
         const viteRects = (rr) => postXY.map(([x, y]) => [x - rr, y - rr, x + rr, y + rr]);
         const report = (nome, res) => { if (res.area > 0) ariaTxt.push(`${nome} ${fmt(res.area / 100)} cm²`); else ariaTxt.push(`${nome}: niente (non c'è spazio libero)`); };
         const unisci = (liste) => ({ out: liste.flatMap(l => l.out), area: liste.reduce((a, l) => a + l.area, 0) });
@@ -5966,7 +6049,14 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       // una sfera si avvita sotto il fondo; lo snodo a scatto ha la base per parete (viti), magnete o treppiede 1/4"
       const bossAdds = [], bossCuts = [];
       // una vite filettata combacia con il suo foro solo a certe rotazioni: provo 16 angoli e prendo il migliore
-      const turnBest = (mk, tgt) => { let best = null; for (let k = 0; k < 16; k++) { const vol = X(mk(k * 22.5), tgt).volume(); if (!best || vol < best.vol) best = { th: k * 22.5, vol }; } return best.th; };
+      // (provo solo su una fetta alta 3 passi: il filetto è un'elica, la fase si vede già lì e le intersezioni sono molto più veloci)
+      // la fetta si ritaglia una volta sola; ruotarla attorno a z dà lo stesso risultato che ruotare la vite prima di capovolgerla (con angolo opposto)
+      const turnBest = (mk, tgt, z0, z1, flipped) => {
+        const crop = (m) => (z1 === undefined ? m : X(m, box(-60, -60, z0, 60, 60, z1)));
+        const t = crop(tgt), s0 = crop(mk(0)); let best = null;
+        for (let k = 0; k < 16; k++) { const vol = X(reg(s0.rotate([0, 0, (flipped ? -1 : 1) * k * 22.5])), t).volume(); if (!best || vol < best.vol) best = { th: k * 22.5, vol }; }
+        return best.th;
+      };
       let ballScrewAsm = null, ballScrewP = null, ballScrewL = 0;
       let ballM = null, sockM = null, ballP = null, sockP = null, ballTop = 0, sockLift = 0, ballXY = [0, 0];
       const supN = [];
@@ -6055,6 +6145,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       let box0 = X(S, box(-1, -1, -1, Xo + 1, Yo + 1, Zw));
       box0 = sub(box0, U(cuts));
       box0 = U([box0, ...addsClean, ...posts, ...bossAdds]);
+      box0 = X(box0, S);   // con pareti sottili le culle contro la parete non devono uscire fuori
       box0 = sub(box0, U([...pilot, ...postHoles, ...bossCuts]));
 
       // ---- coperchio ----
@@ -6062,16 +6153,20 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       // LED: fori allineati sulla fascia davanti, con un anello sotto il coperchio che tiene il LED
       const ledXY = [];
       for (let i = 0; i < nLed; i++) ledXY.push([ox + (nLed === 1 ? Xin / 2 : lx0 + i * (Xin - 2 * lx0) / (nLed - 1)), oy + stripF / 2]);
+      // sporgenza: il collarino del LED batte sotto il tubetto; più è lungo il tubetto, più il LED sta dentro
+      const ledTop = { sporgente: null, filo: 0, incassato: -1 }[p.ledSporg || 'sporgente'];
+      const ringLen = LT.pelle ? 0 : ledTop === null ? 1.8 : Math.min(Hin - 3, Math.max(1.8, LT.h - ledTop - tl));
+      const ledOut = LT.pelle ? 0 : LT.h - tl - ringLen;   // quanto esce sopra il coperchio (negativo: incassato)
       for (const [x, y] of ledXY) {
         if (LT.pelle) lidCuts.push(cylZ(x, y, Zw - 1, Htot - LT.pelle, LT.r, LT.r, 40));
         else {
-          lidAdds.push(cylZ(x, y, Zw - 1.8, Zw + 0.02, LT.anello, LT.anello, 40));
-          lidCuts.push(cylZ(x, y, Zw - 3, Htot + 1, LT.r, LT.r, 40), cylZ(x, y, Htot - 0.4, Htot + 0.6, LT.r, LT.r + 1.0, 40));
+          lidAdds.push(cylZ(x, y, Zw - ringLen, Zw + 0.02, LT.anello, LT.anello, 40));
+          lidCuts.push(cylZ(x, y, Zw - ringLen - 1, Htot + 1, LT.r, LT.r, 40), cylZ(x, y, Htot - 0.4, Htot + 0.6, LT.r, LT.r + 1.0, 40));
         }
       }
       // viti: fori svasati
       const screwHoles = [];
-      for (const [x, y] of postXY) {
+      if (!campana) for (const [x, y] of postXY) {
         if (vm) {   // boccola sotto il coperchio con il foro filettato (la vite arriva dal basso)
           lidAdds.push(X(cylZ(x, y, Zw - bossLen, Zw + 0.02, pr, pr, 40), cuts[0]));
           screwHoles.push(reg(VT.hole(p.viteM, bossLen + tl - 0.8, vg, true).translate([x, y, Zw - bossLen])));
@@ -6083,6 +6178,102 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       }
       if (lidAdds.length) lid = U([lid, ...lidAdds]);
       lid = sub(lid, U([...lidCuts, ...screwHoles]));
+
+      // ---- coperchio decorato: scritta, loghi e il tuo SVG sulla faccia di sopra (come nel Powerbank) ----
+      // il coperchio si stampa capovolto: a filo (colori nei primi strati), inciso o traforato. Evita viti, fascia dei LED e finestre.
+      const DEC = H.decor, lidCol = {};
+      let decoInfo = null;
+      if (DEC) DEC.NOTES.clear();
+      const F = DEC ? DEC.filaments(p, p.disegno === 'svg' ? DEC.artOf('svg', p.svg) : null) : [p.col1, p.col2, p.col3, p.col4];
+      if (DEC) {
+        const R2 = (c) => reg(c);
+        const CU = (l) => { l = l.filter(c => c && !c.isEmpty()); return !l.length ? null : l.length === 1 ? l[0] : R2(CrossSection.union(l)); };
+        const CD = (a, b) => (!a ? null : !b ? a : R2(a.subtract(b)));
+        const CI = (a, b) => (!a || !b ? null : R2(a.intersect(b)));
+        const OFF = (c, d) => (c ? R2(c.offset(d, 'Round')) : null);
+        const MV = (c, x, y) => R2(c.translate([x, y]));
+        const RECT = (x0, y0, x1, y1) => R2(CrossSection.ofPolygons([[[x0, y0], [x1, y0], [x1, y1], [x0, y1]]]));
+        const emptyC = (c) => !c || c.isEmpty() || c.area() < 0.05;
+        const EZ = (c, z0, z1) => (emptyC(c) ? null : reg(reg(c.extrude(z1 - z0)).translate([0, 0, z0])));
+        const noz = +p.ugello || 0.4, st = p.stileCop || 'filo', depth = Math.min(p.profCop || 0.6, tl - 0.4);
+        const hasT = [p.scritta, p.scritta2].some(x => x && String(x).trim());
+        const art = p.disegno === 'svg' ? DEC.artOf('svg', p.svg) : null;
+        if (p.disegno === 'svg' && !art) notes.push('Carica un file SVG con il pulsante del riquadro "Il tuo disegno"');
+        // zona: tutto il coperchio (1,5 mm dal bordo esterno), meno i fori: viti dall'alto, LED, finestre. Le frecce portano la scritta dove vuoi, anche negli angoli
+        const CC = (x, y, r) => R2(R2(CrossSection.circle(r, 32)).translate([x, y]));
+        const Rb = Math.max(0.5, R - 1.5);
+        const area0 = OFF(RECT(1.5 + Rb, 1.5 + Rb, Xo - 1.5 - Rb, Yo - 1.5 - Rb), Rb);
+        const busy = [];
+        if (!campana && !vm) for (const [x, y] of postXY) busy.push(CC(x, y, dv + 0.2 + 1.2));    // teste svasate delle viti sul coperchio
+        if (nLed) for (const [x, y] of ledXY) busy.push(CC(x, y, (LT.pelle ? LT.r : LT.r + 1.0) + 1.0));
+        for (const pl of place) {
+          const fin = pl.it.finestra; if (!fin) continue;
+          const bx = ox + pl.px + g, by = oy + pl.py + g, mm = (p.margineFin || 0) + 1.5;
+          const r = fin.x0 !== undefined ? [fin.x0, fin.y0, fin.x1, fin.y1] : fin.w ? [fin.cx - fin.w / 2, fin.cy - fin.h / 2, fin.cx + fin.w / 2, fin.cy + fin.h / 2] : [fin.cx - fin.d / 2, fin.cy - fin.d / 2, fin.cx + fin.d / 2, fin.cy + fin.d / 2];
+          busy.push(RECT(bx + r[0] - mm, by + r[1] - mm, bx + r[2] + mm, by + r[3] + mm));
+        }
+        const area = busy.length ? CD(area0, CU(busy)) : area0;
+        const ax0 = 1.5, ax1 = Xo - 1.5, ay0 = 1.5, ay1 = Yo - 1.5;
+        // misura e punto di partenza: il rettangolo libero più grande (poi le frecce la spostano ovunque nella zona)
+        let best = null;
+        { const bb = (c) => c.bounds(), xs = new Set([ax0, ax1]), ys = new Set([ay0, ay1]);
+          for (const b of busy) { const q = bb(b); xs.add(Math.min(ax1, Math.max(ax0, q.min[0]))); xs.add(Math.min(ax1, Math.max(ax0, q.max[0]))); ys.add(Math.min(ay1, Math.max(ay0, q.min[1]))); ys.add(Math.min(ay1, Math.max(ay0, q.max[1]))); }
+          const X_ = [...xs].sort((a, b) => a - b), Y_ = [...ys].sort((a, b) => a - b);
+          for (let i = 0; i < X_.length; i++) for (let j = i + 1; j < X_.length; j++) for (let k = 0; k < Y_.length; k++) for (let l = k + 1; l < Y_.length; l++) {
+            const a = (X_[j] - X_[i]) * (Y_[l] - Y_[k]); if (best && a <= best.a) continue;
+            const rc = RECT(X_[i], Y_[k], X_[j], Y_[l]), out = CD(rc, area);
+            if (emptyC(out) || out.area() < 0.5) best = { a, r: [X_[i], Y_[k], X_[j], Y_[l]] };
+          } }
+        if ((art || hasT) && best && best.r[2] - best.r[0] > 12 && best.r[3] - best.r[1] > 8) {
+          // parte al centro del rettangolo libero più grande, ma può essere grande quanto tutto il coperchio: dove tocca finestre, fori o il bordo viene tagliata (c'è l'avviso)
+          const zcx = (best.r[0] + best.r[2]) / 2, zcy = (best.r[1] + best.r[3]) / 2, lw = ax1 - ax0, lh = ay1 - ay0;
+          const bx0 = zcx - lw / 2, by0 = zcy - lh / 2, bx1 = zcx + lw / 2, by1 = zcy + lh / 2, zone = RECT(best.r[0], best.r[1], best.r[2], best.r[3]);
+          // il disegno si gira con "Rotazione disegno" attorno al suo centro; le righe di testo hanno ognuna la sua rotazione
+          const thA = (((+p.rotDisegno || 0) % 360) + 360) % 360;
+          const has1 = p.scritta && String(p.scritta).trim(), has2 = p.scritta2 && String(p.scritta2).trim();
+          const tH = hasT ? 1.5 * ((has1 ? p.altTesto : 0) + (has2 ? +p.altTesto2 || p.altTesto : 0)) : 0, gap = art && hasT ? 3 : 0;
+          const Sa = art ? Math.max(6, Math.min(p.altDisegno, by1 - by0 - tH - gap, bx1 - bx0)) : 0;
+          const cx = (bx0 + bx1) / 2, cy = (by0 + by1) / 2 + (Sa + gap + tH) / 2;
+          let artCS = null, txt = null; const slots = {};
+          if (art) {
+            const g0 = DEC.artGeom(art, Sa, bx1 - bx0), acx = cx, acy = cy - Sa / 2;
+            const ROT = (c) => (!c || !thA ? c : R2(R2(R2(c.translate([-acx, -acy])).rotate(thA)).translate([acx, acy])));
+            const placeA = (c) => (c ? MV(c, acx, acy) : null);
+            const sil = placeA(g0.sil);
+            artCS = st === 'filo' ? sil : st === 'inciso' ? (g0.lines ? placeA(g0.lines) : sil) : (g0.lines ? placeA(CI(g0.lines, OFF(g0.sil, -1.3 * g0.k))) : sil);
+            if (st === 'filo') { const sl = DEC.artSlots(g0, F, OFF(g0.sil, 0.01), noz, notes); for (const k of [2, 3, 4]) if (sl[k]) slots[k] = ROT(placeA(sl[k])); }
+            artCS = ROT(artCS);
+          }
+          if (hasT) {
+            txt = DEC.fitLines ? DEC.fitLines(p, { x: cx, y: cy - Sa - gap - tH / 2, w: bx1 - bx0, h: Math.max(4, tH), hMax: by1 - by0 }, [p.rotTesto, p.rotTesto2]) : DEC.fitText(p, { x: cx, y: cy - Sa - gap - tH / 2, w: bx1 - bx0, h: Math.max(4, tH) }, p.altTesto);
+            if (txt && txt.reduced) notes.push(`Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
+            if (txt) { const kc = CI(txt.cs, area); if (emptyC(kc) || kc.area() < txt.cs.area() * 0.98) notes.push('La scritta tocca una finestra, un foro o il bordo del coperchio: lì viene tagliata. Spostala con le frecce, girala o rimpiccioliscila'); }
+          }
+          let ts = Math.min(4, Math.max(2, +p.colTesto || 3));
+          if (p.colTesto === 'auto' && root.SPLAB_SVG) ts = [2, 3, 4].sort((a, b) => root.SPLAB_SVG.dist(F[b - 1], F[0]) - root.SPLAB_SVG.dist(F[a - 1], F[0]))[0];
+          const keep = (c) => CI(c, area);
+          if (st === 'filo') {
+            const tcs = txt ? keep(txt.cs) : null;
+            for (const k of [2, 3, 4]) {
+              let c = slots[k] ? keep(CD(slots[k], tcs ? OFF(tcs, 0.6) : null)) : null;
+              if (k === ts) c = CU([c, tcs]);
+              const sol = EZ(c, Htot - depth, Htot + 0.01);
+              if (sol) lidCol[k] = reg(sol.intersect(lid));
+            }
+            decoInfo = `a filo, negli ultimi ${fmt(depth)} mm del coperchio (che si stampano per primi): serve una stampante multicolore, o un cambio di filamento a ${fmt(depth)} mm dal piatto`;
+          } else {
+            let hole = CU([artCS ? keep(artCS) : null, txt ? keep(st === 'traforata' ? DEC.stencil(txt.cs, txt.cap) : txt.cs) : null]);
+            if (st === 'traforata' && artCS) { const r = DEC.perforate(hole, OFF(zone, -1)); hole = r.holes; if (r.bridges) notes.push(`${r.bridges} ponticell${r.bridges > 1 ? 'i tengono' : 'o tiene'} attaccate le parti del disegno`); }
+            if (!emptyC(hole)) lid = sub(lid, st === 'traforata' ? EZ(hole, Zw - 1, Htot + 1) : EZ(hole, Htot - depth, Htot + 1));
+            decoInfo = st === 'traforata' ? 'traforato: si vede dentro la scatola (attenzione alle schede sotto)' : `inciso ${fmt(depth)} mm`;
+          }
+          decoInfo += ` · zona usata ${fmt(bx1 - bx0)} × ${fmt(by1 - by0)} mm, lontano da viti, LED e finestre`;
+          if (txt && txt.cap < 4) notes.push('Lettere sotto i 4 mm: vengono poco leggibili');
+          if (p.ariaTipo && p.ariaTipo !== 'nessuna' && p.ariaCop && p.ariaCop !== 'no') notes.push('Coperchio decorato con le prese d\'aria sul coperchio: dove si incrociano la decorazione resta bucata. Metti le prese solo sopra le schede, sulle pareti, o toglile dal coperchio');
+        } else if (art || hasT) notes.push('Sul coperchio non c\'è spazio libero per la decorazione (tra viti, LED e finestre)');
+        if (hasT) DEC.logoNotes(noz);
+        for (const k of [2, 3, 4]) if (lidCol[k]) lid = sub(lid, lidCol[k]);
+      }
 
       // schede troppo vicine o sovrapposte (con le frecce si può)
       {
@@ -6101,21 +6292,82 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       const ghostM = U(ghost);
       const parts = [];
       parts.push({ name: 'Scatola', m: center(box0), role: 'body' });
-      parts.push({ name: 'Coperchio', m: center(lid), role: 'inner', print: flip(center(lid)), at: p.__closed ? undefined : [0, Yo + 12, -Zw] });
+      const colored = Object.keys(lidCol).length > 0, atL = p.__closed ? undefined : [0, Yo + 12, -Zw];
+      parts.push(Object.assign({ name: 'Coperchio', m: center(lid), role: 'inner', print: flip(center(lid)), at: atL }, colored ? { color: F[0], group: 'Coperchio' } : {}));
+      for (const k of [2, 3, 4]) if (lidCol[k]) parts.push({ name: `Coperchio · colore ${k}`, m: center(lidCol[k]), role: 'inner', print: flip(center(lidCol[k])), at: atL, color: F[k - 1], group: 'Coperchio' });
       parts.push({ name: 'esempio', m: center(ghostM), role: 'ghost' });
       let lidScrewAsm = null;
-      if (vm) {   // le quattro viti del coperchio: testa a filo sotto il fondo, punta nella boccola filettata del coperchio
+      if (vm && !campana) {   // le quattro viti del coperchio: testa a filo sotto il fondo, punta nella boccola filettata del coperchio
         const Ls = Math.floor((Htot - 1.3) * 2) / 2, sc = VT.screw(p.viteM, Ls, vg, 'taglio');
         const mkF = (th) => reg(reg(reg(sc.m.rotate([0, 0, th])).rotate([180, 0, 0])).translate([0, 0, sc.L]));
         const tgL = sub(cylZ(0, 0, Zw - bossLen, Zw + tl, pr, pr, 48), reg(VT.hole(p.viteM, bossLen + tl - 0.8, vg, true).translate([0, 0, Zw - bossLen])));
-        const flipS = mkF(turnBest(mkF, tgL));
+        const flipS = mkF(turnBest(mkF, tgL, Zw - bossLen + 1, Zw - bossLen + 1 + 3 * vm.P, true));
         lidScrewAsm = U(postXY.map(([x, y]) => reg(flipS.translate([x, y, 0]))));
         const step = 2 * vm.D + 3;
-        parts.push({ name: `Viti ${p.viteM}×${fmt(sc.L)} (4 pezzi)`, m: center(lidScrewAsm), role: 'pin', print: U([0, 1, 2, 3].map(k => reg(sc.print.translate([(k - 1.5) * step, 0, 0])))), at: p.__closed ? undefined : [Xo + 24, 0, 0] });
+        parts.push({ name: `Viti ${(p.viteM || 'M6')}×${fmt(sc.L)} (4 pezzi)`, m: center(lidScrewAsm), role: 'pin', print: U([0, 1, 2, 3].map(k => reg(sc.print.translate([(k - 1.5) * step, 0, 0])))), at: p.__closed ? undefined : [Xo + 24, 0, 0] });
         info.push(['Viti stampate', `${p.viteM} (passo ${fmt(vm.P)} mm), testa svasata Ø ${fmt(2 * vm.D)} mm con taglio per il cacciavite, lunghe ${fmt(sc.L)} mm. Gioco del filetto ${fmt(vg)} mm. Sono quattro pezzi uguali: stampali in piedi con la testa sul piatto, strati sottili (0,12–0,16 mm), almeno 4 perimetri, meglio PETG`]);
         notes.push(`Viti stampate ${p.viteM}: con ugello da 0,4 mm la misura minima che viene è M6 (M8 è più robusta). Stampa prima una vite sola e provala nella boccola del coperchio: se è dura o balla cambia il gioco del filetto. Le colonnine sono più grosse di quelle per le viti M3, quindi la scatola cresce di qualche millimetro.`);
       }
-      if (ballScrewAsm) parts.push({ name: `Viti sfera ${p.viteM}×${fmt(ballScrewL)} (2 pezzi)`, m: center(ballScrewAsm), role: 'pin', print: ballScrewP, at: p.__closed ? undefined : [Xo + 24, 0, 0] });
+      // ---- base + campana ----
+      let baseM = null, hoodM = null, campScrews = null;
+      if (campana) {
+        for (let i = parts.length - 1; i >= 0; i--) if (/^(Scatola|Coperchio)/.test(parts[i].name)) parts.splice(i, 1);
+        const cl = 0.25, cxI = ox + Xin / 2, cyI = oy + Yin / 2;   // gioco tra base e campana
+        const inner = slab(Xin - 2 * cl, Yin - 2 * cl, Math.max(0.3, ri - cl), f - 0.02, Htot, cxI, cyI);
+        const wallsN = sub(X(S, box(-1, -1, f, Xo + 1, Yo + 1, Zw + 0.02)), U(cuts));   // pareti come nella scatola normale (aperture e prese d'aria comprese)
+        const notches = [], tabs = [], lipCuts = [];
+        const c0 = place[0], it0 = c0.it, bx0 = ox + c0.px + g, by0 = oy + c0.py + g, zb0 = zbOf(it0), zt0 = zb0 + it0.pcb;
+        // tacca aperta in basso sotto ogni apertura della parete sinistra: la campana scende sopra il connettore; il dentino della base la richiude
+        const slot = (yc, hw, zTop, zTab) => {
+          notches.push(box(-1, yc - hw, f - 0.5, ox + 0.3, yc + hw, zTop));
+          if (zTab - f > 0.4) tabs.push(X(wallsN, box(-1, yc - hw + cl, f - 0.01, ox + 0.01, yc + hw - cl, zTab)));
+          lipCuts.push(box(ox - 1, yc - hw - 2, f - 1, ox + 4, yc + hw + 2, f + 5));
+        };
+        if (it0.usb) {
+          const c = CONN[it0.usb.tipo], g2 = 0.6, z0 = it0.capo ? zb0 - c.z1 - g2 : zt0 + c.z0 - g2;
+          slot(by0 + it0.usb.y, c.w / 2 + g2, z0 + 0.01, z0 - cl);
+        }
+        if ((it0.id === 'esp32cam' || it0.id === 'esp32cammb') && p.antenna === 'esterna') {
+          const za = Math.min(Zw - 5, Math.max(f + 4, zt0 + 5));
+          slot(by0 + it0.W / 2, 3.3, za, za - 3.3 - cl);
+        }
+        // viti da sotto la base: svasatura sotto, rialzo sulla base se la testa è più alta del fondo, colonnina della campana sopra
+        const rH = vm ? (vm.D + 0.8) / 2 : dv / 2 + 0.25, r0 = vm ? vm.D + 0.5 : dv + 0.2;
+        const padH = Math.max(0, (r0 - rH) + 0.6 - f), z0p = f + padH;
+        const hoodPosts = postXY.map(([x, y]) => cylZ(x, y, z0p, Zw + 0.03, pr, pr, 40));
+        let hood = U([sub(wallsN, U(notches)), lid, ...hoodPosts]);
+        hood = sub(hood, U(postXY.map(([x, y]) => (vm ? reg(VT.hole(p.viteM, bossLen, vg, true).translate([x, y, z0p])) : cylZ(x, y, z0p - 0.01, z0p + Math.min(12, Zw - z0p - 1), dv === 3 ? 1.3 : 1.05, dv === 3 ? 1.3 : 1.05, 24)))));
+        // base: fondo vero (con le prese d'aria), bordino di centraggio dentro le pareti, culle, dentini, rialzi delle viti
+        const floorB = sub(X(S, box(-1, -1, -1, Xo + 1, Yo + 1, f)), U(cuts));
+        const lipO = slab(Xin - 2 * cl, Yin - 2 * cl, Math.max(0.3, ri - cl), f - 0.01, f + 1.2, cxI, cyI);
+        const lipI = slab(Xin - 2 * cl - 2.4, Yin - 2 * cl - 2.4, Math.max(0.3, ri - cl - 1.2), f - 1, f + 2, cxI, cyI);
+        const lipB = sub(lipO, U([lipI, ...postXY.map(([x, y]) => cylZ(x, y, f - 1, f + 3, pr + cl, pr + cl, 40)), ...lipCuts]));
+        const pads = padH > 0.01 ? postXY.map(([x, y]) => X(cylZ(x, y, f - 0.01, z0p, pr, pr, 40), inner)) : [];
+        // le culle non devono toccare le colonnine della campana (nella scatola normale si fondevano)
+        const cradB = sub(X(U(addsClean), inner), U(postXY.map(([x, y]) => cylZ(x, y, z0p - 0.01, Htot, pr + cl, pr + cl, 40))));
+        let base = U([floorB, lipB, cradB, ...tabs, ...pads, ...bossAdds]);
+        base = sub(base, U([...postXY.flatMap(([x, y]) => [cylZ(x, y, -1, z0p + 0.01, rH, rH, 32), cylZ(x, y, -0.01, r0 - rH, r0, rH, 40)]), ...bossCuts]));
+        baseM = base; hoodM = hood;
+        const colored = Object.keys(lidCol).length > 0, atH = p.__closed ? undefined : [0, 0, Hin + 12];
+        parts.unshift({ name: 'Base', m: center(base), role: 'body' });
+        parts.splice(1, 0, Object.assign({ name: 'Campana', m: center(hood), role: 'inner', print: flip(center(hood)), at: atH }, colored ? { color: F[0], group: 'Campana' } : {}));
+        for (const k of [2, 3, 4]) if (lidCol[k]) parts.splice(2, 0, { name: `Campana · colore ${k}`, m: center(lidCol[k]), role: 'inner', print: flip(center(lidCol[k])), at: atH, color: F[k - 1], group: 'Campana' });
+        let scTxt;
+        if (vm) {
+          const Ls = Math.floor((z0p + bossLen - 0.8) * 2) / 2, sc = VT.screw(p.viteM, Ls, vg, 'taglio');
+          const mkF = (th) => reg(reg(reg(sc.m.rotate([0, 0, th])).rotate([180, 0, 0])).translate([0, 0, sc.L]));
+          const tg = sub(cylZ(0, 0, z0p, z0p + bossLen, pr, pr, 48), reg(VT.hole(p.viteM, bossLen, vg, true).translate([0, 0, z0p])));
+          const flipS = mkF(turnBest(mkF, tg, z0p + 1, z0p + 1 + 3 * vm.P, true));
+          campScrews = U(postXY.map(([x, y]) => reg(flipS.translate([x, y, 0]))));
+          const step = 2 * vm.D + 3;
+          parts.push({ name: `Viti ${(p.viteM || 'M6')}×${fmt(sc.L)} (4 pezzi)`, m: center(campScrews), role: 'pin', print: U([0, 1, 2, 3].map(k => reg(sc.print.translate([(k - 1.5) * step, 0, 0])))), at: p.__closed ? undefined : [Xo + 24, 0, 0] });
+          info.push(['Viti stampate', `${p.viteM} (passo ${fmt(vm.P)} mm), testa svasata Ø ${fmt(2 * vm.D)} mm con taglio, lunghe ${fmt(sc.L)} mm, 4 pezzi. Gioco del filetto ${fmt(vg)} mm. In piedi con la testa sul piatto, strati sottili, almeno 4 perimetri, PETG`]);
+          scTxt = `4 viti ${p.viteM} stampate`;
+        } else scTxt = `4 viti ${p.vite} a testa svasata lunghe ${fmt(Math.ceil(z0p + 8))}–${fmt(Math.ceil(z0p + 12))} mm (autofilettanti, nel pre-foro da ${dv === 3 ? '2,6' : '2,1'} mm)`;
+        info.push(['Base + campana', `base piatta con le culle e i 4 fori svasati; campana con pareti, coperchio e colonnine in un pezzo. Monti e colleghi le schede sulla base aperta, abbassi la campana (${notches.length ? 'la tacca scende sopra ' + (it0.usb ? 'la USB' : 'il connettore') + ' e il dentino della base la richiude' : 'si centra sul bordino della base'}) e la fissi con ${scTxt} da sotto la base. Stampa: base com'è, campana capovolta con il coperchio sul piatto, senza supporti`]);
+        if (padH > 0.01) notes.push(`Base + campana: sotto le viti la base ha dei rialzi da ${fmt(padH)} mm, perché la testa svasata è più alta del fondo`);
+      }
+      if (ballScrewAsm) parts.push({ name: `Viti sfera ${(p.viteM || 'M6')}×${fmt(ballScrewL)} (2 pezzi)`, m: center(ballScrewAsm), role: 'pin', print: ballScrewP, at: p.__closed ? undefined : [Xo + 24, 0, 0] });
       if (ballM) {
         const yE = -(Yo / 2 + 32), cx0 = ballXY[0] - Xo / 2, cy0 = ballXY[1] - Yo / 2;
         parts.push({ name: 'Sfera', m: center(ballM), role: 'inner', print: ballP, at: p.__closed ? undefined : [-22 - cx0, yE - cy0, ballTop] });
@@ -6124,16 +6376,24 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
 
       // ---- misure e note ----
       info.push(['Esterno', `${fmt(Xo)} × ${fmt(Yo)} × ${fmt(Htot)} mm`]);
-      info.push(['Processore', `${cpu.nome} · ${cpu.fonte} · piedini ${cpu.su ? 'sopra' : 'sotto'}`]);
+      const mtxt = (it) => (it.slot ? `torre aperta ${({ W: 'a sinistra', E: 'a destra', N: 'in su (dietro)', S: 'in giù (davanti)' })[it.pines && it.pines[0] && it.pines[0].lato] || ''} (lato dei piedini${it.giro ? `, modulo girato di ${Math.abs(it.giro)}°` : ''}), ${fmt(it.cav)} mm sotto${it.lidM ? `, sotto il coperchio (${fmt(gapCop)} mm)` : ''}` : it.lidM ? (it.capo ? `sotto il coperchio, capovolta (torre dal fondo, retro della scheda a ${fmt(gapCop + 3)} mm dal coperchio, componenti e piedini in giù)` : `sotto il coperchio (torre dal fondo, componenti a ${fmt(gapCop)} mm dal coperchio, piedini in giù)`) : it.capo ? `capovolta (componenti in giù, piedini ${it.su ? 'in su' : 'in giù'})` : 'piedini ' + (it.su ? 'sopra' : 'sotto'));
+      info.push(['Processore', `${cpu.nome} · ${cpu.fonte} · ${mtxt(cpu)}`]);
       if (cpu.esphome) info.push(['ESPHome', cpu.esphome]);
       if (cpu.dove) info.push(['Dove si compra', cpu.dove]);
       mods.forEach((it, i) => {
-        info.push([`Modulo ${i + 1}`, `${it.nome} · ${it.fonte} · piedini ${it.su ? 'sopra' : 'sotto'}`]);
+        info.push([`Modulo ${i + 1}`, `${it.nome} · ${it.fonte} · ${mtxt(it)}`]);
         const esp = it.led ? (cpu.piattaforma === 'esp8266' ? 'light: platform: neopixelbus · variant: WS2812 · method: esp8266_dma sul GPIO3' : 'light: platform: esp32_rmt_led_strip · chipset: WS2812') : it.esphome;
         if (esp) info.push(['ESPHome', esp]);
       });
       info.push(['Disposizione', place.map((q, i) => `${i === 0 ? 'processore' : 'modulo ' + i}: a ${fmt(q.px)} mm da sinistra, a ${fmt(q.py)} mm dal fronte`).join(' · ')]);
-      info.push(['Piedini e dupont', `componenti sempre in su. Piedini sotto: restano ${fmt(p.cavita)} mm liberi sotto la scheda (header 2,5 mm + connettore dupont 14 mm + curva dei fili), i fili passano sotto le schede e tra una culla e l'altra. Piedini sopra: la scheda scende e i dupont salgono verso il coperchio (16,5 mm, più 3 mm per la curva dei fili). Il lato si sceglie per ogni scheda`]);
+      info.push(['Piedini e dupont', `componenti in su (tranne le schede capovolte). Piedini sotto: sotto ogni scheda resta il suo spazio (${items.filter(q => !q.su).map(q => fmt(q.cav)).join(', ') || '–'} mm) (header 2,5 mm + connettore dupont 14 mm + curva dei fili), i fili passano sotto le schede e tra una culla e l'altra. Piedini sopra: la scheda scende e i dupont salgono verso il coperchio (16,5 mm, più 3 mm per la curva dei fili). Il lato si sceglie per ogni scheda`]);
+      for (const x of capoNotes) notes.push(x);
+      for (const it of mods) if (it.giro && it.finestra && it.finestra.tipo === 'display') notes.push(`${it.nome.split(' (')[0]}: per avere i piedini ${({ W: 'a sinistra', E: 'a destra', N: 'dietro', S: 'davanti' })[it.pines[0].lato]} il display è girato di ${Math.abs(it.giro)}°: in ESPHome metti ${Math.abs(it.giro) === 180 ? 'rotation: 180°' : 'rotation: 90° o 270° (prova quale lo raddrizza)'}, oppure scegli l'altra apertura`);
+      for (const it of items) if (!it.su && !it.lidM && it.cav < dupH + 1) notes.push(`${it.nome.split(' (')[0]}: con ${fmt(it.cav)} mm sotto la scheda i dupont dritti (${fmt(dupH)} mm con l'header) non ci stanno: usa dupont a 90°, fili saldati o header corti, oppure almeno ${fmt(Math.ceil(dupH + 3))} mm`);
+      for (const pl of place) { const it = pl.it; if (!it.finestra || it.lidM) continue; const d = Zw - (zbOf(it) + it.pcb + it.hTop); if (d > 2.5) notes.push(`${it.nome.split(' (')[0]}: i componenti stanno ${fmt(d)} mm sotto il coperchio, lontano dalla finestra. Aumenta il suo spazio sotto o scegli "Sotto il coperchio"`); }
+      if (items.some(it => it.lidM)) info.push(['Sotto il coperchio', `${items.filter(it => it.lidM).map(it => it.nome.split(' (')[0]).join(', ')}: sulla sua culla-torre che parte dal fondo (anche con base + campana: la torre è sulla base), con i componenti a ${fmt(gapCop)} mm dal coperchio (capovolta: il retro della scheda, con le punte saldate dei piedini a ${fmt(gapCop)} mm) e i piedini in giù. Si appoggia e si collega con la scatola aperta; il coperchio la tiene ferma dall'alto. ${mods.some(it => it.lidM && it.id === 'rc522') ? `L'RC522 legge attraverso ${fmt(tl)} mm di coperchio più ${fmt((m => m.capo ? 3 + gapCop : m.hTop + gapCop)(mods.find(it => it.id === 'rc522')))} mm (${mods.find(it => it.id === 'rc522').capo ? 'punte saldate' : 'componenti'} e aria): con pochi mm le tessere si leggono bene. ` : ''}I dupont stanno nel vano sotto la scheda`]);
+      if (items.some(it => it.capo && it.su)) info.push(['Capovolta, piedini su', `componenti verso il fondo e piedini in su: la scheda appoggia sul bordo (0,8 mm di muretto sotto il bordo), sotto restano ${fmt(Math.max(...items.filter(it => it.capo && it.su).map(under)))} mm per i componenti; la USB esce sotto il circuito e i dupont salgono verso il coperchio`]);
+      if (items.some(it => it.capo && !it.su)) info.push(['Capovolta, piedini giù', `componenti verso il fondo e piedini in giù: la scheda sta alta come con i piedini sotto (il suo spazio sotto, per header e dupont), i componenti stanno tra le file dei piedini; la USB esce sotto il circuito; sopra restano 3 mm per le punte saldate`]);
       for (const it of items) if (it.su && it.finestra) info.push(['Piedini sopra', `${it.nome}: con i dupont sopra la scheda sta a circa ${fmt(above(it) - it.hTop + 0.6)} mm più in basso del coperchio; la finestra funziona, ma display e sensori si vedono da più lontano`]);
       if (items.some(it => it.id === 'esp32cam' || it.id === 'esp32cammb')) info.push(['Antenna', p.antenna === 'esterna' ? 'antenna esterna: foro Ø 6,6 mm nella parete sinistra per un connettore SMA da pannello, con un cavo U.FL/IPEX–SMA (pigtail). Sull\'ESP32-CAM sposta la resistenza da 0 Ω (o fai un ponte di stagno) accanto al connettore IPEX nella posizione "esterna" (in basso, a "\\" nello schema delle tre piazzole): si usa una sola antenna alla volta' : 'antenna interna (sul circuito): la scatola di plastica va bene, ma tieni libero quel lato e niente metallo vicino. Per più portata scegli "esterna"']);
       if (ariaTxt.length) {
@@ -6144,11 +6404,11 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         notes.push('Prese d\'aria: l\'aria calda sale, quindi la presa che butta fuori va in alto e quella che fa entrare l\'aria va in basso, possibilmente su pareti diverse. Fessure e fori lasciano passare polvere e insetti: se serve, dietro ci va una reticella.');
       }
       if (supN.length) info.push(['Supporto', supN.join(' · ')]);
-      if (vm) { const iC = info.findIndex(r => r[0] === 'Coperchio'); if (iC >= 0) info[iC][1] = `4 viti ${p.viteM} stampate dal basso, a filo sotto il fondo, che si avvitano in boccole filettate sotto il coperchio: sopra non si vede niente`; }
-      info.push(['Culle', `ogni scheda ha un muretto sotto i bordi senza piedini (${fmt(lip)} mm sotto la scheda) e un contorno alto quanto il circuito; sui bordi con i piedini solo due dentini; gioco ${fmt(g)} mm per lato`]);
+      if (vm && !campana) { const iC = info.findIndex(r => r[0] === 'Coperchio'); if (iC >= 0) info[iC][1] = `4 viti ${p.viteM} stampate dal basso, a filo sotto il fondo, che si avvitano in boccole filettate sotto il coperchio: sopra non si vede niente`; }
+      info.push(['Culle', `ogni scheda ha un muretto sotto i bordi senza piedini (${fmt(lip0)} mm sotto la scheda) e un contorno alto quanto il circuito; sui bordi con i piedini solo due dentini; gioco ${fmt(g)} mm per lato`]);
       info.push(['Altezza', `tutte le schede arrivano a 0,6 mm dal coperchio, così display, fotocamera e sensori sono vicini alle finestre`]);
-      info.push(['Coperchio', `4 viti ${p.vite} a testa svasata dall'alto, in colonnine agli angoli (pre-foro ${dv === 3 ? '2,6' : '2,1'} mm, per viti autofilettanti o da avvitare nel PETG)`]);
-      if (nLed) info.push(['LED', `${nLed} × ${LT.nome} sulla fascia davanti del coperchio${LT.pelle ? `: resta una pelle da ${LT.pelle} mm sopra al LED, la luce passa (meglio se il coperchio è chiaro)` : `: foro Ø ${fmt(2 * LT.r)} mm e anello sotto il coperchio che tiene il LED. Il LED va collegato con i dupont`}`]);
+      if (!campana) info.push(['Coperchio', `4 viti ${p.vite} a testa svasata dall'alto, in colonnine agli angoli (pre-foro ${dv === 3 ? '2,6' : '2,1'} mm, per viti autofilettanti o da avvitare nel PETG)`]);
+      if (nLed) info.push(['LED', `${nLed} × ${LT.nome} sulla fascia davanti del coperchio${LT.pelle ? `: resta una pelle da ${LT.pelle} mm sopra al LED, la luce passa (meglio se il coperchio è chiaro)` : `: foro Ø ${fmt(2 * LT.r)} mm e tubetto sotto il coperchio lungo ${fmt(ringLen)} mm: il collarino del LED batte sotto il tubetto, ${ledOut > 0.3 ? `il LED esce di circa ${fmt(ledOut)} mm` : ledOut < -0.3 ? `il LED resta ${fmt(-ledOut)} mm sotto la superficie` : 'il LED arriva a filo'} (misure tipiche dei LED: controlla i tuoi). Spingilo da dentro, una goccia di colla a caldo lo tiene fermo. Va collegato con i dupont`}`]);
       if (nCav) info.push(['Passacavi', `${nCav} × Ø ${fmt(p.cavoD)} mm sulla parete dietro, nel vano dei fili`]);
       for (const it of items) if (it.stima) info.push(['Da verificare', `${it.nome}: ${it.stima}`]);
       // indirizzi I²C
@@ -6167,12 +6427,68 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       if (mods.some(q => q.id === 'ens160')) notes.push('ENS160: dopo la prima accensione ESPHome aspetta un\'ora prima di dare valori buoni, poi 3 minuti a ogni avvio');
       if (mods.some(q => q.id === 'mpu6050' || q.id === 'bmi160')) notes.push('Accelerometro: fissa bene la scheda (le culle la tengono, ma non è bloccata); gli assi X, Y, Z sono quelli stampati sul circuito');
       info.push(['Stampa', 'PLA o PETG. Scatola aperta in su, coperchio capovolto: senza supporti. Stampa prima il coperchio (è sottile e veloce) e prova le schede nelle finestre']);
+      if (decoInfo) info.push(['Coperchio decorato', decoInfo]);
+      if (w < 1.2) notes.push(`Pareti da ${fmt(w)} mm (2 passate con ugello 0,4): leggere ma flessibili. Infila la spina USB tenendo la scatola, e stampa con almeno 2 perimetri pieni`);
+      if (f < 1.0) notes.push(`Fondo da ${fmt(f)} mm: si flette un po'. Le culle e le colonnine ci poggiano sopra; con le prese d'aria sul fondo diventa delicato`);
       for (const x of notes) info.push(['Nota', x]);
+      if (DEC) { for (const x of DEC.NOTES) info.push(['Nota', x]); DEC.NOTES.clear(); }
+
+      // ---- pezzo di prova: solo la base con le culle e le aperture delle pareti (USB, antenna) ----
+      // con i piedini in giù la culla si accorcia: sotto la scheda restano 11 mm (header + punte), il resto si toglie e la culla si abbassa
+      if (p.prova === 'culle') {
+        parts.length = 0;
+        const fp = Math.min(1.0, f), mar = gOut + ft + 0.6, zF = f - fp;   // fondo di prova 1 mm
+        // fondo: solo un bordo di 5 mm lungo il contorno, il fondo sotto le culle e una traversina davanti-dietro per scheda
+        const rim = 5, fl = (x0, y0, x1, y1) => box(x0, y0, zF, x1, y1, f + 0.01);
+        const regF = [fl(-1, -1, Xo + 1, w + rim), fl(-1, Yo - w - rim, Xo + 1, Yo + 1), fl(-1, -1, w + rim, Yo + 1), fl(Xo - w - rim, -1, Xo + 1, Yo + 1)];
+        const holesF = [], ups = [], ghs = [];
+        let zMax = f + 1, corte = 0;
+        for (const pl of place) {
+          const it = pl.it, bx = ox + pl.px + g, by = oy + pl.py + g, zb = zbOf(it), zt = zb + it.pcb;
+          const drop = it.su ? 0 : Math.max(0, zb - 11 - f), zc = f + drop;
+          if (drop > 0) corte++;
+          const regB = [box(bx - mar, by - mar, zc, bx + it.L + mar, by + it.W + mar, zt + 1.0)];
+          regF.push(fl(bx - mar, by - mar, bx + it.L + mar, by + it.W + mar));
+          const xm = bx + it.L / 2; regF.push(fl(xm - 2.5, -1, xm + 2.5, Yo + 1));
+          zMax = Math.max(zMax, zt + 1.0 - drop);
+          const inset = 5;   // il fondo sotto la scheda si buca: basta il bordo
+          if (it.L > 2 * inset + 4 && it.W > 2 * inset + 4) holesF.push(box(bx + inset, by + inset, zF - 1, bx + it.L - inset, by + it.W - inset, f + 0.02));
+          if (pl === place[0] && it.usb) {   // pezzo di parete con la presa USB e l'incavo per la spina
+            const c = CONN[it.usb.tipo], cy = by + it.usb.y, zTop = (it.capo ? zb - c.z0 : zt + c.z1) + 3.5;
+            regB.push(box(-1, cy - c.spina[0] / 2 - 3, zc, bx + 0.5, cy + c.spina[0] / 2 + 3, zTop));
+            regF.push(fl(-1, cy - c.spina[0] / 2 - 3, bx + 0.5, cy + c.spina[0] / 2 + 3));
+            zMax = Math.max(zMax, zTop - drop);
+          }
+          if (pl === place[0] && (it.id === 'esp32cam' || it.id === 'esp32cammb') && p.antenna === 'esterna') {
+            const za = Math.min(Zw - 5, Math.max(f + 4, zt + 5));
+            regB.push(box(-1, by + it.W / 2 - 6.5, zc, ox + 0.01, by + it.W / 2 + 6.5, za + 6));
+            regF.push(fl(-1, by + it.W / 2 - 6.5, ox + 0.01, by + it.W / 2 + 6.5));
+            zMax = Math.max(zMax, za + 6 - drop);
+          }
+          ups.push(reg(X(box0, U(regB)).translate([0, 0, -drop])));
+          ghs.push(reg(X(ghostM, box(bx - 6, by - 6, -1, bx + it.L + 6, by + it.W + 6, Htot + 5)).translate([0, 0, -drop])));
+        }
+        let pc = U([X(box0, U(regF)), ...ups]);
+        if (holesF.length) pc = sub(pc, U(holesF));
+        pc = reg(pc.translate([0, 0, -zF]));
+        parts.push({ name: 'Prova: base con culle e prese', m: center(pc), role: 'body' });
+        parts.push({ name: 'esempio', m: center(X(reg(U(ghs).translate([0, 0, -zF])), box(-50, -50, 0.01, Xo + 50, Yo + 50, Htot + 5))), role: 'ghost' });   // i dupont sotto non si provano
+        const peso = Math.round(pc.volume() * 1.24 / 100) / 10, pesoTot = Math.round((box0.volume() + lid.volume()) * 1.24 / 100) / 10;
+        info.splice(1, 0, ['Prova', `solo la base (fondo di 1 mm: un bordo lungo il contorno, il fondo sotto le culle e una traversina per scheda), le culle e i pezzi di parete con le aperture (${[cpu.usb ? 'USB' : null, /esp32cam/.test(cpu.id || '') && p.antenna === 'esterna' ? 'antenna' : null].filter(Boolean).join(' e ') || 'nessuna'}), alto ${fmt(pc.boundingBox().max[2])} mm: circa ${fmt(peso)} g di PLA invece di ${fmt(pesoTot)} g.${corte ? ` Con i piedini in giù la culla è accorciata a 11 mm sotto la scheda (invece del suo spazio sotto): prova senza i dupont attaccati.` : ''} Appoggia le schede, controlla il gioco delle culle${cpu.usb ? ' e infila la spina USB' : ''}; poi stampa la scatola intera`]);
+      }
 
       const res = { parts, info, view: [0.55, -0.95, 0.8] };
-      if (p.__check) {
+      if (p.__check && p.prova !== 'culle') {
         const v = (a, b) => +X(a, b).volume().toFixed(3);
         if (p.__dbg) { const q = X(box0, lid); const b = q.boundingBox(); res.dbg = [b.min, b.max]; }
+        if (campana) {
+          if (p.__dbg) { const q = X(baseM, hoodM); const b = q.boundingBox(); res.dbg = [b.min, b.max, q.decompose().map(m => { const bb = m.boundingBox(); return [bb.min.map(v => +v.toFixed(1)), bb.max.map(v => +v.toFixed(1)), +m.volume().toFixed(2)]; })]; }
+          res.closed = [['base-campana', v(baseM, hoodM)], ['base-esempio', v(baseM, ghostM)], ['campana-esempio', v(hoodM, ghostM)]];
+          if (campScrews) res.closed.push(['vite-base', v(baseM, campScrews)], ['vite-campana', v(hoodM, campScrews)]);
+          if (ballScrewAsm) res.closed.push(['vite-sfera-base', v(baseM, ballScrewAsm)], ['vite-sfera-flangia', v(ballM, ballScrewAsm)]);
+          if (ballM) res.closed.push(['sfera-base', v(baseM, ballM)], ['sfera-campana', v(hoodM, ballM)]);
+          return res;
+        }
         res.closed = [['scatola-coperchio', v(box0, lid)], ['scatola-esempio', v(box0, ghostM)], ['coperchio-esempio', v(lid, ghostM)]];
         if (lidScrewAsm) res.closed.push(['vite-scatola', v(box0, lidScrewAsm)], ['vite-coperchio', v(lid, lidScrewAsm)]);
         if (ballScrewAsm) res.closed.push(['vite-sfera-scatola', v(box0, ballScrewAsm)], ['vite-sfera-flangia', v(ballM, ballScrewAsm)]);
@@ -6277,6 +6593,9 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       { sec, id: 'pos2', label: 'Posizione riga 2', type: 'pad', def: [0, 0], show: has('scritta2') },
     ];
   };
+  // righe con la loro rotazione (coperchi di Powerbank e Box schede): "Rotazione riga N" subito dopo "Posizione riga N"
+  const withRot = (list) => list.flatMap(q => (q.id === 'pos1' || q.id === 'pos2') ? [q, { sec: q.sec, id: q.id === 'pos1' ? 'rotTesto' : 'rotTesto2', label: q.id === 'pos1' ? 'Rotazione riga 1' : 'Rotazione riga 2', type: 'int', min: 0, max: 345, step: 15, def: 0, unit: '°', wrap: true, show: q.show,
+    help: q.id === 'pos1' ? 'Gira la riga attorno al suo centro, 15° a clic. Le frecce la spostano sempre a destra/sinistra e su/giù del coperchio.' : undefined }] : [q]);
   const textP = (d1, d2, font, cap, show) => [
     ...linesP('Scritta', d1, d2, cap, show),
     { sec: 'Scritta', id: 'carattere', label: 'Carattere', type: 'select', def: font, options: FONT_OPTS, show },
@@ -6395,7 +6714,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
   const dimTxt = (v) => `${String(v.L).replace('.', ',')} × ${String(v.W).replace('.', ',')} mm`;
   const schedeOpts = (ruolo) => Object.entries(SCHEDE_DB).filter(([, v]) => v.ruolo === ruolo).map(([k, v]) => [k, `${v.nome} · ${dimTxt(v)}`]);
   const schedeMods = () => [['nessuno', 'Nessuno'], ...schedeOpts('mod'), ['altro', 'Altra scheda (le tue misure)']];
-  const PIN_OPTS = [['sotto', 'Sotto'], ['sopra', 'Sopra']];
+  const PIN_OPTS = [['sotto', 'Sotto'], ['sopra', 'Sopra'], ['capovolta', 'Sotto · capovolta'], ['capovoltaSopra', 'Sopra · capovolta']];
   const schedeAltro = (p) => p.cpu === 'altro' || [p.mod1, p.mod2, p.mod3, p.mod4, p.mod5].includes('altro');
   const MODES = {
     bin: {
@@ -6873,23 +7192,25 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Coperchio decorato', id: 'svg', label: 'Il tuo disegno (SVG)', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
         { sec: 'Coperchio decorato', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 8, max: 80, step: 1, def: 30, unit: 'mm', show: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'rotDisegno', label: 'Rotazione disegno', type: 'int', min: 0, max: 345, step: 15, def: 0, unit: '°', wrap: true, show: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
         layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.6, show: p => p.stileCop !== 'traforata' }),
-        ...linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.'),
+        ...withRot(linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
         { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
         ...colorsP(['Colore 1 · coperchio', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
         { sec: 'Colori', id: 'colTesto', label: 'Colore della scritta', type: 'select', def: 'auto', options: [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4']], help: 'Solo con lo stile a filo. Auto: il colore che si legge meglio sul coperchio.' },
         { sec: 'Forma', id: 'raggio', label: 'Raggio angoli', type: 'num', min: 1, max: 12, step: 0.5, def: 6, unit: 'mm' },
-        { sec: 'Forma', id: 'pareti', label: 'Spessore pareti', type: 'num', min: 1.6, max: 3.2, step: 0.4, def: 2, unit: 'mm' },
-        { sec: 'Forma', id: 'fondo', label: 'Spessore fondo', type: 'num', min: 1.2, max: 3, step: 0.2, def: 1.6, unit: 'mm' },
+        { sec: 'Forma', id: 'pareti', label: 'Spessore pareti', type: 'num', min: 0.8, max: 3.2, step: 0.4, def: 2, unit: 'mm', help: 'Sotto 1,6 mm solo con il coperchio a viti (la slitta si scava nelle pareti). Con ugello 0,4: 0,8 = 2 passate, 1,2 = 3, 1,6 = 4. 1,2 basta; 0,8 si piega quando infili le spine.' },
+        { sec: 'Forma', id: 'fondo', label: 'Spessore fondo', type: 'num', min: 0.8, max: 3, step: 0.2, def: 1.6, unit: 'mm', help: 'Sotto 1,2 mm solo con il coperchio a viti. 0,8 = 4 strati da 0,2: le celle pesano, meglio almeno 1 mm.' },
         { sec: 'Stampa', id: 'prova', label: 'Pezzi di prova', type: 'select', def: 'nessuna', options: [['nessuna', 'Nessuno: scatola intera'], ['fronte', 'Fronte con le porte'], ['chiusura', 'Chiusura (slitta o viti)'], ['tutte', 'Fronte e chiusura']],
           help: 'Pezzi piccoli che si stampano in pochi minuti prima della scatola intera. Fronte: la parete con porte e pulsante, per vedere se la scheda combacia. Chiusura: con la slitta un tratto di guida e un pezzo di coperchio da far scorrere; con le viti un angolo con la colonnina e il suo pezzo di coperchio da avvitare.' },
       ],
     },
     schede: {
       label: 'Box schede ESP',
+      artKey: 'disegno',
       params: [
         { sec: 'Processore', id: 'cpu', label: 'Processore', type: 'select', menu: true, def: 'd1mini', options: [...schedeOpts('cpu'), ['altro', 'Altra scheda (le tue misure)']],
           help: 'Misure dei produttori e dei venditori; quello che è stimato (altezze, posizione dei piedini e delle finestre) è scritto nel riquadro misure. Se la tua scheda non c\'è, scegli "Altra scheda" e scrivi le misure.' },
@@ -6900,12 +7221,22 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Moduli', id: 'mod4', label: 'Modulo 4', type: 'select', menu: true, def: 'nessuno', options: schedeMods() },
         { sec: 'Moduli', id: 'mod5', label: 'Modulo 5', type: 'select', menu: true, def: 'nessuno', options: schedeMods() },
         { sec: 'Piedini saldati', id: 'cpuPin', label: 'Processore', type: 'select', def: 'sotto', options: PIN_OPTS,
-          help: 'Da che lato hai saldato i piedini (la plastica dell\'header). Sotto: dal lato opposto ai componenti, come nelle schede da breadboard. Sopra: dal lato dei componenti. Cambia dove stanno i dupont: sotto o sopra la scheda.' },
-        ...[1, 2, 3, 4, 5].map(i => ({ sec: 'Piedini saldati', id: 'mod' + i + 'Pin', label: 'Modulo ' + i, type: 'select', def: 'sotto', options: PIN_OPTS, show: p => p['mod' + i] && p['mod' + i] !== 'nessuno' })),
+          help: 'Da che lato hai saldato i piedini (la plastica dell\'header). Sotto: dal lato opposto ai componenti, come nelle schede da breadboard. Sopra: dal lato dei componenti. Capovolta: la scheda è montata al contrario, con i componenti verso il fondo (la USB esce sotto il circuito, niente finestra nel coperchio). Sotto · capovolta: i piedini puntano in su e i dupont salgono verso il coperchio. Sopra · capovolta: i piedini puntano in giù e i dupont stanno nel vano sotto la scheda. I moduli invece stanno sempre su una torre (sezione Torri dei moduli).' },
+        { sec: 'Piedini saldati', id: 'cpuCav', label: 'Spazio sotto il processore', type: 'num', min: 8, max: 45, step: 1, def: 22, unit: 'mm', show: p => ['sotto', 'capovoltaSopra', 'coperchio', 'coperchioCapo'].includes(p.cpuPin || 'sotto'), help: 'Spazio libero sotto questa scheda per l\'header (2,5 mm), il connettore dupont (14 mm) e la curva dei fili. Vale per le schede con i piedini in giù; ogni scheda ha il suo. La scatola è alta quanto serve alla scheda più alta.' },
+        ...[1, 2, 3, 4, 5].flatMap(i => {
+          const on = p => p['mod' + i] && p['mod' + i] !== 'nessuno';
+          return [
+            { sec: 'Torri dei moduli', id: 'mod' + i + 'Apre', label: 'Modulo ' + i + ': apertura', type: 'select', def: 'dx', options: [['dx', 'A destra'], ['sx', 'A sinistra'], ['su', 'In su (dietro)'], ['giu', 'In giù (davanti)']], show: on,
+              help: i === 1 ? 'Ogni modulo sta su una torre con il muretto su tre lati: il lato aperto è quello dei piedini, da cui escono i fili. Scegli da che parte deve guardare (vista dall\'alto): il modulo si gira per portarci i piedini. I piedini vanno in giù (header saldato dal lato opposto ai componenti) e i dupont stanno sotto il modulo.' : undefined },
+            { sec: 'Torri dei moduli', id: 'mod' + i + 'Cav', label: 'Spazio sotto il modulo ' + i, type: 'num', min: 8, max: 45, step: 1, def: 22, unit: 'mm', show: on, help: i === 1 ? 'Spazio sotto il modulo per header (2,5 mm), dupont (14 mm) e curva dei fili. La scatola è alta quanto serve alla scheda più alta.' : undefined },
+            { sec: 'Torri dei moduli', id: 'mod' + i + 'Cop', label: 'Sotto il coperchio', type: 'select', def: 'no', options: [['no', 'No'], ['si', 'Sì']], show: on, help: i === 1 ? 'Sì: la torre porta il modulo a pochi mm dal coperchio (distanza qui sotto). Per lettori NFC/RFID e sensori di temperatura, CO₂, luce.' : undefined },
+          ];
+        }),
+        { sec: 'Torri dei moduli', id: 'distCop', label: 'Distanza dal coperchio', type: 'num', min: 0.5, max: 8, step: 0.5, def: 1.5, unit: 'mm', show: p => [1, 2, 3, 4, 5].some(i => p['mod' + i] && p['mod' + i] !== 'nessuno' && p['mod' + i + 'Cop'] === 'si'), help: 'Aria tra i componenti dei moduli "sotto il coperchio" e il coperchio. Un RC522 legge le tessere anche con qualche mm in più.' },
         { sec: 'Piedini saldati', id: 'antenna', label: 'Antenna ESP32-CAM', type: 'select', def: 'interna', show: p => p.cpu === 'esp32cam' || p.cpu === 'esp32cammb', options: [['interna', 'Interna (sul circuito)'], ['esterna', 'Esterna (connettore SMA sulla parete)']],
           help: 'Esterna: foro nella parete sinistra per un connettore SMA da pannello, collegato al connettore IPEX con un cavo U.FL–SMA. Va anche spostata la resistenza da 0 Ω accanto al connettore.' },
         { sec: 'Posizione', id: 'cpuPos', label: 'Processore', type: 'pad', def: [0, 0],
-          help: 'Le schede partono in fila e la scatola si allarga da sola. Le frecce le spostano di 1 mm a clic (0,2 mm con Maiusc): su = verso il retro, giù = verso il davanti; il centro rimette la posizione automatica. A sinistra e davanti non si esce dal bordo. Il riquadro misure avvisa se due schede si toccano.' },
+          help: 'Le schede partono in fila e la scatola si allarga da sola. Le frecce le spostano del passo scelto sotto la croce (0,5 · 1 · 5 · 10 mm; 0,2 mm con Maiusc): su = verso il retro, giù = verso il davanti; il centro rimette la posizione automatica. A sinistra e davanti non si esce dal bordo. Il riquadro misure avvisa se due schede si toccano.' },
         ...[1, 2, 3, 4, 5].map(i => ({ sec: 'Posizione', id: 'mod' + i + 'Pos', label: 'Modulo ' + i, type: 'pad', def: [0, 0], show: p => p['mod' + i] && p['mod' + i] !== 'nessuno' })),
         { sec: 'Altra scheda', id: 'altL', label: 'Lunghezza', type: 'num', min: 8, max: 200, step: 0.1, def: 40, unit: 'mm', show: schedeAltro, help: 'Lato lungo della scheda, piedini e connettori esclusi. La scatola lascia il gioco scelto in "Scatola".' },
         { sec: 'Altra scheda', id: 'altW', label: 'Larghezza', type: 'num', min: 8, max: 200, step: 0.1, def: 25, unit: 'mm', show: schedeAltro },
@@ -6916,30 +7247,48 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'LED', id: 'ledN', label: 'LED sul coperchio', type: 'int', min: 0, max: 4, def: 1, help: 'Fori sulla fascia davanti del coperchio, con un anello che tiene il LED. Si collegano ai pin del processore con i dupont. I pannelli WS2812B sono un modulo a parte.' },
         { sec: 'LED', id: 'ledTipo', label: 'Tipo di LED', type: 'select', def: 'led5', show: p => p.ledN > 0, options: [['led3', 'LED 3 mm'], ['led5', 'LED 5 mm'], ['led8', 'LED 8 mm'], ['diffuso', 'Diffuso: la luce passa dal coperchio']],
           help: 'Diffuso: sopra al LED il coperchio resta spesso 0,6 mm e la luce passa (meglio con filamento chiaro): va bene anche per un WS2812B singolo.' },
+        { sec: 'LED', id: 'ledSporg', label: 'Il LED', type: 'select', def: 'sporgente', show: p => p.ledN > 0 && p.ledTipo !== 'diffuso', options: [['sporgente', 'Sporge'], ['filo', 'A filo'], ['incassato', 'Incassato']],
+          help: 'Sporge: il LED esce dal coperchio (5 mm: circa 4 mm). A filo: sotto il coperchio c\'è un tubetto più lungo e la punta del LED arriva alla superficie. Incassato: la punta resta 1 mm sotto. Misure tipiche dei LED: controlla i tuoi.' },
         { sec: 'LED', id: 'pannelloFin', label: 'Finestra del pannello LED', type: 'select', def: 'diffusore', options: [['diffusore', 'Diffusore (pelle da 0,6 mm)'], ['aperto', 'Aperta']],
           show: p => [p.mod1, p.mod2, p.mod3, p.mod4, p.mod5].some(k => /^ws/.test(k)),
           help: 'Diffusore: i pixel si vedono solo accesi, la luce passa attraverso 0,6 mm di coperchio (meglio chiaro). Aperta: si vedono i LED.' },
-        { sec: 'Scatola', id: 'cavita', label: 'Spazio sotto le schede', type: 'num', min: 12, max: 45, step: 1, def: 22, unit: 'mm', help: 'Vale solo per le schede con i piedini sotto: è lo spazio sotto il circuito per l\'header (2,5 mm), il connettore dupont (14 mm) e la curva dei fili. Con i piedini sopra non serve (restano 1,5 mm) e il valore è ignorato: i dupont salgono verso il coperchio. Con piedini misti conta la scheda che ne ha bisogno di più.' },
+        { sec: 'Stampa', id: 'prova', label: 'Pezzo di prova', type: 'select', def: 'nessuna', options: [['nessuna', 'Nessuno: scatola intera'], ['culle', 'Solo base, culle e prese delle pareti']],
+          help: 'Esce un pezzo basso: il fondo da 1 mm (bordo, sotto le culle e una traversina per scheda), le culle e i pezzi di parete con le aperture (USB, antenna), nella stessa posizione della scatola vera. Con i piedini in giù la culla è accorciata a 11 mm sotto la scheda: prova senza i dupont. Pochi grammi: serve a provare che le schede entrino e che la spina arrivi giusta prima di stampare tutta la scatola.' },
+        { sec: 'Scatola', id: 'cavita', label: 'Spazio sotto le schede', type: 'num', min: 8, max: 45, step: 1, def: 22, unit: 'mm', show: () => false },
         { sec: 'Scatola', id: 'distanza', label: 'Distanza tra le schede', type: 'num', min: 5, max: 25, step: 0.5, def: 6, unit: 'mm', help: 'Tra una culla e l\'altra passano i fili. Sotto 5 mm le culle si toccano.' },
         { sec: 'Scatola', id: 'largMax', label: 'Larghezza massima interna', type: 'num', min: 50, max: 400, step: 5, def: 140, unit: 'mm', help: 'Superata questa larghezza le schede vanno a capo su una nuova fila.' },
         { sec: 'Scatola', id: 'gioco', label: 'Gioco attorno alle schede', type: 'num', min: 0.1, max: 1, step: 0.1, def: 0.3, unit: 'mm', help: 'Per lato. Le misure dei venditori hanno qualche decimo di errore: con 0,3 mm le schede entrano senza ballare.' },
         { sec: 'Scatola', id: 'passacavi', label: 'Passacavi dietro', type: 'int', min: 0, max: 3, def: 1, help: 'Fori sulla parete dietro, nel vano dei fili: per l\'alimentazione (ESP32-CAM e altre schede senza USB) o per sensori esterni.' },
         { sec: 'Scatola', id: 'cavoD', label: 'Diametro passacavi', type: 'num', min: 4, max: 14, step: 0.5, def: 7, unit: 'mm', show: p => p.passacavi > 0 },
         { sec: 'Scatola', id: 'raggio', label: 'Raggio angoli', type: 'num', min: 1, max: 10, step: 0.5, def: 4, unit: 'mm' },
-        { sec: 'Scatola', id: 'pareti', label: 'Spessore pareti', type: 'num', min: 1.6, max: 3.2, step: 0.4, def: 2, unit: 'mm' },
-        { sec: 'Scatola', id: 'fondo', label: 'Spessore fondo', type: 'num', min: 1.2, max: 3, step: 0.2, def: 2, unit: 'mm' },
+        { sec: 'Scatola', id: 'pareti', label: 'Spessore pareti', type: 'num', min: 0.8, max: 3.2, step: 0.4, def: 2, unit: 'mm', help: 'Meglio un multiplo dell\'ugello: con 0,4 mm → 0,8 (2 passate) · 1,2 (3) · 1,6 (4) · 2 (5). 1,2 basta per una scatola piccola; 0,8 si piega e la spina USB spinge proprio sulla parete.' },
+        { sec: 'Scatola', id: 'fondo', label: 'Spessore fondo', type: 'num', min: 0.8, max: 3, step: 0.2, def: 2, unit: 'mm', help: 'Con strati da 0,2 mm: 0,8 = 4 strati, 1,2 = 6. Sotto 1 mm il fondo si flette e le prese d\'aria sul fondo lo indeboliscono ancora; le culle e le colonnine poggiano sul fondo.' },
         { sec: 'Supporto', id: 'supporto', label: 'Supporto a sfera per la camera', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['parete', 'Snodo a parete (viti)'], ['magnete', 'Snodo magnetico'], ['treppiede', 'Snodo per treppiede 1/4"']],
           help: 'Come nei progetti per ESP32-CAM più scaricati (MakerWorld e Printables): una sfera si avvita sotto il fondo e si spinge in uno snodo a scatto, che si fissa con viti, con un magnete o su un treppiede. Si regola l\'angolo come con una testa a sfera. Escono due pezzi, "Sfera" e "Snodo", in più rispetto alla scatola.' },
         { sec: 'Supporto', id: 'sfera', label: 'Diametro della sfera', type: 'num', min: 10, max: 20, step: 1, def: 14, unit: 'mm', show: p => p.supporto && p.supporto !== 'nessuno', help: 'Più grande è, più tiene (e più pesa lo snodo). 14 mm va bene per scatole leggere.' },
         { sec: 'Supporto', id: 'magnete', label: 'Magnete', type: 'select', def: '10x2', options: [['10x2', '10 × 2 mm'], ['8x2', '8 × 2 mm']], show: p => p.supporto === 'magnete', help: 'Disco al neodimio da incollare nella sede dello snodo.' },
         { sec: 'Supporto', id: 'spPos', label: 'Posizione della sfera', type: 'pad', def: [0, 0], show: p => p.supporto && p.supporto !== 'nessuno', help: 'Parte dal centro del fondo. Destra e su guardando dall\'alto con il davanti in basso. Spostala se cade sotto i dupont (il riquadro misure avvisa).' },
-        { sec: 'Coperchio', id: 'vite', label: 'Viti', type: 'select', def: 'M3', show: p => p.viteTipo !== 'stampata', options: [['M3', 'M3'], ['M2.5', 'M2,5']], help: 'Quattro viti a testa svasata dall\'alto, in colonnine agli angoli. Pre-foro per viti autofilettanti.' },
+        { sec: 'Coperchio', id: 'chiusura', label: 'Chiusura', type: 'select', def: 'coperchio', options: [['coperchio', 'Coperchio avvitato'], ['campana', 'Base + campana']],
+          help: 'Base + campana: la base è il fondo piatto con le culle e i 4 fori; pareti e coperchio sono un pezzo solo (la campana) che si appoggia sopra e si avvita da sotto la base. Monti e colleghi le schede con tutto aperto. Sulla parete della USB la campana ha una tacca aperta in basso, chiusa da un dentino della base.' },
+        { sec: 'Coperchio', id: 'vite', label: 'Viti', type: 'select', def: 'M3', show: p => p.viteTipo !== 'stampata', options: [['M3', 'M3'], ['M2.5', 'M2,5']], help: 'Quattro viti a testa svasata in colonnine agli angoli, pre-foro per viti autofilettanti. Con il coperchio avvitato entrano dall\'alto; con base + campana entrano da sotto la base.' },
         { sec: 'Coperchio', id: 'viteTipo', label: 'Tipo di viti', type: 'select', def: 'metallica', options: [['metallica', 'Metalliche (le compri)'], ['stampata', 'Stampate (le stampi)']],
           help: 'Stampate: le viti del coperchio (e quelle della sfera, se c\'è) escono come pezzi da stampare, con il filetto ISO del generatore Viti e bulloni. Si avvitano dal basso nel coperchio, che ha boccole filettate.' },
         { sec: 'Coperchio', id: 'viteM', label: 'Misura delle viti stampate', type: 'select', def: 'M6', show: p => p.viteTipo === 'stampata', options: [['M6', 'M6 (la più piccola che viene)'], ['M8', 'M8 (più robusta)'], ['M10', 'M10']],
           help: 'Con ugello da 0,4 mm sotto M6 il filetto non viene (i fianchi sono più sottili di una passata). M6 va stampata con strati sottili e almeno 4 perimetri; M8 e M10 sono molto più resistenti. Più è grande la vite, più grosse sono le colonnine e più cresce la scatola.' },
         { sec: 'Coperchio', id: 'viteGioco', label: 'Gioco del filetto', type: 'num', min: 0.1, max: 0.8, step: 0.05, def: 0.3, unit: 'mm', show: p => p.viteTipo === 'stampata', help: 'Spazio tra i fianchi della vite e del foro, come in Viti e bulloni. Se la vite è dura aumentalo, se balla diminuiscilo: stampa prima una vite sola.' },
         { sec: 'Coperchio', id: 'spCoperchio', label: 'Spessore coperchio', type: 'num', min: 1.6, max: 3, step: 0.2, def: 2, unit: 'mm', help: 'L\'RC522 legge bene attraverso 2 mm di plastica.' },
+        { sec: 'Coperchio decorato', id: 'svg', label: 'Il tuo disegno (SVG)', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
+        { sec: 'Coperchio decorato', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 8, max: 80, step: 1, def: 30, unit: 'mm', show: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'rotDisegno', label: 'Rotazione disegno', type: 'int', min: 0, max: 345, step: 15, def: 0, unit: '°', wrap: true, show: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
+          help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
+        layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.6, show: p => p.stileCop !== 'traforata' }),
+        ...withRot(linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
+        { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
+        Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
+        ...colorsP(['Colore 1 · coperchio', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
+        { sec: 'Colori', id: 'colTesto', label: 'Colore della scritta', type: 'select', def: 'auto', options: [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4']], help: 'Solo con lo stile a filo. Auto: il colore che si legge meglio sul coperchio.' },
         { sec: 'Coperchio', id: 'margineFin', label: 'Margine delle finestre', type: 'num', min: 0, max: 4, step: 0.5, def: 1.5, unit: 'mm', help: 'Quanto le finestre dei display e dei sensori sono più grandi dell\'area attiva. La posizione sul modulo è presa in scala dalle foto: stampa prima il coperchio per controllarla.' },
         { sec: 'Coperchio', id: 'finLuce', label: 'Finestra del sensore di luce', type: 'select', def: 'foro', show: p => [p.mod1, p.mod2, p.mod3, p.mod4, p.mod5].includes('veml7700'), options: [['foro', 'Foro'], ['sottile', 'Pelle da 0,6 mm']],
           help: 'Foro: il sensore vede tutta la luce. Pelle sottile: il coperchio resta chiuso (misura un po\' meno luce; correggila con il fattore di vetro di ESPHome).' },
@@ -6949,8 +7298,8 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Prese d\'aria', id: 'ariaL', label: 'Lunghezza fessure', type: 'num', min: 4, max: 60, step: 1, def: 14, unit: 'mm', show: p => p.ariaTipo === 'fessure' },
         { sec: 'Prese d\'aria', id: 'ariaGap', label: 'Bordo tra le aperture', type: 'num', min: 1, max: 6, step: 0.2, def: 2, unit: 'mm', show: p => p.ariaTipo !== 'nessuna', help: 'Plastica che resta tra un\'apertura e l\'altra. Con meno di 1,2 mm diventa fragile.' },
         { sec: 'Prese d\'aria', id: 'ariaMargine', label: 'Distanza dai bordi', type: 'num', min: 3, max: 30, step: 1, def: 6, unit: 'mm', show: p => p.ariaTipo !== 'nessuna', help: 'Dai bordi della zona (e, sulle pareti, dagli angoli con le viti). Le aperture non toccano mai finestre, LED, viti, USB e passacavi.' },
-        { sec: 'Prese d\'aria', id: 'ariaCop', label: 'Coperchio', type: 'select', def: 'tutta', show: p => p.ariaTipo !== 'nessuna', options: [['no', 'No'], ['tutta', 'Su tutta la superficie'], ['processore', 'Sopra il processore'], ['moduli', 'Sopra i moduli']] },
-        { sec: 'Prese d\'aria', id: 'ariaFondo', label: 'Fondo', type: 'select', def: 'no', show: p => p.ariaTipo !== 'nessuna', options: [['no', 'No'], ['tutto', 'Su tutto il fondo'], ['processore', 'Sotto il processore'], ['moduli', 'Sotto i moduli']], help: 'Servono piedini di gomma, altrimenti il tavolo chiude le aperture.' },
+        { sec: 'Prese d\'aria', id: 'ariaCop', label: 'Coperchio', type: 'select', def: 'tutta', show: p => p.ariaTipo !== 'nessuna', options: [['no', 'No'], ['tutta', 'Su tutta la superficie'], ['processore', 'Sopra il processore'], ['moduli', 'Sopra i moduli'], ['schede', 'Sopra processore e moduli']] },
+        { sec: 'Prese d\'aria', id: 'ariaFondo', label: 'Fondo', type: 'select', def: 'no', show: p => p.ariaTipo !== 'nessuna', options: [['no', 'No'], ['tutto', 'Su tutto il fondo'], ['processore', 'Sotto il processore'], ['moduli', 'Sotto i moduli'], ['schede', 'Sotto processore e moduli']], help: 'Servono piedini di gomma, altrimenti il tavolo chiude le aperture.' },
         ...[['ariaDietro', 'Parete dietro', 'basso'], ['ariaDavanti', 'Parete davanti', 'no'], ['ariaDestra', 'Parete destra', 'alto'], ['ariaSinistra', 'Parete sinistra', 'no']].map(([id, label, def]) => ({ sec: 'Prese d\'aria', id, label, type: 'select', def, show: p => p.ariaTipo !== 'nessuna', options: [['no', 'No'], ['alto', 'In alto'], ['centro', 'Al centro'], ['basso', 'In basso'], ['tutta', 'Tutta l\'altezza']] })),
         { sec: 'Prese d\'aria', id: 'ariaAlt', label: 'Altezza della zona sulle pareti', type: 'num', min: 4, max: 60, step: 1, def: 12, unit: 'mm', show: p => p.ariaTipo !== 'nessuna', help: 'Altezza della fascia di aperture sulle pareti (non vale per "Tutta l\'altezza"). Dietro, le aperture saltano i passacavi; a sinistra saltano USB e antenna.' },
       ],
@@ -7082,7 +7431,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         // Con move/center (pallina) le frecce cambiano altri valori, per esempio lato e altezza sulla sfera
         row.classList.add('pad-row');
         const B = (d, cls, lbl, sym) => `<button type="button" class="${cls}" data-d="${d}" aria-label="${lbl}" title="${lbl}">${sym}</button>`;
-        row.innerHTML = `<label>${p.label}</label><div class="pad-box"><div class="pad" role="group" aria-label="${esc(p.label)}">${B('0,1', 'up', 'Su', '▲')}${B('-1,0', 'lt', 'A sinistra', '◀')}${B('c', 'mid', 'Al centro', '●')}${B('1,0', 'rt', 'A destra', '▶')}${B('0,-1', 'dn', 'Giù', '▼')}</div><span class="pad-val"></span></div>`;
+        row.innerHTML = `<label>${p.label}</label><div class="pad-box"><div class="pad" role="group" aria-label="${esc(p.label)}">${B('0,1', 'up', 'Su', '▲')}${B('-1,0', 'lt', 'A sinistra', '◀')}${B('c', 'mid', 'Al centro', '●')}${B('1,0', 'rt', 'A destra', '▶')}${B('0,-1', 'dn', 'Giù', '▼')}</div><div class="pad-side"><span class="pad-val"></span>${p.move ? '' : `<div class="pad-step" role="group" aria-label="Passo delle frecce">${[0.5, 1, 5, 10].map(v => `<button type="button" data-st="${v}" title="${String(v).replace('.', ',')} mm a clic">${String(v).replace('.', ',')}</button>`).join('')}<span>mm</span></div>`}</div></div>`;
         const out = row.querySelector('.pad-val');
         const fmtMm = (n) => String(+Math.abs(n).toFixed(1)).replace('.', ',');
         const show = () => {
@@ -7094,7 +7443,11 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           out.textContent = t.length ? t.join(' · ') + ' mm' : 'al centro';
         };
         show();
-        row.querySelectorAll('button').forEach(b => b.addEventListener('click', (e) => {
+        // passo delle frecce: lo stesso per tutte le croci (0,5 · 1 · 5 · 10 mm), Maiusc = 0,2 mm
+        const markStep = () => row.querySelectorAll('.pad-step button').forEach(x => x.classList.toggle('on', +x.dataset.st === (+state.padStep || 1)));
+        markStep();
+        row.querySelectorAll('.pad-step button').forEach(b => b.addEventListener('click', () => { state.padStep = +b.dataset.st; save(); document.querySelectorAll('.pad-step button').forEach(x => x.classList.toggle('on', +x.dataset.st === state.padStep)); }));
+        row.querySelectorAll('.pad button').forEach(b => b.addEventListener('click', (e) => {
           const cv = values(state.mode), d = b.dataset.d;
           if (p.move) {
             const upd = d === 'c' ? p.center(cv) : p.move(cv, ...d.split(',').map(Number));
@@ -7102,7 +7455,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
             save(); renderParams(); schedule(60);
             return;
           }
-          const st = e.shiftKey ? 0.2 : 1, [x, y] = cv[p.id] || [0, 0];
+          const st = e.shiftKey ? 0.2 : (+state.padStep || 1), [x, y] = cv[p.id] || [0, 0];
           const [dx, dy] = d === 'c' ? [0, 0] : d.split(',').map(Number);
           const clamp = (n) => +Math.max(-200, Math.min(200, n)).toFixed(1);
           set(p, d === 'c' ? [0, 0] : [clamp(x + dx * st), clamp(y + dy * st)]);
