@@ -32,6 +32,7 @@ La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la 
 | **Vasi** | Vasi per piante aromatiche: tondi, quadrati, esagonali o fioriera a scomparti; normali con sottovaso oppure autoirriganti | da 1 a 5 |
 | **Reggimensola** | Squadra per mensole con rinforzo a triangolo (pieno o traforato), puntone, raccordo curvo o arco, viti svasate e labbro antiscivolo | quante ne vuoi |
 | **Gancio** | Gancio a muro o appendiabiti con più ganci, sopra porta o anta, per tubo o bastone, a S; fissaggio a viti, biadesivo o magneti | 1 |
+| **Powerbank** | Scatola per un powerbank fai-da-te: celle 18650 (normali o protette) con contatti a molla come le pile, quattro schede di ricarica con le porte già al loro posto, coperchio a slitta o a viti nascoste | scatola e coperchio |
 | **Vite** | Vite con filetto metrico ISO da M3 a M30 (o misura libera), cinque tipi di testa | 1 |
 | **Bullone** | Vite con dado (esagonale, zigrinato o ad alette) e rondelle, già avvitabili tra loro | da 2 a 4 |
 | **Perno** | Perno a scatto per unire pezzi stampati, spina liscia o perno con testa e foro per coppiglia | 1, più le piastrine di prova |
@@ -173,6 +174,27 @@ Si stampano **sdraiati sul fianco**: gli strati seguono il profilo, così la squ
   - per tutti: larghezza e spessore del gancio, sporgenza, raggio della curva, altezza della punta, inclinazione e pallino in punta;
   - orientamento di stampa sul fianco (robusto) o sulla schiena (comodo per gli appendiabiti lunghi).
 
+### Powerbank
+- **Schede**, solo quelle con le misure pubblicate dal venditore. Le posizioni delle porte sono ricavate in scala dalle foto dall'alto, e i fori seguono le misure standard dei connettori con un **gioco** regolabile (0,6 mm per lato):
+
+  | Scheda | Dove si compra | Misure | Porte |
+  |---|---|---|---|
+  | *18650 LCD 2.4A, 2 USB* | Amazon, AliExpress | 65 × 25 mm (venditore) | 2 USB-A, USB-C, micro-USB davanti, Lightning sul fianco, display, pulsante sul fianco |
+  | *IP5328P 18 W QC* | Amazon, AliExpress | 64,6 × 32,3 mm (venditore) | 2 USB-A e USB-C davanti, micro-USB sul fianco, 4 LED |
+  | *Doppia USB 1 A + 2,1 A con LCD e torcia* | Amazon, AliExpress | 58 × 27 × 15 mm (venditore) | 2 USB-A e micro-USB sotto la scheda (si monta con l'LCD in su), LED della torcia e pulsante sui fianchi |
+  | *SW6106 18 W PD/QC* | AliExpress | 71,5 × 17,9 mm (disegno quotato) | USB-C, USB-A e pulsante davanti, 4 LED sopra |
+  | *SW6208 22,5 W PD/QC* | AliExpress | 71,8 × 27 mm (disegno quotato) | micro-USB, USB-C, 2 USB-A davanti, pulsante sul fianco |
+- **Pareti uniformi:** l'interno ha gli angoli arrotondati come l'esterno, così la parete è spessa uguale anche sulle curve; le guide della slitta seguono la curva degli angoli, e a destra il coperchio copre gli angoli.
+- **Celle:** da 1 a 8 **18650 in parallelo**, *normali* (misure massime della Samsung 35E, 18,55 × 65,25 mm) o *protette* (fino a circa 19 × 70 mm). Il riquadro misure calcola capacità e wattora.
+- **Contatti a molla, come le pile:** ogni vano ha due fessure per le piastrine a molla da 16 × 16,5 mm (vanno bene anche quelle da 16 × 18,5) che si trovano per i portapile 18650: molla a sinistra (−), piastrina col bottone a destra (+), segnati sul fondo. Le celle si tolgono e si rimettono senza saldare. I fili delle piastrine passano dai fori in fondo alle fessure ai canali laterali, e si uniscono con due morsetti a leva. In alternativa, *pacco saldato*.
+- **Fronte:** fori smussati per le porte e, fuori, un incavo grande quanto la spina che lascia la parete spessa 1 mm, così le spine entrano fino in fondo. Le porte sui fianchi hanno un foro grande quanto la spina.
+- **Pulsante:** *linguetta* nella parete che si piega e preme il tasto con un dentino, oppure *foro*.
+- **Display e LED:** finestra svasata nel coperchio per il display; sopra i LED il coperchio resta spesso 0,4 mm e la luce passa.
+- **Coperchio:** *a slitta* (guide a coda di rondine, tacca per l'unghia) oppure *a viti nascoste*: quattro viti svasate da sotto che si avvitano nel coperchio, sopra non si vede niente. Scatola e coperchio sono un solo guscio arrotondato, con gli spigoli raccordati.
+- **Pezzi di prova**, da stampare in pochi minuti prima della scatola: il *fronte* con porte e pulsante, per vedere se la scheda combacia; la *chiusura*, cioè con la slitta gli ultimi 30 mm di guida e un pezzo di coperchio da far scorrere (per regolare la tolleranza), con le viti un angolo con la colonnina e il suo pezzo di coperchio da avvitare.
+- Le piazzole B+ e B− della scheda restano da saldare (sono le uniche due saldature).
+- Nell'anteprima scheda, celle e piastrine sono in azzurro e non finiscono nel file.
+
 ### Viti e bulloni
 ![Bullone M8 con rondella e dado](docs/img/bullone.png)
 - **Filetto metrico ISO** a passo grosso, da M3 a M30; con *Altro* scegli diametro e passo liberi. Filetto destro o sinistro.
@@ -211,7 +233,7 @@ I valori che imposti restano salvati nel browser. **Ripristina valori** torna a 
 
 **Se l'anteprima 3D non compare:** l'anteprima usa WebGL, la grafica 3D del browser. Su alcuni PC non è disponibile (scheda video vecchia, driver da aggiornare, accelerazione grafica disattivata, PC aziendali). Il sito funziona lo stesso: schede, parametri, misure ed esportazione ci sono, al posto delle anteprime compare un avviso. Per riaverle, in Chrome o Edge attiva *Impostazioni → Sistema → Usa l'accelerazione grafica se disponibile* e riavvia il browser, oppure prova un altro browser.
 
-**Link diretti:** ogni generatore ha il suo indirizzo, da usare per linkarlo o salvarlo nei preferiti: `#natale` (pallina), `#natale-palla` (palla piatta), `#natale-piatto`, `#natale-albero`, `#natale-stella`, `#natale-lanterna`, `#natale-formina`, `#gridfinity`, `#gridfinity-cab` (cassettiera), `#gridfinity-base`, `#rack`, `#vasi`, `#supporti` (reggimensola), `#supporti-gancio`, `#viteria` (vite), `#viteria-bullone`, `#viteria-perno`, `#cover`.
+**Link diretti:** ogni generatore ha il suo indirizzo, da usare per linkarlo o salvarlo nei preferiti: `#natale` (pallina), `#natale-palla` (palla piatta), `#natale-piatto`, `#natale-albero`, `#natale-stella`, `#natale-lanterna`, `#natale-formina`, `#gridfinity`, `#gridfinity-cab` (cassettiera), `#gridfinity-base`, `#rack`, `#vasi`, `#supporti` (reggimensola), `#supporti-gancio`, `#powerbank`, `#viteria` (vite), `#viteria-bullone`, `#viteria-perno`, `#cover`.
 
 ### Il file 3MF
 - Ogni pezzo è un oggetto separato e con il suo nome (per esempio "Cassetto 3" o "Cestello pescante 1").
@@ -241,6 +263,7 @@ Ogni stampante è diversa. Il parametro **Tolleranza stampante** (0,3 mm all'ini
 - **Vasi:** perché tengano l'acqua servono almeno 3 perimetri. Per il vaso esterno dell'autoirrigante e per il sottovaso, il PETG è meglio del PLA.
 - **Reggimensole e ganci:** lasciali sul fianco come escono dal file. 4 o più perimetri e riempimento 40% o più; per pesi veri PETG. Per libri usa squadre da 7 mm di spessore e 25 mm di larghezza in su, con il rinforzo a triangolo pieno.
 - **Viti e bulloni:** stampa prima un bullone M8 corto per tarare il *Gioco filetto*. Usa 4 o più perimetri (o riempimento 100%) e strati sottili (0,12–0,16 mm). Sotto M6 il filetto stampato è delicato. Per viti che lavorano, PETG o nylon.
+- **Powerbank:** PETG o ASA, non PLA (in auto al sole si deforma). Stampa prima la *prova del fronte*. Prima di collegare le celle in parallelo portale alla stessa tensione e rispetta la polarità sulle piazzole B+ e B−: al contrario la scheda si brucia.
 - **Perni a scatto:** se il perno entra troppo duro aumenta la tolleranza; se la fessura è corta (lo segnala il riquadro misure) il perno resta rigido.
 
 ---
@@ -261,6 +284,7 @@ Ogni stampante è diversa. Il parametro **Tolleranza stampante** (0,3 mm all'ini
 │   ├── supporti.js reggimensole e ganci
 │   ├── cover.js    cover per telefoni
 │   ├── telefoni.js misure dei telefoni per le cover
+│   ├── powerbank.js scatola per powerbank: celle, schede e connettori
 │   ├── fonts.js    contorni dei caratteri (generato)
 │   ├── logos.js    contorni dei loghi per le scritte (generato da assets/)
 │   ├── svg.js      lettore SVG (disegni caricati e libreria)

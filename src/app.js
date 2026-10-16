@@ -626,6 +626,32 @@
         ...common,
       ],
     },
+    powerbank: {
+      label: 'Powerbank',
+      params: [
+        { sec: 'Scheda', id: 'scheda', label: 'Scheda', type: 'select', menu: true, def: 'lcd24', options: [['lcd24', '18650 LCD 2.4A, 2 USB (display) · Amazon e AliExpress'], ['ip5328p', 'IP5328P 18 W QC · Amazon e AliExpress'], ['dusb21', 'Doppia USB 1 A + 2,1 A con LCD e torcia · Amazon e AliExpress'], ['sw6106', 'SW6106 18 W PD/QC · solo AliExpress'], ['sw6208', 'SW6208 22,5 W PD/QC · solo AliExpress']],
+          help: 'Solo schede con le misure pubblicate dal venditore (disegno quotato o misure dichiarate). Le posizioni delle porte sono prese in scala dalle foto dall\'alto. Accanto al nome: dove si compra.' },
+        { sec: 'Scheda', id: 'gioco', label: 'Gioco attorno alle porte', type: 'num', min: 0.2, max: 1.5, step: 0.1, def: 0.6, unit: 'mm', help: 'Le posizioni delle porte vengono dalle foto (±0,5 mm): con 0,6 mm per lato le spine entrano anche se la scheda è un po\' diversa.' },
+        { sec: 'Scheda', id: 'fianchi', label: 'Porte sui fianchi', type: 'bool', def: true, help: 'Alcune schede hanno un ingresso anche sul lato corto (Lightning o micro-USB). Se ricarichi con la USB-C puoi chiuderlo.' },
+        { sec: 'Scheda', id: 'pulsante', label: 'Pulsante', type: 'select', def: 'lamella', options: [['lamella', 'Linguetta da premere'], ['foro', 'Foro']],
+          help: 'Linguetta: un pezzo della parete si piega e un dentino preme il tasto della scheda. Foro: il tasto si preme con una punta. La IP5328P non ha pulsante; sulla scheda con la torcia il pulsante accende la torcia.' },
+        { sec: 'Celle', id: 'cella', label: 'Celle', type: 'select', def: 'normale', options: [['normale', '18650 normali (65 mm)'], ['protetta', '18650 protette (fino a 70 mm)']],
+          help: 'Le protette hanno un circuito sotto la guaina e sono più lunghe: se non sai quali hai, scegli protette.' },
+        { sec: 'Celle', id: 'celle', label: 'Numero di celle', type: 'int', min: 1, max: 8, def: 2, help: 'Tutte in parallelo, una accanto all\'altra. Ogni cella aggiunge circa 3000 mAh.' },
+        { sec: 'Celle', id: 'contatti', label: 'Contatti', type: 'select', def: 'molle', options: [['molle', 'A molla, come le pile'], ['saldate', 'Pacco saldato']],
+          help: 'A molla: ogni cella ha la sua molla (−) e la sua piastrina (+), quelle da 16 × 16,5 mm che si trovano per i portapile 18650. Le celle si tolgono e si rimettono senza saldare. Pacco saldato: per un pacco già fatto con nastro di nichel.' },
+        { sec: 'Coperchio', id: 'coperchio', label: 'Chiusura', type: 'select', def: 'slitta', options: [['slitta', 'A slitta'], ['viti', 'A viti nascoste']],
+          help: 'A slitta: il coperchio scorre nelle guide e si apre senza attrezzi. A viti nascoste: quattro viti svasate da sotto, sopra non si vede niente.' },
+        { sec: 'Coperchio', id: 'vite', label: 'Viti', type: 'select', def: 'M3', options: [['M3', 'M3'], ['M2.5', 'M2,5']], show: p => p.coperchio === 'viti', help: 'Viti a testa svasata, lunghe 16–20 mm: si avvitano nel coperchio.' },
+        { sec: 'Coperchio', id: 'spCoperchio', label: 'Spessore coperchio', type: 'num', min: 1.6, max: 3, step: 0.2, def: 2, unit: 'mm' },
+        { sec: 'Coperchio', id: 'tolleranza', label: 'Tolleranza', type: 'num', min: 0, max: 0.8, step: 0.05, def: 0.3, unit: 'mm', show: p => p.coperchio === 'slitta', help: 'Gioco del coperchio nelle guide. Se scorre duro aumentala, se balla diminuiscila.' },
+        { sec: 'Forma', id: 'raggio', label: 'Raggio angoli', type: 'num', min: 1, max: 12, step: 0.5, def: 6, unit: 'mm' },
+        { sec: 'Forma', id: 'pareti', label: 'Spessore pareti', type: 'num', min: 1.6, max: 3.2, step: 0.4, def: 2, unit: 'mm' },
+        { sec: 'Forma', id: 'fondo', label: 'Spessore fondo', type: 'num', min: 1.2, max: 3, step: 0.2, def: 1.6, unit: 'mm' },
+        { sec: 'Stampa', id: 'prova', label: 'Pezzi di prova', type: 'select', def: 'nessuna', options: [['nessuna', 'Nessuno: scatola intera'], ['fronte', 'Fronte con le porte'], ['chiusura', 'Chiusura (slitta o viti)'], ['tutte', 'Fronte e chiusura']],
+          help: 'Pezzi piccoli che si stampano in pochi minuti prima della scatola intera. Fronte: la parete con porte e pulsante, per vedere se la scheda combacia. Chiusura: con la slitta un tratto di guida e un pezzo di coperchio da far scorrere; con le viti un angolo con la colonnina e il suo pezzo di coperchio da avvitare.' },
+      ],
+    },
   };
 
   // ================= GRUPPI (pagina iniziale) =================
@@ -636,6 +662,7 @@
     { id: 'cover', title: 'Cover telefono', cat: 'Accessori', desc: 'Cover per iPhone dal 12 al 17 con le misure dei disegni Apple, o per qualsiasi telefono con le tue misure. TPU o PLA/PETG a scatto, cornice per le lenti, cavalletto, scritta e il tuo SVG sul retro.', modes: ['cover'], thumb: 'cover' },
     { id: 'vasi', title: 'Vasi', cat: 'Casa e giardino', desc: 'Vasi e fioriere per aromatiche, normali con sottovaso o autoirriganti.', modes: ['vaso'], thumb: 'vaso' },
     { id: 'supporti', title: 'Reggimensole e ganci', cat: 'Casa e giardino', desc: 'Squadre per mensole con rinforzo e viti, ganci a muro, appendiabiti, ganci sopra porta, per tubi e a S.', modes: ['mensola', 'gancio'], thumb: 'gancio' },
+    { id: 'powerbank', title: 'Powerbank', cat: 'Elettronica', desc: 'Scatola per un powerbank fai-da-te: celle 18650 con contatti a molla come le pile, quattro schede di ricarica con le porte già al loro posto, coperchio a slitta o a viti nascoste.', modes: ['powerbank'], thumb: 'powerbank' },
     { id: 'viteria', title: 'Viti e bulloni', cat: 'Meccanica', desc: 'Viti e bulloni con filetto metrico ISO, dadi, rondelle e perni a scatto.', modes: ['vite', 'bullone', 'perno'], thumb: 'bullone' },
   ];
   const groupOf = (mode) => GROUPS.find(g => g.modes.includes(mode)) || GROUPS[0];
