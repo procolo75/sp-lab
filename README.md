@@ -33,6 +33,7 @@ La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la 
 | **Reggimensola** | Squadra per mensole con rinforzo a triangolo (pieno o traforato), puntone, raccordo curvo o arco, viti svasate e labbro antiscivolo | quante ne vuoi |
 | **Gancio** | Gancio a muro o appendiabiti con più ganci, sopra porta o anta, per tubo o bastone, a S; fissaggio a viti, biadesivo o magneti | 1 |
 | **Powerbank** | Scatola per un powerbank fai-da-te: portapile già pronto (o contatti a molla), cinque schede di ricarica con le porte già al loro posto, coperchio a slitta o a viti nascoste con scritta, loghi e il tuo SVG | scatola e coperchio (anche a colori) |
+| **Box schede ESP** | Scatola per un processore ESP (NodeMCU, D1 mini, ESP32, ESP32-CAM, ESP32-C3 con OLED) e fino a 5 moduli: sensori, display e pannelli LED WS2812B. Schede con i piedini e dupont, senza saldare; finestre nel coperchio e fori per i LED | scatola e coperchio |
 | **Vite** | Vite con filetto metrico ISO da M3 a M30 (o misura libera), cinque tipi di testa | 1 |
 | **Bullone** | Vite con dado (esagonale, zigrinato o ad alette) e rondelle, già avvitabili tra loro | da 2 a 4 |
 | **Perno** | Perno a scatto per unire pezzi stampati, spina liscia o perno con testa e foro per coppiglia | 1, più le piastrine di prova |
@@ -188,6 +189,8 @@ Si stampano **sdraiati sul fianco**: gli strati seguono il profilo, così la squ
 - **Celle:** da 1 a 8 **18650 in parallelo**, *normali* (misure massime della Samsung 35E, 18,55 × 65,25 mm) o *protette* (fino a circa 19 × 70 mm). Il riquadro misure calcola capacità e wattora.
 - **Portapile già pronto (scelta iniziale), senza saldare niente sulle celle:** un portapile **in parallelo (3,7 V) con i fili**, di cui scrivi tu **lunghezza, larghezza e altezza** (78 × 40 × 22 mm all'inizio, un portapile nero da 2 posti), quanti ne metti (uno accanto all'altro) e quante celle ha ognuno, per il calcolo della capacità. La scatola li tiene in una cornice con 0,4 mm di gioco per lato, aperta in testa per i fili; con più portapile si uniscono i fili con due morsetti a leva. Deve dire 3,7 V o Parallel: quelli da 7,4 V sono in serie.
 - **Contatti a molla, come le pile:** ogni vano ha due fessure per le piastrine a molla da 16 × 16,5 mm (vanno bene anche quelle da 16 × 18,5) che si trovano per i portapile 18650: molla a sinistra (−), piastrina col bottone a destra (+), segnati sul fondo. Le celle si tolgono e si rimettono senza saldare. I fili delle piastrine passano dai fori in fondo alle fessure ai canali laterali, e si uniscono con due morsetti a leva. In alternativa, *pacco saldato*.
+- **Posizione e orientamento delle celle:** *dietro la scheda*, *a destra* o *a sinistra*, e in ognuna *parallele alla scheda* (da sinistra a destra) o *perpendicolari* (dal davanti verso il retro): sei combinazioni. Il riquadro misure dà le dimensioni esterne, così si prova e si tiene la scatola più comoda. Di fianco, il lato corto della scheda che guarda le celle resta chiuso: se lì c'è il pulsante o una porta, il riquadro misure lo dice.
+- **Spazio per i fili** tra il retro della scheda e le celle (8 mm all'inizio, regolabile): lì passano i fili saldati sulle piazzole B+ e B− e gli eventuali morsetti.
 - **Fronte:** fori smussati per le porte e, fuori, un incavo grande quanto la spina che lascia la parete spessa 1 mm, così le spine entrano fino in fondo. Le porte sui fianchi hanno un foro grande quanto la spina.
 - **Pulsante:** *linguetta* nella parete che si piega e preme il tasto con un dentino, oppure *foro*.
 - **Display e LED:** finestra svasata nel coperchio per il display; sopra i LED il coperchio resta spesso 0,4 mm e la luce passa.
@@ -196,6 +199,50 @@ Si stampano **sdraiati sul fianco**: gli strati seguono il profilo, così la squ
 - **Pezzi di prova**, da stampare in pochi minuti prima della scatola: il *fronte* con porte e pulsante, per vedere se la scheda combacia; la *chiusura*, cioè con la slitta gli ultimi 30 mm di guida e un pezzo di coperchio da far scorrere (per regolare la tolleranza), con le viti un angolo con la colonnina e il suo pezzo di coperchio da avvitare.
 - Le piazzole B+ e B− della scheda restano da saldare (sono le uniche due saldature).
 - Nell'anteprima scheda, celle e piastrine sono in azzurro e non finiscono nel file.
+- **Viti stampate:** con *Coperchio → a viti* puoi scegliere *Tipo di viti → Stampate* (M6, M8 o M10, gioco del filetto regolabile): le 4–5 viti escono come pezzo da stampare e il coperchio ha le boccole filettate. La scatola cresce di qualche mm per le colonnine più grosse.
+
+### Box schede ESP
+Una scatola sola per un **processore** e fino a **5 moduli**, pensata per schede con i piedini già montati e collegate con i **dupont, senza saldare**. Il riquadro misure dice, per ogni scheda scelta, da dove vengono le misure, come configurarla in **ESPHome** (piattaforma, board, componente, indirizzo I²C) e cosa è solo stimato.
+
+| Processore | Misure | USB | ESPHome |
+|---|---|---|---|
+| *Wemos / LOLIN D1 mini* (ESP8266; "ESP8266 D1 mini" è la stessa scheda) | 34,2 × 25,6 mm | micro | `esp8266`, board `d1_mini` |
+| *NodeMCU V3 LoLin* (ESP8266, CH340) | 58 × 31 mm | micro (USB-C nel modello recente) | `esp8266`, board `nodemcuv2` |
+| *ESP32 D1 mini* (ESP32-WROOM-32) | 39 × 31,4 mm | USB-C | `esp32`, variant `esp32` |
+| *ESP32-CAM* (AI-Thinker, OV2640) | 40,5 × 27 mm, 10 mm con la fotocamera | nessuna (5V + adattatore seriale) | `esp32` + `esp32_camera` (serve PSRAM) |
+| *ESP32-CAM + base MB* (USB, circa 48 × 27 mm, antenna interna o esterna) | 48 × 27 mm | micro | `esp32`, `esp32_camera`; i piedini non escono dalla base |
+| *ESP32-C3 SuperMini con OLED 0,42"* (antenna ceramica, AliExpress) | 22,5 × 18 mm | USB-C | `esp32`, variant `esp32c3`, `ssd1306_i2c` modello 72x40 |
+| *ESP32-C3 con OLED 0,42"* (versione più grande) | 25 × 20,5 mm | USB-C o micro | come sopra |
+| *Altra scheda* | le tue misure | a scelta | — |
+
+| Modulo | Misure | Bus | ESPHome |
+|---|---|---|---|
+| *MPU6050* (GY-521) | 20,5 × 15,5 mm | I²C 0x68/0x69 | `sensor: mpu6050` |
+| *BMI160* (GY-BMI160) | 12,8 × 12,1 mm | I²C 0x68/0x69 | `sensor: bmi160` |
+| *RC522* RFID | 60 × 39 mm | SPI | `rc522_spi` + `binary_sensor: rc522` |
+| *VEML7700* luce | 16,7 × 16,7 mm | I²C 0x10 | `sensor: veml7700` |
+| *ENS160 + AHT21* aria | 16 × 11 mm | I²C 0x52/0x53 | `sensor: ens160_i2c` |
+| *OLED SSD1306* 0,96" 128 × 64 | 27,3 × 27,8 mm | I²C 0x3C | `display: ssd1306_i2c` |
+| *LCD TFT 1,8"* 128 × 160 (ST7735) | 34,5 × 58 mm | SPI | `display: st7735` |
+| *Pannello WS2812B* 8 × 8 rigido, 16 × 16 e 8 × 32 flessibili | 65 × 65, 160 × 160, 320 × 80 mm | 1 filo dati | `esp32_rmt_led_strip` (ESP32) o `neopixelbus` (ESP8266) |
+| *Altra scheda* | le tue misure | — | — |
+
+- **Disposizione:** il processore per primo, a sinistra con la USB che esce dalla parete (apertura smussata e incavo per la spina, come nel Powerbank); i moduli di seguito. Superata la *larghezza massima interna* le schede vanno a capo su una nuova fila.
+- **Piedini e dupont:** le schede stanno con i componenti in su e i piedini in giù. Sotto restano **22 mm liberi** (regolabili: header 2,5 mm + connettore dupont 14 mm + curva dei fili), e i fili passano sotto le schede e tra una culla e l'altra.
+- **Piedini sopra o sotto:** per ogni scheda scegli da che lato hai saldato i piedini. *Sotto*: i dupont stanno nel vano sotto la scheda. *Sopra*: la scheda scende e i dupont salgono verso il coperchio (16,5 mm più 3 mm per la curva dei fili); il display resta più lontano dalla finestra.
+- **ESP32-CAM, antenna:** *interna* (sul circuito) oppure *esterna*: foro Ø 6,6 mm nella parete sinistra per un connettore SMA da pannello, con un cavo U.FL/IPEX–SMA; va spostata la resistenza da 0 Ω accanto al connettore IPEX.
+- **Prese d'aria:** fessure, fori tondi o esagoni (nido d'ape), da mettere su coperchio, fondo e sulle quattro pareti (in alto, al centro, in basso o per tutta l'altezza; sul coperchio e sul fondo anche solo sopra il processore o sopra i moduli). Le aperture saltano finestre, LED, viti, USB, antenna e passacavi; il riquadro misure dà l'area libera. Sul fondo servono piedini di gomma.
+- **Posizione con le frecce:** le schede partono in fila; per ognuna (processore e moduli) quattro frecce la spostano di 1 mm a clic (0,2 mm con Maiusc), il centro rimette la posizione automatica. La scatola si allarga da sola e il riquadro misure avvisa se due schede si toccano o se un modulo blocca il cavo USB.
+- **Supporto a sfera per la camera:** come nei progetti per ESP32-CAM più scaricati: una sfera (pezzo "Sfera", Ø 10–20 mm) si avvita sotto il fondo con due viti M3 svasate e si spinge in uno snodo a scatto (pezzo "Snodo", coppa con 4 tagli) con base a parete (due viti), magnetica (magnete 10 × 2 o 8 × 2 mm) o per treppiede (dado 1/4"-20). La posizione della sfera sul fondo si sposta con le frecce e parte dal punto libero più vicino al centro (non sotto i dupont).
+- **Viti stampate (senza viti da comprare):** *Tipo di viti → Stampate* sostituisce le viti metalliche con viti stampate a testa svasata (taglio per il cacciavite) e filetto vero, fatte con lo stesso motore di *Viti e bulloni*. Misure M6, M8, M10: con ugello 0,4 mm M6 è la più piccola che viene (sotto il filetto è più sottile di una passata). Le viti entrano da sotto, con la testa a filo del fondo, e si avvitano in boccole filettate sotto il coperchio; lo stesso vale per le due viti della sfera. Il *gioco del filetto* (0,3 mm) si regola come in Viti e bulloni. Stampa le viti in piedi, strati sottili, 4 perimetri, PETG. Le colonnine sono più grosse, quindi la scatola cresce di qualche mm. Disponibile in Box schede ESP e Powerbank.
+- **Culle:** ogni scheda ha un muretto sotto i bordi senza piedini, un contorno alto quanto il circuito e, sui bordi con i piedini, due dentini fuori dalla scheda. Niente muretti dove stanno i connettori. Gioco regolabile (0,3 mm per lato).
+- **Altezza:** tutte le schede arrivano a 0,6 mm dal coperchio, così display, fotocamera e sensore di luce sono vicini alla loro finestra.
+- **Finestre nel coperchio:** display svasati (margine regolabile), foro per l'obiettivo dell'ESP32-CAM, foro o pelle sottile per il VEML7700, fessure per l'aria dell'ENS160, finestra del pannello LED *aperta* o con **diffusore** da 0,6 mm.
+- **LED:** da 0 a 4 LED da 3, 5 o 8 mm sulla fascia davanti del coperchio, con un anello che li tiene, oppure LED *diffuso* (la luce passa da 0,6 mm di coperchio, anche per un WS2812B singolo).
+- **Passacavi** sulla parete dietro, per l'alimentazione o per sensori esterni.
+- **Coperchio:** quattro viti M3 o M2,5 a testa svasata, in colonnine agli angoli.
+- **Avvisi automatici:** indirizzi I²C in comune (per esempio MPU6050 e BMI160), alimentazione a 5 V dei pannelli LED, GPIO3 dell'ESP8266 per i WS2812B, pin occupati dell'ESP32-CAM.
+- **Cosa è stimato:** le misure delle schede vengono dai produttori e dai venditori; altezze dei componenti, distanza dei piedini dal bordo e posizione delle finestre sui moduli sono stimate (il riquadro lo dice per ogni scheda). Stampa prima il coperchio, che è sottile e veloce, e prova le schede nelle finestre; se una scheda ha misure diverse usa *Altra scheda*.
 
 ### Viti e bulloni
 ![Bullone M8 con rondella e dado](docs/img/bullone.png)
@@ -235,7 +282,7 @@ I valori che imposti restano salvati nel browser. **Ripristina valori** torna a 
 
 **Se l'anteprima 3D non compare:** l'anteprima usa WebGL, la grafica 3D del browser. Su alcuni PC non è disponibile (scheda video vecchia, driver da aggiornare, accelerazione grafica disattivata, PC aziendali). Il sito funziona lo stesso: schede, parametri, misure ed esportazione ci sono, al posto delle anteprime compare un avviso. Per riaverle, in Chrome o Edge attiva *Impostazioni → Sistema → Usa l'accelerazione grafica se disponibile* e riavvia il browser, oppure prova un altro browser.
 
-**Link diretti:** ogni generatore ha il suo indirizzo, da usare per linkarlo o salvarlo nei preferiti: `#natale` (pallina), `#natale-palla` (palla piatta), `#natale-piatto`, `#natale-albero`, `#natale-stella`, `#natale-lanterna`, `#natale-formina`, `#gridfinity`, `#gridfinity-cab` (cassettiera), `#gridfinity-base`, `#rack`, `#vasi`, `#supporti` (reggimensola), `#supporti-gancio`, `#powerbank`, `#viteria` (vite), `#viteria-bullone`, `#viteria-perno`, `#cover`.
+**Link diretti:** ogni generatore ha il suo indirizzo, da usare per linkarlo o salvarlo nei preferiti: `#natale` (pallina), `#natale-palla` (palla piatta), `#natale-piatto`, `#natale-albero`, `#natale-stella`, `#natale-lanterna`, `#natale-formina`, `#gridfinity`, `#gridfinity-cab` (cassettiera), `#gridfinity-base`, `#rack`, `#vasi`, `#supporti` (reggimensola), `#supporti-gancio`, `#powerbank`, `#schede` (box schede ESP), `#viteria` (vite), `#viteria-bullone`, `#viteria-perno`, `#cover`.
 
 ### Il file 3MF
 - Ogni pezzo è un oggetto separato e con il suo nome (per esempio "Cassetto 3" o "Cestello pescante 1").
@@ -266,6 +313,7 @@ Ogni stampante è diversa. Il parametro **Tolleranza stampante** (0,3 mm all'ini
 - **Reggimensole e ganci:** lasciali sul fianco come escono dal file. 4 o più perimetri e riempimento 40% o più; per pesi veri PETG. Per libri usa squadre da 7 mm di spessore e 25 mm di larghezza in su, con il rinforzo a triangolo pieno.
 - **Viti e bulloni:** stampa prima un bullone M8 corto per tarare il *Gioco filetto*. Usa 4 o più perimetri (o riempimento 100%) e strati sottili (0,12–0,16 mm). Sotto M6 il filetto stampato è delicato. Per viti che lavorano, PETG o nylon.
 - **Powerbank:** PETG o ASA, non PLA (in auto al sole si deforma). Stampa prima la *prova del fronte*. Prima di collegare le celle in parallelo portale alla stessa tensione e rispetta la polarità sulle piazzole B+ e B−: al contrario la scheda si brucia.
+- **Box schede ESP:** PLA o PETG, scatola aperta in su e coperchio capovolto, senza supporti. Stampa prima il coperchio per controllare le finestre e prova una scheda nella sua culla. Il pannello LED vuole un alimentatore a 5 V a parte.
 - **Perni a scatto:** se il perno entra troppo duro aumenta la tolleranza; se la fessura è corta (lo segnala il riquadro misure) il perno resta rigido.
 
 ---
@@ -287,6 +335,7 @@ Ogni stampante è diversa. Il parametro **Tolleranza stampante** (0,3 mm all'ini
 │   ├── cover.js    cover per telefoni
 │   ├── telefoni.js misure dei telefoni per le cover
 │   ├── powerbank.js scatola per powerbank: celle, schede e connettori
+│   ├── schede.js   box per schede ESP e sensori: misure di processori, moduli e pannelli LED
 │   ├── fonts.js    contorni dei caratteri (generato)
 │   ├── logos.js    contorni dei loghi per le scritte (generato da assets/)
 │   ├── svg.js      lettore SVG (disegni caricati e libreria)

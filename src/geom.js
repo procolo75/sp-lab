@@ -892,8 +892,26 @@
     }
 
     // estensioni (altri file, es. natale.js): ricevono gli strumenti del motore e restituiscono { tipo: funzione }
+    // viti stampate per le scatole (schede ESP, powerbank): vite a testa svasata (punta a z = 0, testa in cima) e foro filettato per il coperchio.
+    // Misure minime con ugello da 0,4: M6 al limite, M8 consigliata, M10 robusta (sotto M6 il filetto non viene).
+    const VITI_STAMPA = ['M6', 'M8', 'M10'];
+    const viteSpec = (m) => threadSpec({ misura: ISO[m] ? m : 'M6' });
+    function viteStampata(m, L, g, impronta) {
+      const sp = viteSpec(m);
+      const s = screwSolid(sp, { gioco: g, lunghezza: L, testa: 'svasata', filettata: 0, sinistro: false, testaSu: false, impronta: impronta || 'taglio', stampa: 'in piedi' });
+      return { sp, m: s.m, L: s.L, notes: s.notes, print: reg(s.m.rotate([180, 0, 0])), testa: dimsOfHead(sp) };
+    }
+    const dimsOfHead = (sp) => ({ w: 2 * sp.D, h: sp.D / 2 });
+    // foro filettato cieco lungo len: aperto in alto (z = len) oppure, con openBottom, in basso (z = 0) e chiuso in cima
+    function viteForo(m, len, g, openBottom) {
+      const sp = viteSpec(m), D = sp.D, P = sp.P, c = g / 2;
+      const Rmin = D / 2 - T_DEPTH * P + c, Rc = D / 2 + c + 0.3;
+      let h = union([reg(threadRod(sp, len + 1, c, false)), coneZ(Rmin - 0.01, Rc + 1, len - (Rc - Rmin), len + 1, segFor(D))]);
+      if (openBottom) h = reg(reg(h.rotate([180, 0, 0])).translate([0, 0, len]));
+      return h;
+    }
     const H = { Manifold, Mesh: wasm.Mesh, CrossSection, reg, union, sub, box, cylZ, coneZ, cylY, hullPts, slab, rr, fmt, knurled, roundCyl,
-      csPoly, csCircle, csRect, csUnion, csSub };
+      csPoly, csCircle, csRect, csUnion, csSub, vite: { lista: VITI_STAMPA, spec: viteSpec, screw: viteStampata, hole: viteForo, T_DEPTH } };
     const EXT = {};
     for (const f of (root.SPRECOLO_EXT || [])) Object.assign(EXT, f(H));
 

@@ -122,35 +122,72 @@
       const molle = !pp && p.contatti !== 'saldate';
       const gruppi = pp ? Array.from({ length: Math.max(1, Math.min(6, p.ppN | 0)) }, () => Math.max(1, Math.min(6, p.ppCelle | 0))) : [];
       const dv = p.vite === 'M2.5' ? 2.5 : 3;
+      // viti stampate: testa svasata ISO, filetto vero (stesso motore di "Viti e bulloni"); minimo M6 con ugello 0,4
+      const VT = H.vite, vm = viti && p.viteTipo === 'stampata' ? VT.spec(p.viteM || 'M6') : null, vg = Math.max(0.1, +p.viteGioco || 0.3);
+      const prP = vm ? vm.D / 2 + 2.5 : 0, bossLen = vm ? Math.max(6, 1.5 * vm.D) : 0, pcy = vm ? prP + 0.4 : 3.6;
       // ---- vani delle celle ----
       const Dc = C.D + 0.5, pitch = Dc + 1.2;
       const te = molle ? 2.6 : 0, ppW = () => (pp ? pp.W + 0.8 : 0);                         // parete di testa con la fessura della piastrina
       const Lb = pp ? pp.L + 0.8 : molle ? C.L + 5 : C.L + 4;                // tra le facce delle piastrine: molla compressa e bottone del +
       // angoli: l'interno è arrotondato con raggio ri = R - w, così la parete è spessa w anche sulle curve
       const R = Math.min(p.raggio, w + 4.5), ri = Math.max(0.5, R - w);
-      const chMin = viti ? 7.5 : pp ? 4.0 : (molle ? 3.5 : 1.0);        // canale per i fili (e per le colonnine delle viti) alle due teste
+      const chMin = viti ? (vm ? Math.max(7.5, 2 * prP + 1.1) : 7.5) : pp ? 4.0 : (molle ? 3.5 : 1.0);        // canale per i fili (e per le colonnine delle viti) alle due teste
       // ---- scheda ----
-      const pul = B.pulsante, lati = new Set(B.fianchi.map(q => q[0]));
+      // celle dietro la scheda, oppure di fianco (a destra o a sinistra): il fianco della scheda che guarda le celle resta chiuso
+      const pos = ['destra', 'sinistra'].includes(p.posizione) ? p.posizione : 'dietro', side = pos !== 'dietro';
+      const blocked = pos === 'destra' ? 'dx' : pos === 'sinistra' ? 'sx' : null;
+      const FI = B.fianchi.filter(q => q[0] !== blocked);
+      const pul = B.pulsante && B.pulsante.lato !== blocked ? B.pulsante : null;
+      if (B.pulsante && !pul) notes.push('Il pulsante della scheda resta dalla parte delle celle e da fuori non si preme: metti le celle dall\'altra parte');
+      if (B.fianchi.length > FI.length) notes.push(`Dalla parte delle celle resta chiuso: ${B.fianchi.filter(q => q[0] === blocked).map(q => q[3]).join(', ')}`);
+      const lati = new Set(FI.map(q => q[0]));
       if (pul && pul.lato !== 'fronte') lati.add(pul.lato);
       const hasL = lati.has('sx'), hasR = lati.has('dx');
       // dagli angoli arrotondati dell'interno: gli spigoli davanti della scheda devono restare dentro la curva
       const yF0 = 0.2 + B.sporge, gapC = yF0 < ri ? ri - Math.sqrt(Math.max(0, ri * ri - (ri - yF0) ** 2)) + 0.3 : 0;
       // il LED della torcia sporge dal bordo (B.ledSporge): la scheda si allontana dalla parete quanto basta perché la punta arrivi a filo fuori
-      const gLed = (lato) => (B.fianchi.some(q => q[0] === lato && q[1] === 'led5') ? (B.ledSporge || 7.5) - w - 0.3 : 0);
+      const gLed = (lato) => (FI.some(q => q[0] === lato && q[1] === 'led5') ? (B.ledSporge || 7.5) - w - 0.3 : 0);
       const gapL = Math.max(pul && pul.lato === 'sx' ? 2.0 : 0.8, gapC, gLed('sx')), gapR = Math.max(pul && pul.lato === 'dx' ? 2.0 : 0.8, gapC, gLed('dx'));
-      const Xin = Math.max(gapL + B.L + gapR, 2 * (chMin + te) + Lb);
-      const ch = (Xin - 2 * te - Lb) / 2;
-      const bxIn = !hasL && hasR ? Xin - B.L - gapR : gapL;   // la scheda va verso il lato dove ha qualcosa
-      const yF = 0.2 + B.sporge, yB = yF + B.P, yC = yB + 0.8;
-      const Yin = pp ? yC + gruppi.reduce((a, k) => a + ppW(k), 0) + (gruppi.length - 1) * 1.2 + 0.4 : yC + n * Dc + (n - 1) * 1.2 + 0.4;
+      // zona delle celle in un riferimento locale: u lungo le celle (con i canali alle due teste), v di traverso
+      // parallele: celle parallele alla scheda (u = x); perpendicolari: celle che vanno verso il retro (u = y)
+      const trav = p.orientamento === 'traverso';
+      const Vz = pp ? gruppi.reduce((a, k) => a + ppW(k), 0) + (gruppi.length - 1) * 1.2 + 0.4 : n * Dc + (n - 1) * 1.2 + 0.4;
+      const UzMin = 2 * (chMin + te) + Lb;
+      // tra la scheda e le celle: spazio per i fili saldati sulle piazzole B+ e B−
+      const sf = Math.max(0, Math.min(30, +p.spazioFili || 0));
+      const yF = 0.2 + B.sporge, yB = yF + B.P;
+      // zW, zD: ingombro della zona celle in larghezza (x) e profondità (y); zx, zy: suo angolo nell'interno; zo: origine del riferimento locale
+      let Xin, Yin, Uz, bxIn, zx, zy, zW, zD;
+      if (!side) {
+        Xin = trav ? Math.max(gapL + B.L + gapR, Vz + 0.8) : Math.max(gapL + B.L + gapR, UzMin);
+        Uz = trav ? UzMin : Xin;
+        bxIn = !hasL && hasR ? Xin - B.L - gapR : gapL;   // la scheda va verso il lato dove ha qualcosa
+        zx = 0; zy = yB + 0.8 + sf; zW = Xin; zD = trav ? Uz : Vz;
+        Yin = zy + zD;
+      } else {
+        Uz = UzMin;
+        zW = trav ? Vz + 0.8 : Uz; zD = trav ? Uz : Vz + 0.8;
+        const bw = pos === 'destra' ? gapL + B.L + 0.8 : 0.8 + B.L + gapR;   // dalla parte delle celle basta poco gioco
+        Xin = bw + sf + zW;
+        Yin = Math.max(yB + 0.5, zD);
+        zx = pos === 'destra' ? bw + sf : 0; zy = 0;
+        bxIn = pos === 'destra' ? gapL : zW + sf + 0.8;
+      }
+      const ch = (Uz - 2 * te - Lb) / 2;
+      const yC = zy;   // la zona celle comincia qui (in y)
       const Hin = Math.max(pp ? pp.H + 0.8 : Dc + 1.0, molle ? PIASTRA.hMax + 1.2 : 0, Math.max(2.5, (B.sotto || 0) + 1) + B.pcb + B.sopra + 0.5);
       const zr = (c, under) => (under ? [-B.pcb - c.z1, -B.pcb - c.z0] : [c.z0, c.z1]);   // quote dalla faccia superiore
       const rz = Hin - B.pcb - B.sopra - 0.5;
       const Xo = Xin + 2 * w, Yo = Yin + 2 * w, Zw = f + Hin, Htot = Zw + tl;
       const ox = w, oy = w, zT = f + rz + B.pcb, bX = ox + bxIn, bY = oy + yF;
       const rf = viti ? Math.min(1.6, tl * 0.8) : 0.6;   // a slitta la parete sopra la guida è sottile: raccordo piccolo   // a slitta la parete sopra la guida è sottile: raccordo piccolo
-      const xb0 = ox + ch + te, xb1 = xb0 + Lb;             // facce delle piastrine (interno del vano)
-      const cyOf = (i) => oy + yC + Dc / 2 + i * pitch, czc = f + Dc / 2;
+      // tutto quello che riguarda le celle si costruisce nel riferimento locale (u, v) e poi si piazza con toW
+      const xb0 = ch + te, xb1 = xb0 + Lb;                  // facce delle piastrine (interno del vano), in u
+      const cyOf = (i) => Dc / 2 + i * pitch, czc = f + Dc / 2;
+      // origine del riferimento locale nella scatola: v parte da -0.4, quindi la zona va spostata di 0,4 dalle pareti quando le tocca
+      const zoX = ox + zx + (trav ? (zW - Vz - 0.4) / 2 + 0.4 : 0), zoY = oy + zy + (!trav && side ? 0.8 : 0);
+      const toW = (m) => (!m ? null : trav ? reg(reg(m.mirror([1, -1, 0])).translate([zoX, zoY, 0])) : reg(m.translate([zoX, zoY, 0])));
+      const zr0 = [ox + zx, oy + zy, ox + zx + zW, oy + zy + zD];   // riquadro della zona celle (per la decorazione del coperchio)
 
       const S = shell(Xo, Yo, R, Htot, Math.min(1.2, f * 0.75), rf);
       const cuts = [slab(Xin, Yin, ri, f, Htot + 1, ox + Xin / 2, oy + Yin / 2)];
@@ -166,7 +203,7 @@
         if (w > 1.4) cuts.push(opening('y', cx - sw, Math.max(f + 0.6, zc - sh), cx + sw, Math.min(Zw - 0.8, zc + sh), 1.6, -1, w - 1.0, 0.6, 't0'));
       }
       // ---- fianchi: porte sui lati corti (foro grande quanto la spina, che entra anche se la scheda è lontana) ----
-      if (p.fianchi) for (const [lato, t, yy, , under] of B.fianchi) {
+      if (p.fianchi) for (const [lato, t, yy, , under] of FI) {
         const c = CONN[t], [cz0, cz1] = zr(c, under), cy = bY + yy, cz = zT + (cz0 + cz1) / 2, sw = c.spina[0] / 2 + g, sh = c.spina[1] / 2 + g;
         const x0 = lato === 'sx' ? -1 : Xo - w - 0.5, x1 = lato === 'sx' ? w + 0.5 : Xo + 1;
         cuts.push(opening('x', cy - sw, cz - sh, cy + sw, cz + sh, 1.8, x0, x1, 0.6, lato === 'sx' ? 't0' : 't1'));
@@ -215,27 +252,27 @@
       }
 
       // ---- vani delle celle ----
-      const yv0 = oy + yC - 0.4, yv1 = oy + Yin;
+      const yv0 = -0.4, yv1 = Vz, zone = [];   // in v
       const ppBox = [];   // ingombro dei portapile [y0, y1, posti]
       if (pp) {
         // cornice bassa attorno a ogni portapile, aperta al centro delle testate per i fili
-        let y = oy + yC;
+        let y = 0;
         for (const k of gruppi) { ppBox.push([y, y + ppW(k), k]); y += ppW(k) + 1.2; }
         const rim = [];
         const x0 = xb0, x1 = xb1, hR = f + 5;
         rim.push(box(x0 - 1.2, yv0, f - 0.01, x0, yv1, hR), box(x1, yv0, f - 0.01, x1 + 1.2, yv1, hR));
         for (let i = 0; i < ppBox.length - 1; i++) rim.push(box(x0, ppBox[i][1], f - 0.01, x1, ppBox[i][1] + 1.2, hR));
         const gaps = ppBox.map(([a, b]) => box(x0 - 2, (a + b) / 2 - 5, f + 0.01, x1 + 2, (a + b) / 2 + 5, hR + 1));
-        adds.push(sub(U(rim), U(gaps)));
+        zone.push(sub(U(rim), U(gaps)));
       }
       if (!pp) for (let i = 0; i < n - 1; i++) {   // divisori bassi tra le celle
-        const y = oy + yC + (i + 1) * Dc + i * 1.2;
-        adds.push(box(xb0, y, f - 0.01, xb1, y + 1.2, f + Dc * 0.42));
+        const y = (i + 1) * Dc + i * 1.2;
+        zone.push(box(xb0, y, f - 0.01, xb1, y + 1.2, f + Dc * 0.42));
       }
       if (!pp) for (const xr of [0.25, 0.75]) {     // culle
         const x = xb0 + Lb * xr - 1;
         const holes = []; for (let i = 0; i < n; i++) holes.push(cylX(x - 1, x + 3, cyOf(i), czc, Dc / 2, 64));
-        adds.push(sub(box(x, yv0, f - 0.01, x + 2, yv1, f + 5), U(holes)));
+        zone.push(sub(box(x, yv0, f - 0.01, x + 2, yv1, f + 5), U(holes)));
       }
       const plates = [];
       if (molle) {
@@ -260,9 +297,10 @@
             sl.push(box(mx - 2.2, cy - 0.5, f - 0.5, mx + 2.2, cy + 0.5, f + 0.1));
             if (side) sl.push(box(mx - 0.5, cy - 2.2, f - 0.5, mx + 0.5, cy + 2.2, f + 0.1));
           }
-          adds.push(sub(wall, U(sl)));
+          zone.push(sub(wall, U(sl)));
         }
       }
+      if (zone.length) adds.push(toW(U(zone)));
       // ---- coperchio ----
       let box0, lid;
       const dsp = B.display, led = B.led;
@@ -276,24 +314,39 @@
       }
       const posts = [];
       if (viti) {
-        const pr = dv + 0.2;
-        for (const px of [ox + pr + 0.2, ox + Xin - pr - 0.2])   // colonnine attaccate alla parete, senza fessure
-           for (const py of [oy + yC + 3.6, oy + Yin - 3.6]) posts.push([px, py]);
+        const pr = vm ? prP : dv + 0.2;
+        // colonnine attaccate alle pareti, nei canali alle teste delle celle (fianchi se parallele, davanti e dietro se perpendicolari)
+        if (!side) {
+          for (const px of [ox + pr + 0.2, ox + Xin - pr - 0.2])
+            for (const py of (trav ? [oy + yC + ch / 2, oy + Yin - pcy] : [oy + yC + pcy, oy + Yin - pcy])) posts.push([px, py]);
+        } else {
+          // celle di fianco: colonnine nei canali alle teste delle celle (attaccate alla parete se la toccano)
+          const [x0, y0, x1, y1] = zr0;
+          const atWallX = (x, left) => (left ? (x <= ox + 0.01 ? ox + pr + 0.2 : x + ch / 2) : (x >= ox + Xin - 0.01 ? ox + Xin - pr - 0.2 : x - ch / 2));
+          const xs = trav ? [x0 <= ox + 0.01 ? ox + pr + 0.2 : x0 + pr + 0.6, x1 >= ox + Xin - 0.01 ? ox + Xin - pr - 0.2 : x1 - pr - 0.6] : [atWallX(x0, true), atWallX(x1, false)];
+          const ys = trav ? [oy + pcy, y1 >= oy + Yin - 0.01 ? oy + Yin - pcy : y1 - ch / 2] : [oy + pcy, oy + Yin - pcy];
+          for (const px of xs) for (const py of ys) posts.push([px, py]);
+          // dalla parte della scheda: una colonnina dietro la scheda, se c'è posto
+          if (Yin - (yB + 0.5) >= 2 * pr + 1.5) posts.push([pos === 'destra' ? ox + pr + 0.2 : ox + Xin - pr - 0.2, oy + Yin - pcy]);
+          else notes.push('Celle di fianco: dalla parte della scheda non c\'è posto per una vite, il coperchio è avvitato solo dalla parte delle celle');
+        }
         box0 = X(S, box(-1, -1, -1, Xo + 1, Yo + 1, Zw));
         box0 = sub(box0, U(cuts));
-        const pp = posts.map(([x, y]) => cylZ(x, y, f - 0.01, Zw - 6.2, pr, pr, 40));
+        const pp = posts.map(([x, y]) => cylZ(x, y, f - 0.01, vm ? Zw - bossLen - 0.2 : Zw - 6.2, pr, pr, 40));
         box0 = U([box0, ...adds, ...pp]);
         const holes = [];
         for (const [x, y] of posts) {
+          if (vm) { const rh = (vm.D + 0.8) / 2, r0 = vm.D + 0.5; holes.push(cylZ(x, y, -1, Zw + 0.1, rh, rh, 32), cylZ(x, y, -0.01, r0 - rh, r0, rh, 40)); continue; }
           holes.push(cylZ(x, y, -1, Zw, dv / 2 + 0.2, dv / 2 + 0.2, 24));
           const r0 = dv * 0.95 + 0.1, r1 = dv / 2 + 0.2;   // svasatura a 90° sotto, la testa resta a filo
           holes.push(cylZ(x, y, -0.01, r0 - r1, r0, r1, 32));
         }
         box0 = sub(box0, U(holes));
         lid = X(S, box(-1, -1, Zw + 0.01, Xo + 1, Yo + 1, Htot + 1));
-        const bosses = posts.map(([x, y]) => cylZ(x, y, Zw - 6, Zw + 0.02, pr, pr, 40));
+        const bosses = posts.map(([x, y]) => vm ? X(cylZ(x, y, Zw - bossLen, Zw + 0.02, pr, pr, 40), cuts[0]) : cylZ(x, y, Zw - 6, Zw + 0.02, pr, pr, 40));
         lid = U([lid, ...bosses]);
-        lidCuts.push(...posts.map(([x, y]) => cylZ(x, y, Zw - 7, Htot - 0.8, dv * 0.42, dv * 0.42, 24)));
+        if (vm) lidCuts.push(...posts.map(([x, y]) => reg(VT.hole(p.viteM, bossLen + tl - 0.8, vg, true).translate([x, y, Zw - bossLen]))));
+        else lidCuts.push(...posts.map(([x, y]) => cylZ(x, y, Zw - 7, Htot - 0.8, dv * 0.42, dv * 0.42, 24)));
         lid = sub(lid, U(lidCuts));
       } else {
         // a slitta: guide a coda di rondine nelle pareti davanti e dietro, entra dal fianco destro
@@ -340,7 +393,7 @@
         if (p.disegno === 'svg' && !art) notes.push('Carica un file SVG con il pulsante del riquadro "Il tuo disegno"');
         // zona libera: sopra le celle, lontano dai bordi, dalle viti e dalla presa per l'unghia
         const m = viti ? 9.5 : 5;
-        const ax0 = ox + m, ax1 = Math.min(ox + Xin - m, viti ? Infinity : Xo - 12), ay0 = oy + yC + 2, ay1 = oy + Yin - m + 1;
+        const ax0 = zr0[0] + m, ax1 = Math.min(zr0[2] - m, viti ? Infinity : Xo - 12), ay0 = zr0[1] + (side ? m : 2), ay1 = zr0[3] - m + 1;
         const area = RECT(ax0, ay0, ax1, ay1);
         if ((art || hasT) && ax1 - ax0 > 15 && ay1 - ay0 > 12) {
           const has1 = p.scritta && String(p.scritta).trim(), has2 = p.scritta2 && String(p.scritta2).trim();
@@ -387,22 +440,25 @@
       const gh = [box(bX, bY, f + rz, bX + B.L, bY + B.P, zT)];
       if (dsp) gh.push(box(bX + dsp[0], bY + dsp[1], zT, bX + dsp[2], bY + dsp[3], zT + 7));
       for (const [x, t, , , under] of B.porte) { const c = CONN[t], [a0, a1] = zr(c, under); gh.push(box(bX + x - c.w / 2, bY - B.sporge, zT + (under ? a0 + 0.3 : Math.max(0, a0)), bX + x + c.w / 2, bY + 8, zT + (under ? Math.min(-B.pcb, a1) : a1 - 0.3))); }
+      const zg = [];
       if (pp) {
         let c = 0;
         for (const [a, b, k] of ppBox) {
           const hx0 = xb0 + 0.4, hy0 = a + 0.4, hy1 = b - 0.4, H0 = f + pp.H;
-          gh.push(sub(box(hx0, hy0, f, hx0 + pp.L, hy1, H0), box(hx0 + 1.5, hy0 + 1.2, f + 1.5, hx0 + pp.L - 1.5, hy1 - 1.2, H0 + 1)));
+          zg.push(sub(box(hx0, hy0, f, hx0 + pp.L, hy1, H0), box(hx0 + 1.5, hy0 + 1.2, f + 1.5, hx0 + pp.L - 1.5, hy1 - 1.2, H0 + 1)));
           const pit = (hy1 - hy0) / k;
-          if (pit >= C.D && pp.L >= C.L + 3 && pp.H >= C.D + 1.5) for (let j = 0; j < k && c < n; j++, c++) gh.push(cylX(hx0 + (pp.L - C.L) / 2, hx0 + (pp.L + C.L) / 2, hy0 + pit * (j + 0.5), f + 1.5 + C.D / 2, C.D / 2, 40));
+          if (pit >= C.D && pp.L >= C.L + 3 && pp.H >= C.D + 1.5) for (let j = 0; j < k && c < n; j++, c++) zg.push(cylX(hx0 + (pp.L - C.L) / 2, hx0 + (pp.L + C.L) / 2, hy0 + pit * (j + 0.5), f + 1.5 + C.D / 2, C.D / 2, 40));
         }
-      } else for (let i = 0; i < n; i++) gh.push(cylX(xb0 + 2.5, xb0 + 2.5 + C.L, cyOf(i), czc, C.D / 2, 48));
-      gh.push(...plates);
+      } else for (let i = 0; i < n; i++) zg.push(cylX(xb0 + 2.5, xb0 + 2.5 + C.L, cyOf(i), czc, C.D / 2, 48));
+      zg.push(...plates);
+      gh.push(toW(U(zg)));
       const ghostM = U(gh);
 
       // ---- pezzi ----
       const center = (q) => reg(q.translate([-Xo / 2, -Yo / 2, 0]));
       const flip = (q) => reg(q.rotate([180, 0, 0]));
       const parts = [];
+      let screwAsm = null;
       const prova = p.prova === true ? 'fronte' : (p.prova || 'nessuna');
       let note_prova = null;
       if (prova === 'nessuna') {
@@ -424,7 +480,7 @@
             parts.push({ name: 'Prova viti: angolo', m: reg(center(X(box0, win)).translate([0, dy, 0])), role: 'body' });
             const lp = center(X(lid, win));
             parts.push({ name: 'Prova viti: coperchio', m: reg(lp.translate([0, dy, 0])), role: 'inner', print: flip(lp), at: p.__closed ? undefined : [0, 0, 10] });
-            note_prova = `un angolo della scatola con la colonnina e il suo pezzo di coperchio: avvitali con una vite ${p.vite} svasata. Se la vite gira a vuoto o è troppo dura, prova un'altra lunghezza o l'altra misura di vite`;
+            note_prova = vm ? `un angolo della scatola con la colonnina e il suo pezzo di coperchio: stampa anche una vite ${p.viteM} (la trovi con la prova "Nessuna") e avvitala da sotto. Se è dura aumenta il gioco del filetto, se balla diminuiscilo` : `un angolo della scatola con la colonnina e il suo pezzo di coperchio: avvitali con una vite ${p.vite} svasata. Se la vite gira a vuoto o è troppo dura, prova un'altra lunghezza o l'altra misura di vite`;
           } else {
             // l'ultimo tratto di guida (con il fianco destro abbassato) e un pezzo di coperchio che ci scorre dentro
             const L = Math.min(30, Xo * 0.4), z0 = Math.max(f, Zw - 5);
@@ -437,6 +493,18 @@
           }
         }
       }
+      if (vm && prova === 'nessuna') {
+        const Ls = Math.floor((Htot - 1.3) * 2) / 2, sc = VT.screw(p.viteM, Ls, vg, 'taglio');
+        const mkF = (th) => reg(reg(reg(sc.m.rotate([0, 0, th])).rotate([180, 0, 0])).translate([0, 0, sc.L]));
+        const tgL = sub(cylZ(0, 0, Zw - bossLen, Zw + tl, prP, prP, 48), reg(VT.hole(p.viteM, bossLen + tl - 0.8, vg, true).translate([0, 0, Zw - bossLen])));
+        let best = null; for (let k = 0; k < 16; k++) { const vol = X(mkF(k * 22.5), tgL).volume(); if (!best || vol < best.vol) best = { th: k * 22.5, vol }; }
+        const flipS = mkF(best.th);
+        screwAsm = U(posts.map(([x, y]) => reg(flipS.translate([x, y, 0]))));
+        const step = 2 * vm.D + 3, nP = posts.length;
+        parts.push({ name: `Viti ${p.viteM}×${fmt(sc.L)} (${nP} pezzi)`, m: center(screwAsm), role: 'pin', print: U(posts.map((_, k) => reg(sc.print.translate([(k - (nP - 1) / 2) * step, 0, 0])))), at: p.__closed ? undefined : [Xo + 24, 0, 0] });
+        info.push(['Viti stampate', `${p.viteM} (passo ${fmt(vm.P)} mm), testa svasata Ø ${fmt(2 * vm.D)} mm con taglio per il cacciavite, lunghe ${fmt(sc.L)} mm, ${nP} pezzi uguali. Gioco del filetto ${fmt(vg)} mm. Stampale in piedi con la testa sul piatto, strati sottili (0,12–0,16 mm), almeno 4 perimetri, PETG`]);
+        notes.push(`Viti stampate ${p.viteM}: con ugello da 0,4 mm la misura minima che viene è M6 (M8 è più robusta). Stampa prima una vite sola e provala nella boccola del coperchio: se è dura o balla cambia il gioco del filetto. Colonnine più grosse di quelle per M3: la scatola è un po' più larga`);
+      }
       if (prova === 'nessuna' || prova === 'fronte') parts.push({ name: 'esempio', m: center(ghostM), role: 'ghost' });
 
       // ---- misure e note ----
@@ -445,9 +513,12 @@
       info.push(['Celle', `${n} × ${C.nome} in parallelo (${C.fonte})`]);
       info.push(['Capacità', `circa ${fmt(n * C.mAh / 1000)} Ah con celle da ${C.mAh} mAh: ${fmt(Wh)} Wh, all'uscita a 5 V circa ${Math.round(Wh * 0.85 / 5 * 10) * 100} mAh`]);
       info.push(['Scheda', `${B.nome}: ${B.uscita}`]);
+      info.push(['Posizione celle', pos === 'dietro' ? 'dietro la scheda' : `di fianco alla scheda, a ${pos}`]);
+      info.push(['Orientamento', trav ? 'celle perpendicolari alla scheda: vanno verso il retro, la scatola è più stretta e più profonda' : 'celle parallele alla scheda: una accanto all\'altra dietro la scheda']);
+      if (sf > 0) info.push(['Spazio per i fili', `${fmt(sf)} mm tra il retro della scheda e le celle`]);
       info.push(['Misure scheda', B.fonte]);
       if (B.dove) info.push(['Dove si compra', B.dove]);
-      info.push(['Porte', [...B.porte.map(q => q[2]), ...(p.fianchi ? B.fianchi.map(q => `${q[3]} (fianco ${q[0] === 'sx' ? 'sinistro' : 'destro'})`) : [])].join(', ') + `; gioco ${fmt(g)} mm per lato`]);
+      info.push(['Porte', [...B.porte.map(q => q[2]), ...(p.fianchi ? FI.map(q => `${q[3]} (fianco ${q[0] === 'sx' ? 'sinistro' : 'destro'})`) : [])].join(', ') + `; gioco ${fmt(g)} mm per lato`]);
       if (pul) info.push(['Pulsante', p.pulsante === 'lamella' ? `linguetta nella parete ${pul.lato === 'fronte' ? 'davanti' : pul.lato === 'sx' ? 'sinistra' : 'destra'}: premila e il dentino preme il tasto` : 'foro Ø 3,2 mm: il tasto si preme con una punta']);
       if (dsp) info.push(['Display', 'si vede dalla finestra del coperchio']);
       if (led) info.push(['LED', 'sopra i LED il coperchio è spesso 0,4 mm: la luce passa, meglio se stampi il coperchio in un colore chiaro']);
@@ -459,7 +530,7 @@
         info.push(['Attenzione', 'il portapile deve essere in parallelo: sopra c\'è scritto 3,7 V o Parallel. Se dice 7,4 V o 11,1 V è in serie e con queste schede non va']);
         info.push(['Collegamenti', gruppi.length > 1 ? 'tutti i fili rossi insieme e tutti i neri insieme con due morsetti a leva (tipo Wago 221), poi alle piazzole B+ e B− della scheda. Nessuna saldatura sulle celle' : 'il filo rosso a B+ e il nero a B− della scheda. Nessuna saldatura sulle celle']);
       } else info.push(['Celle', 'pacco già saldato a punti con nastro di nichel (come lo fanno i negozi di batterie)']);
-      info.push(['Coperchio', viti ? `a viti nascoste: 4 viti ${p.vite} svasate da sotto, lunghe ${dv === 3 ? 16 : 16}–20 mm, che si avvitano nel coperchio. Sopra non si vede niente` : 'a slitta: entra dal fianco destro nelle guide a coda di rondine; la tacca vicino al bordo serve per tirarlo']);
+      info.push(['Coperchio', viti && vm ? `a viti nascoste: ${posts.length} viti stampate ${p.viteM} da sotto, che si avvitano nel coperchio. Sopra non si vede niente` : viti ? `a viti nascoste: 4 viti ${p.vite} svasate da sotto, lunghe ${dv === 3 ? 16 : 16}–20 mm, che si avvitano nel coperchio. Sopra non si vede niente` : 'a slitta: entra dal fianco destro nelle guide a coda di rondine; la tacca vicino al bordo serve per tirarlo']);
       if (decoInfo) info.push(['Coperchio decorato', decoInfo]);
       info.push(['Stampa', 'PETG o ASA (il PLA si deforma al sole in auto). Scatola aperta in su, coperchio capovolto: senza supporti']);
       notes.push('Le piazzole B+ e B− della scheda sono da saldare: sono le uniche due saldature, tutto il resto è a contatti e morsetti. Se non saldi, fattele fare (bastano due minuti a chi ha un saldatore)');
@@ -473,7 +544,7 @@
       if (p.__probe) res.probe = p.__probe({ box0, lid, CrossSection, Zw, Htot });   // solo per i test
       if (p.__check && prova === 'nessuna') {
         const v = (a, b) => +X(a, b).volume().toFixed(3);
-        res.closed = [['scatola-coperchio', v(box0, lid)], ['scatola-esempio', v(box0, ghostM)], ['coperchio-esempio', v(lid, ghostM)]];
+        res.closed = [['scatola-coperchio', v(box0, lid)], ...(screwAsm ? [['vite-scatola', v(screwAsm, box0)], ['vite-coperchio', v(screwAsm, lid)]] : []), ['scatola-esempio', v(box0, ghostM)], ['coperchio-esempio', v(lid, ghostM)]];
       }
       return res;
     }
