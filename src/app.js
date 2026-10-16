@@ -325,6 +325,17 @@
         { sec: 'Forma', id: 'profondita', label: 'Profondità bocca', type: 'num', min: 30, max: 300, step: 1, def: 110, unit: 'mm', show: p => p.forma === 'rettangolare' },
         { sec: 'Forma', id: 'altezza', label: 'Altezza', type: 'num', min: 30, max: 300, step: 1, def: 100, unit: 'mm' },
         { sec: 'Forma', id: 'base', label: 'Base rispetto alla bocca', type: 'num', min: 50, max: 100, step: 5, def: 80, unit: '%', help: '100% = pareti dritte. Meno di 100% = vaso che si stringe verso il basso.' },
+        { sec: 'Coperchio decorato', id: 'svg', label: 'Il tuo disegno (SVG)', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
+        { sec: 'Coperchio decorato', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 8, max: 80, step: 1, def: 30, unit: 'mm', show: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
+          help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
+        layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.6, show: p => p.stileCop !== 'traforata' }),
+        ...linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.'),
+        { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
+        Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
+        ...colorsP(['Colore 1 · coperchio', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
+        { sec: 'Colori', id: 'colTesto', label: 'Colore della scritta', type: 'select', def: 'auto', options: [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4']], help: 'Solo con lo stile a filo. Auto: il colore che si legge meglio sul coperchio.' },
         { sec: 'Forma', id: 'raggio', label: 'Raggio angoli', type: 'num', min: 1, max: 50, step: 1, def: 10, unit: 'mm', show: p => p.forma === 'quadrato' || p.forma === 'rettangolare' },
         { sec: 'Forma', id: 'scomparti', label: 'Scomparti', type: 'int', min: 1, max: 8, def: 3, show: p => p.forma === 'rettangolare', help: 'Una pianta aromatica per scomparto.' },
         { sec: 'Forma', id: 'spDiv', label: 'Spessore divisori', type: 'num', min: 0.8, max: 4, step: 0.4, def: 1.6, unit: 'mm', show: p => p.forma === 'rettangolare' && p.scomparti > 1 },
@@ -628,6 +639,7 @@
     },
     powerbank: {
       label: 'Powerbank',
+      artKey: 'disegno',
       params: [
         { sec: 'Scheda', id: 'scheda', label: 'Scheda', type: 'select', menu: true, def: 'lcd24', options: [['lcd24', '18650 LCD 2.4A, 2 USB (display) · Amazon e AliExpress'], ['ip5328p', 'IP5328P 18 W QC · Amazon e AliExpress'], ['dusb21', 'Doppia USB 1 A + 2,1 A con LCD e torcia · Amazon e AliExpress'], ['sw6106', 'SW6106 18 W PD/QC · solo AliExpress'], ['sw6208', 'SW6208 22,5 W PD/QC · solo AliExpress']],
           help: 'Solo schede con le misure pubblicate dal venditore (disegno quotato o misure dichiarate). Le posizioni delle porte sono prese in scala dalle foto dall\'alto. Accanto al nome: dove si compra.' },
@@ -635,16 +647,32 @@
         { sec: 'Scheda', id: 'fianchi', label: 'Porte sui fianchi', type: 'bool', def: true, help: 'Alcune schede hanno un ingresso anche sul lato corto (Lightning o micro-USB). Se ricarichi con la USB-C puoi chiuderlo.' },
         { sec: 'Scheda', id: 'pulsante', label: 'Pulsante', type: 'select', def: 'lamella', options: [['lamella', 'Linguetta da premere'], ['foro', 'Foro']],
           help: 'Linguetta: un pezzo della parete si piega e un dentino preme il tasto della scheda. Foro: il tasto si preme con una punta. La IP5328P non ha pulsante; sulla scheda con la torcia il pulsante accende la torcia.' },
-        { sec: 'Celle', id: 'cella', label: 'Celle', type: 'select', def: 'normale', options: [['normale', '18650 normali (65 mm)'], ['protetta', '18650 protette (fino a 70 mm)']],
+        { sec: 'Celle', id: 'cella', label: 'Celle', type: 'select', def: 'normale', show: p => p.contatti !== 'portapile', options: [['normale', '18650 normali (65 mm)'], ['protetta', '18650 protette (fino a 70 mm)']],
           help: 'Le protette hanno un circuito sotto la guaina e sono più lunghe: se non sai quali hai, scegli protette.' },
-        { sec: 'Celle', id: 'celle', label: 'Numero di celle', type: 'int', min: 1, max: 8, def: 2, help: 'Tutte in parallelo, una accanto all\'altra. Ogni cella aggiunge circa 3000 mAh.' },
-        { sec: 'Celle', id: 'contatti', label: 'Contatti', type: 'select', def: 'molle', options: [['molle', 'A molla, come le pile'], ['saldate', 'Pacco saldato']],
-          help: 'A molla: ogni cella ha la sua molla (−) e la sua piastrina (+), quelle da 16 × 16,5 mm che si trovano per i portapile 18650. Le celle si tolgono e si rimettono senza saldare. Pacco saldato: per un pacco già fatto con nastro di nichel.' },
+        { sec: 'Celle', id: 'celle', label: 'Numero di celle', type: 'int', min: 1, max: 8, def: 2, show: p => p.contatti !== 'portapile', help: 'Tutte in parallelo, una accanto all\'altra. Ogni cella aggiunge circa 3000 mAh.' },
+        { sec: 'Celle', id: 'contatti', label: 'Contatti', type: 'select', def: 'portapile', options: [['portapile', 'Portapile già pronto (senza saldare)'], ['molle', 'Piastrine a molla sciolte'], ['saldate', 'Pacco saldato']],
+          help: 'Portapile già pronto: un portapile in parallelo con i fili, con le misure che scrivi tu; la scatola lo tiene in una cornice e non si salda niente sulle celle. Piastrine sciolte: fessure per le piastrine a molla da 16 × 16,5 mm (vanno saldati i fili). Pacco saldato: per un pacco già fatto con nastro di nichel.' },
+        { sec: 'Celle', id: 'ppL', label: 'Lunghezza portapile', type: 'num', min: 30, max: 160, step: 0.5, def: 78, unit: 'mm', show: p => p.contatti === 'portapile', help: 'Misura del tuo portapile lungo le celle, fili esclusi. La scatola lascia 0,4 mm di gioco per lato.' },
+        { sec: 'Celle', id: 'ppW', label: 'Larghezza portapile', type: 'num', min: 15, max: 160, step: 0.5, def: 40, unit: 'mm', show: p => p.contatti === 'portapile' },
+        { sec: 'Celle', id: 'ppH', label: 'Altezza portapile', type: 'num', min: 15, max: 40, step: 0.5, def: 22, unit: 'mm', show: p => p.contatti === 'portapile' },
+        { sec: 'Celle', id: 'ppN', label: 'Quanti portapile', type: 'int', min: 1, max: 6, def: 1, show: p => p.contatti === 'portapile', help: 'Uno accanto all\'altro dietro la scheda. Unisci tutti i fili rossi con un morsetto a leva e tutti i neri con un altro.' },
+        { sec: 'Celle', id: 'ppCelle', label: 'Celle per portapile', type: 'int', min: 1, max: 6, def: 2, show: p => p.contatti === 'portapile', help: 'Serve solo per calcolare la capacità.' },
         { sec: 'Coperchio', id: 'coperchio', label: 'Chiusura', type: 'select', def: 'slitta', options: [['slitta', 'A slitta'], ['viti', 'A viti nascoste']],
           help: 'A slitta: il coperchio scorre nelle guide e si apre senza attrezzi. A viti nascoste: quattro viti svasate da sotto, sopra non si vede niente.' },
         { sec: 'Coperchio', id: 'vite', label: 'Viti', type: 'select', def: 'M3', options: [['M3', 'M3'], ['M2.5', 'M2,5']], show: p => p.coperchio === 'viti', help: 'Viti a testa svasata, lunghe 16–20 mm: si avvitano nel coperchio.' },
         { sec: 'Coperchio', id: 'spCoperchio', label: 'Spessore coperchio', type: 'num', min: 1.6, max: 3, step: 0.2, def: 2, unit: 'mm' },
         { sec: 'Coperchio', id: 'tolleranza', label: 'Tolleranza', type: 'num', min: 0, max: 0.8, step: 0.05, def: 0.3, unit: 'mm', show: p => p.coperchio === 'slitta', help: 'Gioco del coperchio nelle guide. Se scorre duro aumentala, se balla diminuiscila.' },
+        { sec: 'Coperchio decorato', id: 'svg', label: 'Il tuo disegno (SVG)', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
+        { sec: 'Coperchio decorato', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 8, max: 80, step: 1, def: 30, unit: 'mm', show: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
+          help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
+        layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.6, show: p => p.stileCop !== 'traforata' }),
+        ...linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.'),
+        { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
+        Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
+        ...colorsP(['Colore 1 · coperchio', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
+        { sec: 'Colori', id: 'colTesto', label: 'Colore della scritta', type: 'select', def: 'auto', options: [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4']], help: 'Solo con lo stile a filo. Auto: il colore che si legge meglio sul coperchio.' },
         { sec: 'Forma', id: 'raggio', label: 'Raggio angoli', type: 'num', min: 1, max: 12, step: 0.5, def: 6, unit: 'mm' },
         { sec: 'Forma', id: 'pareti', label: 'Spessore pareti', type: 'num', min: 1.6, max: 3.2, step: 0.4, def: 2, unit: 'mm' },
         { sec: 'Forma', id: 'fondo', label: 'Spessore fondo', type: 'num', min: 1.2, max: 3, step: 0.2, def: 1.6, unit: 'mm' },
@@ -1198,6 +1226,7 @@ ${build}</build>
     const v = values(state.mode);
     const s = state.mode === 'bin' ? `contenitore_${v.gridX}x${v.gridY}x${v.altU}` : state.mode === 'vaso' ? `vaso_${v.forma}_${Math.round(v.larghezza)}x${Math.round(v.altezza)}_${v.tipo}` : state.mode === 'rack' ? `rack_${String(v.spessoriLista || '').trim() ? 'misto' : v.fessure + 'x' + v.spessore + 'mm'}_${v.base}` : state.mode === 'cab' ? `cassettiera_${v.gridX}x${v.gridY}x${v.altU}_${v.righe * v.colonne}cassetti` : state.mode === 'base' ? `base_${v.gridX}x${v.gridY}` : null;
     if (state.mode === 'cover') { const nm = String(v.scritta || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24); return `cover_${v.modello}_${v.materiale}${v.tipo === 'cavalletto' ? '_cavalletto' : ''}${v.prova !== 'nessuna' ? '_prova-' + v.prova : ''}${nm ? '_' + nm : ''}`; }
+    if (state.mode === 'powerbank') return `powerbank_${v.scheda}_${v.contatti === 'portapile' ? v.ppN * v.ppCelle : v.celle}celle_${v.coperchio}${v.prova && v.prova !== 'nessuna' ? '_prova-' + v.prova : ''}`;
     if (s) return s;
     const slug = (x) => String(x || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24);
     const nm = slug(v.scritta) ? '_' + slug(v.scritta) : '';

@@ -113,18 +113,22 @@
     function powerbank(p) {
       const info = [], notes = [];
       const B = SCHEDE[p.scheda] || SCHEDE.lcd24, C = CELLE[p.cella] || CELLE.normale;
-      const n = Math.max(1, Math.min(8, p.celle | 0));
+      const n = p.contatti === 'portapile' ? Math.max(1, Math.min(6, p.ppN | 0)) * Math.max(1, Math.min(6, p.ppCelle | 0)) : Math.max(1, Math.min(8, p.celle | 0));
       const w = p.pareti, f = p.fondo, tl = p.spCoperchio, tol = p.tolleranza;
       const g = p.gioco + (B.prec || 0);
-      const viti = p.coperchio === 'viti', molle = p.contatti !== 'saldate';
+      const viti = p.coperchio === 'viti';
+      // portapile già pronto: le misure le scrive chi lo usa (lunghezza lungo le celle, larghezza, altezza); più portapile uno accanto all'altro
+      const pp = p.contatti === 'portapile' ? { L: p.ppL, W: p.ppW, H: p.ppH } : null;
+      const molle = !pp && p.contatti !== 'saldate';
+      const gruppi = pp ? Array.from({ length: Math.max(1, Math.min(6, p.ppN | 0)) }, () => Math.max(1, Math.min(6, p.ppCelle | 0))) : [];
       const dv = p.vite === 'M2.5' ? 2.5 : 3;
       // ---- vani delle celle ----
       const Dc = C.D + 0.5, pitch = Dc + 1.2;
-      const te = molle ? 2.6 : 0;                         // parete di testa con la fessura della piastrina
-      const Lb = molle ? C.L + 5 : C.L + 4;                // tra le facce delle piastrine: molla compressa e bottone del +
+      const te = molle ? 2.6 : 0, ppW = () => (pp ? pp.W + 0.8 : 0);                         // parete di testa con la fessura della piastrina
+      const Lb = pp ? pp.L + 0.8 : molle ? C.L + 5 : C.L + 4;                // tra le facce delle piastrine: molla compressa e bottone del +
       // angoli: l'interno è arrotondato con raggio ri = R - w, così la parete è spessa w anche sulle curve
       const R = Math.min(p.raggio, w + 4.5), ri = Math.max(0.5, R - w);
-      const chMin = viti ? 7.5 : (molle ? 3.5 : 1.0);        // canale per i fili (e per le colonnine delle viti) alle due teste
+      const chMin = viti ? 7.5 : pp ? 4.0 : (molle ? 3.5 : 1.0);        // canale per i fili (e per le colonnine delle viti) alle due teste
       // ---- scheda ----
       const pul = B.pulsante, lati = new Set(B.fianchi.map(q => q[0]));
       if (pul && pul.lato !== 'fronte') lati.add(pul.lato);
@@ -138,8 +142,8 @@
       const ch = (Xin - 2 * te - Lb) / 2;
       const bxIn = !hasL && hasR ? Xin - B.L - gapR : gapL;   // la scheda va verso il lato dove ha qualcosa
       const yF = 0.2 + B.sporge, yB = yF + B.P, yC = yB + 0.8;
-      const Yin = yC + n * Dc + (n - 1) * 1.2 + 0.4;
-      const Hin = Math.max(Dc + 1.0, PIASTRA.hMax + 1.2, Math.max(2.5, (B.sotto || 0) + 1) + B.pcb + B.sopra + 0.5);
+      const Yin = pp ? yC + gruppi.reduce((a, k) => a + ppW(k), 0) + (gruppi.length - 1) * 1.2 + 0.4 : yC + n * Dc + (n - 1) * 1.2 + 0.4;
+      const Hin = Math.max(pp ? pp.H + 0.8 : Dc + 1.0, molle ? PIASTRA.hMax + 1.2 : 0, Math.max(2.5, (B.sotto || 0) + 1) + B.pcb + B.sopra + 0.5);
       const zr = (c, under) => (under ? [-B.pcb - c.z1, -B.pcb - c.z0] : [c.z0, c.z1]);   // quote dalla faccia superiore
       const rz = Hin - B.pcb - B.sopra - 0.5;
       const Xo = Xin + 2 * w, Yo = Yin + 2 * w, Zw = f + Hin, Htot = Zw + tl;
@@ -212,11 +216,23 @@
 
       // ---- vani delle celle ----
       const yv0 = oy + yC - 0.4, yv1 = oy + Yin;
-      for (let i = 0; i < n - 1; i++) {   // divisori bassi tra le celle
+      const ppBox = [];   // ingombro dei portapile [y0, y1, posti]
+      if (pp) {
+        // cornice bassa attorno a ogni portapile, aperta al centro delle testate per i fili
+        let y = oy + yC;
+        for (const k of gruppi) { ppBox.push([y, y + ppW(k), k]); y += ppW(k) + 1.2; }
+        const rim = [];
+        const x0 = xb0, x1 = xb1, hR = f + 5;
+        rim.push(box(x0 - 1.2, yv0, f - 0.01, x0, yv1, hR), box(x1, yv0, f - 0.01, x1 + 1.2, yv1, hR));
+        for (let i = 0; i < ppBox.length - 1; i++) rim.push(box(x0, ppBox[i][1], f - 0.01, x1, ppBox[i][1] + 1.2, hR));
+        const gaps = ppBox.map(([a, b]) => box(x0 - 2, (a + b) / 2 - 5, f + 0.01, x1 + 2, (a + b) / 2 + 5, hR + 1));
+        adds.push(sub(U(rim), U(gaps)));
+      }
+      if (!pp) for (let i = 0; i < n - 1; i++) {   // divisori bassi tra le celle
         const y = oy + yC + (i + 1) * Dc + i * 1.2;
         adds.push(box(xb0, y, f - 0.01, xb1, y + 1.2, f + Dc * 0.42));
       }
-      for (const xr of [0.25, 0.75]) {     // culle
+      if (!pp) for (const xr of [0.25, 0.75]) {     // culle
         const x = xb0 + Lb * xr - 1;
         const holes = []; for (let i = 0; i < n; i++) holes.push(cylX(x - 1, x + 3, cyOf(i), czc, Dc / 2, 64));
         adds.push(sub(box(x, yv0, f - 0.01, x + 2, yv1, f + 5), U(holes)));
@@ -302,11 +318,84 @@
         lid = sub(lid, U(lidCuts));
       }
 
+      // ---- coperchio: scritta, loghi ({SP}, {viso}, {visoNatale}) e il tuo SVG, sulla faccia di sopra ----
+      // Il coperchio si stampa capovolto, con la faccia di sopra sul piatto (come il retro della cover): a filo (colori nei primi strati), inciso o traforato.
+      const DEC = H.decor, lidCol = {};   // lidCol[k] = solido del colore k
+      let decoInfo = null;
+      if (DEC) DEC.NOTES.clear();
+      const F = DEC ? DEC.filaments(p, p.disegno === 'svg' ? DEC.artOf('svg', p.svg) : null) : [p.col1, p.col2, p.col3, p.col4];
+      if (DEC) {
+        const R2 = (c) => reg(c);
+        const CU = (l) => { l = l.filter(c => c && !c.isEmpty()); return !l.length ? null : l.length === 1 ? l[0] : R2(CrossSection.union(l)); };
+        const CD = (a, b) => (!a ? null : !b ? a : R2(a.subtract(b)));
+        const CI = (a, b) => (!a || !b ? null : R2(a.intersect(b)));
+        const OFF = (c, d) => (c ? R2(c.offset(d, 'Round')) : null);
+        const MV = (c, x, y) => R2(c.translate([x, y]));
+        const RECT = (x0, y0, x1, y1) => R2(CrossSection.ofPolygons([[[x0, y0], [x1, y0], [x1, y1], [x0, y1]]]));
+        const emptyC = (c) => !c || c.isEmpty() || c.area() < 0.05;
+        const EZ = (c, z0, z1) => (emptyC(c) ? null : reg(reg(c.extrude(z1 - z0)).translate([0, 0, z0])));
+        const noz = +p.ugello || 0.4, st = p.stileCop || 'filo', depth = Math.min(p.profCop || 0.6, tl - 0.4);
+        const hasT = [p.scritta, p.scritta2].some(x => x && String(x).trim());
+        const art = p.disegno === 'svg' ? DEC.artOf('svg', p.svg) : null;
+        if (p.disegno === 'svg' && !art) notes.push('Carica un file SVG con il pulsante del riquadro "Il tuo disegno"');
+        // zona libera: sopra le celle, lontano dai bordi, dalle viti e dalla presa per l'unghia
+        const m = viti ? 9.5 : 5;
+        const ax0 = ox + m, ax1 = Math.min(ox + Xin - m, viti ? Infinity : Xo - 12), ay0 = oy + yC + 2, ay1 = oy + Yin - m + 1;
+        const area = RECT(ax0, ay0, ax1, ay1);
+        if ((art || hasT) && ax1 - ax0 > 15 && ay1 - ay0 > 12) {
+          const has1 = p.scritta && String(p.scritta).trim(), has2 = p.scritta2 && String(p.scritta2).trim();
+          const tH = hasT ? 1.5 * ((has1 ? p.altTesto : 0) + (has2 ? +p.altTesto2 || p.altTesto : 0)) : 0, gap = art && hasT ? 4 : 0;
+          const Sa = art ? Math.max(8, Math.min(p.altDisegno, ay1 - ay0 - tH - gap, ax1 - ax0)) : 0;
+          const cx = (ax0 + ax1) / 2, cy = (ay0 + ay1) / 2 + (Sa + gap + tH) / 2;
+          let artCS = null, txt = null; const slots = {};
+          if (art) {
+            const g0 = DEC.artGeom(art, Sa, ax1 - ax0), place = (c) => (c ? MV(c, cx, cy - Sa / 2) : null);
+            const sil = place(g0.sil);
+            artCS = st === 'filo' ? sil : st === 'inciso' ? (g0.lines ? place(g0.lines) : sil) : (g0.lines ? place(CI(g0.lines, OFF(g0.sil, -1.3 * g0.k))) : sil);
+            if (st === 'filo') { const sl = DEC.artSlots(g0, F, OFF(g0.sil, 0.01), noz, notes); for (const k of [2, 3, 4]) if (sl[k]) slots[k] = place(sl[k]); }
+          }
+          if (hasT) {
+            txt = DEC.fitText(p, { x: cx, y: cy - Sa - gap - tH / 2, w: ax1 - ax0, h: Math.max(4, tH) }, p.altTesto);
+            if (txt && txt.reduced) notes.push(`Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
+            if (txt && txt.moved) { const kc = CI(txt.cs, area); if (emptyC(kc) || kc.area() < txt.cs.area() * 0.98) notes.push('La scritta spostata esce dalla zona libera del coperchio: la parte fuori viene tagliata'); }
+          }
+          let ts = Math.min(4, Math.max(2, +p.colTesto || 3));
+          if (p.colTesto === 'auto' && root.SPLAB_SVG) ts = [2, 3, 4].sort((a, b) => root.SPLAB_SVG.dist(F[b - 1], F[0]) - root.SPLAB_SVG.dist(F[a - 1], F[0]))[0];
+          const keep = (c) => CI(c, area);
+          if (st === 'filo') {
+            const tcs = txt ? keep(txt.cs) : null;
+            for (const k of [2, 3, 4]) {
+              let c = slots[k] ? keep(CD(slots[k], tcs ? OFF(tcs, 0.6) : null)) : null;
+              if (k === ts) c = CU([c, tcs]);
+              const sol = EZ(c, Htot - depth, Htot + 0.01);
+              if (sol) lidCol[k] = reg(sol.intersect(lid));
+            }
+            decoInfo = `a filo, negli ultimi ${fmt(depth)} mm del coperchio (che si stampano per primi): serve una stampante multicolore, o un cambio di filamento a ${fmt(depth)} mm dal piatto`;
+          } else {
+            let hole = CU([artCS ? keep(artCS) : null, txt ? keep(st === 'traforata' ? DEC.stencil(txt.cs, txt.cap) : txt.cs) : null]);
+            if (st === 'traforata' && artCS) { const r = DEC.perforate(hole, OFF(area, -1)); hole = r.holes; if (r.bridges) notes.push(`${r.bridges} ponticell${r.bridges > 1 ? 'i tengono' : 'o tiene'} attaccate le parti del disegno`); }
+            if (!emptyC(hole)) lid = sub(lid, st === 'traforata' ? EZ(hole, Zw - 1, Htot + 1) : EZ(hole, Htot - depth, Htot + 1));
+            decoInfo = st === 'traforata' ? 'traforato: si vede dentro la scatola' : `inciso ${fmt(depth)} mm`;
+          }
+          if (txt && txt.cap < 4) notes.push('Lettere sotto i 4 mm: vengono poco leggibili');
+        } else if (art || hasT) notes.push('Sul coperchio non c\'è spazio per la decorazione');
+        if (hasT) DEC.logoNotes(noz);
+        for (const k of [2, 3, 4]) if (lidCol[k]) lid = sub(lid, lidCol[k]);
+      }
+
       // ---- esempio: scheda, celle, piastrine (solo anteprima) ----
       const gh = [box(bX, bY, f + rz, bX + B.L, bY + B.P, zT)];
       if (dsp) gh.push(box(bX + dsp[0], bY + dsp[1], zT, bX + dsp[2], bY + dsp[3], zT + 7));
       for (const [x, t, , , under] of B.porte) { const c = CONN[t], [a0, a1] = zr(c, under); gh.push(box(bX + x - c.w / 2, bY - B.sporge, zT + (under ? a0 + 0.3 : Math.max(0, a0)), bX + x + c.w / 2, bY + 8, zT + (under ? Math.min(-B.pcb, a1) : a1 - 0.3))); }
-      for (let i = 0; i < n; i++) gh.push(cylX(xb0 + 2.5, xb0 + 2.5 + C.L, cyOf(i), czc, C.D / 2, 48));
+      if (pp) {
+        let c = 0;
+        for (const [a, b, k] of ppBox) {
+          const hx0 = xb0 + 0.4, hy0 = a + 0.4, hy1 = b - 0.4, H0 = f + pp.H;
+          gh.push(sub(box(hx0, hy0, f, hx0 + pp.L, hy1, H0), box(hx0 + 1.5, hy0 + 1.2, f + 1.5, hx0 + pp.L - 1.5, hy1 - 1.2, H0 + 1)));
+          const pit = (hy1 - hy0) / k;
+          if (pit >= C.D && pp.L >= C.L + 3 && pp.H >= C.D + 1.5) for (let j = 0; j < k && c < n; j++, c++) gh.push(cylX(hx0 + (pp.L - C.L) / 2, hx0 + (pp.L + C.L) / 2, hy0 + pit * (j + 0.5), f + 1.5 + C.D / 2, C.D / 2, 40));
+        }
+      } else for (let i = 0; i < n; i++) gh.push(cylX(xb0 + 2.5, xb0 + 2.5 + C.L, cyOf(i), czc, C.D / 2, 48));
       gh.push(...plates);
       const ghostM = U(gh);
 
@@ -318,7 +407,9 @@
       let note_prova = null;
       if (prova === 'nessuna') {
         parts.push({ name: 'Scatola', m: center(box0), role: 'body' });
-        parts.push({ name: 'Coperchio', m: center(lid), role: 'inner', print: flip(center(lid)), at: p.__closed ? undefined : [0, Yo + 12, -Zw] });
+        const colored = Object.keys(lidCol).length > 0, atL = p.__closed ? undefined : [0, Yo + 12, -Zw];
+        parts.push(Object.assign({ name: 'Coperchio', m: center(lid), role: 'inner', print: flip(center(lid)), at: atL }, colored ? { color: F[0], group: 'Coperchio' } : {}));
+        for (const k of [2, 3, 4]) if (lidCol[k]) parts.push({ name: `Coperchio · colore ${k}`, m: center(lidCol[k]), role: 'inner', print: flip(center(lidCol[k])), at: atL, color: F[k - 1], group: 'Coperchio' });
       } else {
         if (prova === 'fronte' || prova === 'tutte') {
           parts.push({ name: 'Prova del fronte', m: center(X(box0, box(-10, -10, -1, Xo + 10, oy + yF + 8, Htot + 2))), role: 'body' });
@@ -363,13 +454,20 @@
       if (molle) {
         info.push(['Contatti', `${2 * n} piastrine a molla per 18650 (16 × 16,5 mm, vanno bene anche quelle da 16 × 18,5): si infilano dall'alto nelle fessure. Molla a sinistra (−), piastrina col bottone a destra (+), come segnato sul fondo`]);
         info.push(['Collegamenti', `prendi le piastrine con i fili già attaccati: i fili passano dai fori in fondo alle fessure ai canali laterali. Tutti i + insieme e tutti i − insieme con due morsetti a leva (tipo Wago 221), poi alle piazzole B+ e B− della scheda`]);
+      } else if (pp) {
+        info.push(['Portapile', `${gruppi.length} × ${fmt(pp.L)} × ${fmt(pp.W)} × ${fmt(pp.H)} mm (le tue misure), ${gruppi[0]} cell${gruppi[0] > 1 ? 'e' : 'a'} ciascuno; nella cornice c'è 0,4 mm di gioco per lato`]);
+        info.push(['Attenzione', 'il portapile deve essere in parallelo: sopra c\'è scritto 3,7 V o Parallel. Se dice 7,4 V o 11,1 V è in serie e con queste schede non va']);
+        info.push(['Collegamenti', gruppi.length > 1 ? 'tutti i fili rossi insieme e tutti i neri insieme con due morsetti a leva (tipo Wago 221), poi alle piazzole B+ e B− della scheda. Nessuna saldatura sulle celle' : 'il filo rosso a B+ e il nero a B− della scheda. Nessuna saldatura sulle celle']);
       } else info.push(['Celle', 'pacco già saldato a punti con nastro di nichel (come lo fanno i negozi di batterie)']);
       info.push(['Coperchio', viti ? `a viti nascoste: 4 viti ${p.vite} svasate da sotto, lunghe ${dv === 3 ? 16 : 16}–20 mm, che si avvitano nel coperchio. Sopra non si vede niente` : 'a slitta: entra dal fianco destro nelle guide a coda di rondine; la tacca vicino al bordo serve per tirarlo']);
+      if (decoInfo) info.push(['Coperchio decorato', decoInfo]);
       info.push(['Stampa', 'PETG o ASA (il PLA si deforma al sole in auto). Scatola aperta in su, coperchio capovolto: senza supporti']);
       notes.push('Le piazzole B+ e B− della scheda sono da saldare: sono le uniche due saldature, tutto il resto è a contatti e morsetti. Se non saldi, fattele fare (bastano due minuti a chi ha un saldatore)');
       notes.push('Metti nella scatola solo celle uguali e cariche allo stesso modo, con il + verso destra: al contrario la scheda si brucia');
-      if (p.cella === 'normale') notes.push('Celle protette (più lunghe, fino a 70 mm)? Scegli "18650 protette", altrimenti non entrano');
+      if (pp && pp.H < 19) notes.push(`Portapile alto ${fmt(pp.H)} mm: controlla la misura, una 18650 è alta 18,5 mm`);
+      if (p.cella === 'normale' && !pp) notes.push('Celle protette (più lunghe, fino a 70 mm)? Scegli "18650 protette", altrimenti non entrano');
       for (const x of notes) info.push(['Nota', x]);
+      if (DEC) { for (const x of DEC.NOTES) info.push(['Nota', x]); DEC.NOTES.clear(); }
       const res = { parts, info, view: [0.55, -0.95, 0.8] };
       if (note_prova) info.splice(1, 0, ['Prova chiusura', note_prova]);
       if (p.__probe) res.probe = p.__probe({ box0, lid, CrossSection, Zw, Htot });   // solo per i test
