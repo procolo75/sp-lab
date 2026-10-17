@@ -265,7 +265,7 @@
         const lidC = v === 'coperchioCapo' && b.ruolo !== 'cpu';   // sotto il coperchio e capovolta: saldata sopra, componenti e piedini in giù, il retro verso il coperchio
         if (v !== 'capovolta' && v !== 'capovoltaSopra' && !lidC) return Object.assign({}, b, { su: v === 'sopra' });
         const sw = { S: 'N', N: 'S', W: 'W', E: 'E' };
-        if (b.finestra) capoNotes.push(`${b.nome} capovolta: i componenti guardano il fondo, quindi niente finestra nel coperchio`);
+        if (b.finestra) capoNotes.push(`~${b.nome} capovolta: i componenti guardano il fondo, quindi niente finestra nel coperchio`);
         return Object.assign({}, b, { su: v === 'capovolta', capo: true, lidM: lidC || undefined, finestra: null, usb: b.usb ? Object.assign({}, b.usb, { y: b.W - b.usb.y }) : null,
           pines: b.pines.map(q => Object.assign({}, q, { lato: sw[q.lato] })) });
       };
@@ -641,7 +641,7 @@
         supN.push(`sfera Ø ${fmt(2 * R)} mm (pezzo "Sfera") avvitata sotto il fondo con due viti ${vm ? vm.name + ' stampate (pezzo "Viti sfera")' : 'M3 svasate da 8 mm'} (a ${fmt(tx - ox)} mm da sinistra, ${fmt(ty - oy)} mm dal fronte), che entrano nella flangia da ${fmt(fl)} mm; poi si spinge nello snodo fino allo scatto`);
         supN.push(sup === 'parete' ? 'snodo a parete: due viti M3 a testa svasata per fissarlo' : sup === 'magnete' ? `snodo magnetico: sede per un magnete ${p.magnete === '8x2' ? '8 × 2' : '10 × 2'} mm dal lato della base (incollalo)` : 'snodo per treppiede: sede esagonale per un dado 1/4"-20 dal lato della base (11,4 mm tra i lati piani, 6,4 mm profonda)');
         { const h = urta(tx, ty); if (h) notes.push('Supporto: i rialzi per le viti della sfera cadono sotto i dupont di ' + (h.pl === place[0] ? 'il processore' : 'un modulo') + ': spostali con le frecce'); }
-        notes.push('Supporto: la sfera entra nello snodo con una spinta decisa (la coppa ha 4 tagli che si aprono): stampa lo snodo in PETG con 4 pareti. L\'inclinazione è limitata dalla larghezza della scatola: più è larga, prima tocca lo snodo.');
+        notes.push('~Supporto: la sfera entra nello snodo con una spinta decisa (la coppa ha 4 tagli che si aprono): stampa lo snodo in PETG con 4 pareti. L\'inclinazione è limitata dalla larghezza della scatola: più è larga, prima tocca lo snodo.');
       }
 
       let box0 = X(S, box(-1, -1, -1, Xo + 1, Yo + 1, Zw));
@@ -748,7 +748,7 @@
           }
           if (hasT) {
             txt = DEC.fitLines ? DEC.fitLines(p, { x: cx, y: cy - Sa - gap - tH / 2, w: bx1 - bx0, h: Math.max(4, tH), hMax: by1 - by0 }, [p.rotTesto, p.rotTesto2]) : DEC.fitText(p, { x: cx, y: cy - Sa - gap - tH / 2, w: bx1 - bx0, h: Math.max(4, tH) }, p.altTesto);
-            if (txt && txt.reduced) notes.push(`Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
+            if (txt && txt.reduced) notes.push(`~Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
             if (txt) { const kc = CI(txt.cs, area); if (emptyC(kc) || kc.area() < txt.cs.area() * 0.98) notes.push('La scritta tocca una finestra, un foro o il bordo del coperchio: lì viene tagliata. Spostala con le frecce, girala o rimpiccioliscila'); }
           }
           let ts = Math.min(4, Math.max(2, +p.colTesto || 3));
@@ -770,9 +770,9 @@
             decoInfo = st === 'traforata' ? 'traforato: si vede dentro la scatola (attenzione alle schede sotto)' : `inciso ${fmt(depth)} mm`;
           }
           decoInfo += ` · zona usata ${fmt(bx1 - bx0)} × ${fmt(by1 - by0)} mm, lontano da viti, LED e finestre`;
-          if (txt && txt.cap < 4) notes.push('Lettere sotto i 4 mm: vengono poco leggibili');
+          if (txt && txt.cap < 4) notes.push('Lettere sotto i 4 mm: vengono poco leggibili. Ingrandisci la scritta o accorcia il testo');
           if (p.ariaTipo && p.ariaTipo !== 'nessuna' && p.ariaCop && p.ariaCop !== 'no') notes.push('Coperchio decorato con le prese d\'aria sul coperchio: dove si incrociano la decorazione resta bucata. Metti le prese solo sopra le schede, sulle pareti, o toglile dal coperchio');
-        } else if (art || hasT) notes.push('Sul coperchio non c\'è spazio libero per la decorazione (tra viti, LED e finestre)');
+        } else if (art || hasT) notes.push('Sul coperchio non c\'è spazio libero per la decorazione (tra viti, LED e finestre): togli la scritta o il disegno, oppure rimpiccioliscili');
         if (hasT) DEC.logoNotes(noz);
         for (const k of [2, 3, 4]) if (lidCol[k]) lid = sub(lid, lidCol[k]);
       }
@@ -786,7 +786,7 @@
           if (dist < 0) notes.push(`ATTENZIONE: ${nm(place[a], a)} e ${nm(place[b], b)} si sovrappongono: spostali con le frecce`);
           else if (dist < 4) notes.push(`${nm(place[a], a)} e ${nm(place[b], b)} sono a ${fmt(dist)} mm: le culle si fondono e i dupont non passano, meglio almeno 6 mm`);
         }
-        if (cpu.usb) place.slice(1).forEach((q, i) => { const r = rc[i + 1], r0 = rc[0], yc = r0[1] + cpu.usb.y; if (r[0] < r0[0] && r[3] > yc - 8 && r[1] < yc + 8) notes.push(`${nm(q, i + 1)} sta tra il processore e la parete con la USB: il cavo non arriva`); });
+        if (cpu.usb) place.slice(1).forEach((q, i) => { const r = rc[i + 1], r0 = rc[0], yc = r0[1] + cpu.usb.y; if (r[0] < r0[0] && r[3] > yc - 8 && r[1] < yc + 8) notes.push(`${nm(q, i + 1)} sta tra il processore e la parete con la USB: il cavo non arriva: sposta la scheda`); });
       }
       // ---- pezzi ----
       const center = (q) => reg(q.translate([-Xo / 2, -Yo / 2, 0]));
@@ -808,7 +808,7 @@
         const step = 2 * vm.D + 3;
         parts.push({ name: `Viti ${(p.viteM || 'M6')}×${fmt(sc.L)} (4 pezzi)`, m: center(lidScrewAsm), role: 'pin', print: U([0, 1, 2, 3].map(k => reg(sc.print.translate([(k - 1.5) * step, 0, 0])))), at: p.__closed ? undefined : [Xo + 24, 0, 0] });
         info.push(['Viti stampate', `${p.viteM} (passo ${fmt(vm.P)} mm), testa svasata Ø ${fmt(2 * vm.D)} mm con taglio per il cacciavite, lunghe ${fmt(sc.L)} mm. Gioco del filetto ${fmt(vg)} mm. Sono quattro pezzi uguali: stampali in piedi con la testa sul piatto, strati sottili (0,12–0,16 mm), almeno 4 perimetri, meglio PETG`]);
-        notes.push(`Viti stampate ${p.viteM}: con ugello da 0,4 mm la misura minima che viene è M6 (M8 è più robusta). Stampa prima una vite sola e provala nella boccola del coperchio: se è dura o balla cambia il gioco del filetto. Le colonnine sono più grosse di quelle per le viti M3, quindi la scatola cresce di qualche millimetro.`);
+        notes.push(`~Viti stampate ${p.viteM}: con ugello da 0,4 mm la misura minima che viene è M6 (M8 è più robusta). Stampa prima una vite sola e provala nella boccola del coperchio: se è dura o balla cambia il gioco del filetto. Le colonnine sono più grosse di quelle per le viti M3, quindi la scatola cresce di qualche millimetro.`);
       }
       // ---- base + campana ----
       let baseM = null, hoodM = null, campScrews = null;
@@ -867,7 +867,7 @@
           scTxt = `4 viti ${p.viteM} stampate`;
         } else scTxt = `4 viti ${p.vite} a testa svasata lunghe ${fmt(Math.ceil(z0p + 8))}–${fmt(Math.ceil(z0p + 12))} mm (autofilettanti, nel pre-foro da ${dv === 3 ? '2,6' : '2,1'} mm)`;
         info.push(['Base + campana', `base piatta con le culle e i 4 fori svasati; campana con pareti, coperchio e colonnine in un pezzo. Monti e colleghi le schede sulla base aperta, abbassi la campana (${notches.length ? 'la tacca scende sopra ' + (it0.usb ? 'la USB' : 'il connettore') + ' e il dentino della base la richiude' : 'si centra sul bordino della base'}) e la fissi con ${scTxt} da sotto la base. Stampa: base com'è, campana capovolta con il coperchio sul piatto, senza supporti`]);
-        if (padH > 0.01) notes.push(`Base + campana: sotto le viti la base ha dei rialzi da ${fmt(padH)} mm, perché la testa svasata è più alta del fondo`);
+        if (padH > 0.01) notes.push(`~Base + campana: sotto le viti la base ha dei rialzi da ${fmt(padH)} mm, perché la testa svasata è più alta del fondo`);
       }
       if (ballScrewAsm) parts.push({ name: `Viti sfera ${(p.viteM || 'M6')}×${fmt(ballScrewL)} (2 pezzi)`, m: center(ballScrewAsm), role: 'pin', print: ballScrewP, at: p.__closed ? undefined : [Xo + 24, 0, 0] });
       if (ballM) {
@@ -903,7 +903,7 @@
         info.push(['Prese d\'aria', `${nome} da ${fmt(+p.ariaD)} mm, bordo tra l'una e l'altra ${fmt(+p.ariaGap)} mm · area libera: ${ariaTxt.join(' · ')}`]);
         if (p.ariaFondo && p.ariaFondo !== 'no') notes.push('Prese d\'aria sul fondo: la scatola appoggiata sul tavolo le chiude. Incolla dei piedini di gomma (almeno 3 mm) o appoggiala su un supporto.');
         if (p.ariaCop && p.ariaCop !== 'no' && [p.ariaDietro, p.ariaDavanti, p.ariaDestra, p.ariaSinistra, p.ariaFondo].every(v => !v || v === 'no')) notes.push('Prese d\'aria solo sul coperchio: l\'aria calda esce ma ne entra poca. Aggiungi una presa in basso (parete o fondo) per far circolare l\'aria.');
-        notes.push('Prese d\'aria: l\'aria calda sale, quindi la presa che butta fuori va in alto e quella che fa entrare l\'aria va in basso, possibilmente su pareti diverse. Fessure e fori lasciano passare polvere e insetti: se serve, dietro ci va una reticella.');
+        notes.push('~Prese d\'aria: l\'aria calda sale, quindi la presa che butta fuori va in alto e quella che fa entrare l\'aria va in basso, possibilmente su pareti diverse. Fessure e fori lasciano passare polvere e insetti: se serve, dietro ci va una reticella.');
       }
       if (supN.length) info.push(['Supporto', supN.join(' · ')]);
       if (vm && !campana) { const iC = info.findIndex(r => r[0] === 'Coperchio'); if (iC >= 0) info[iC][1] = `4 viti ${p.viteM} stampate dal basso, a filo sotto il fondo, che si avvitano in boccole filettate sotto il coperchio: sopra non si vede niente`; }
@@ -920,18 +920,18 @@
         const alt = byAddr[a].find(q => q.i2c.length > 1 && q.i2c[1] !== '0x38');
         notes.push(`Indirizzo I²C ${a} in comune tra ${byAddr[a].map(q => q.nome.split(' (')[0]).join(' e ')}: ${alt ? `su uno dei due porta il pin AD0/SDO a 3,3 V per passare a ${alt.i2c[1]}` : 'usa un solo modulo o un multiplexer I²C (TCA9548A)'}`);
       }
-      if (mods.some(q => q.bus === 'SPI') && mods.filter(q => q.bus === 'SPI').length > 1) notes.push('RC522 e display SPI possono stare sullo stesso bus SPI (clk, miso, mosi), con un pin CS diverso per ciascuno');
+      if (mods.some(q => q.bus === 'SPI') && mods.filter(q => q.bus === 'SPI').length > 1) notes.push('~RC522 e display SPI possono stare sullo stesso bus SPI (clk, miso, mosi), con un pin CS diverso per ciascuno');
       if (mods.some(q => q.led)) {
-        notes.push('Il pannello LED va alimentato a 5 V con un alimentatore a parte (un 8 × 8 può arrivare a quasi 4 A a tutto bianco), con la massa in comune col processore. Metti un condensatore da circa 1000 µF all\'ingresso e una resistenza da 300–500 Ω sul filo dei dati; con 3,3 V di segnale serve un adattatore di livello');
-        if (cpu.piattaforma === 'esp8266') notes.push('Su ESP8266 il pannello va sul GPIO3 (metodo esp8266_dma di neopixelbus): è il pin RX, quindi durante il caricamento via USB scollega il filo');
+        notes.push('~Il pannello LED va alimentato a 5 V con un alimentatore a parte (un 8 × 8 può arrivare a quasi 4 A a tutto bianco), con la massa in comune col processore. Metti un condensatore da circa 1000 µF all\'ingresso e una resistenza da 300–500 Ω sul filo dei dati; con 3,3 V di segnale serve un adattatore di livello');
+        if (cpu.piattaforma === 'esp8266') notes.push('~Su ESP8266 il pannello va sul GPIO3 (metodo esp8266_dma di neopixelbus): è il pin RX, quindi durante il caricamento via USB scollega il filo');
       }
-      if (cpu.id === 'esp32cam' || cpu.id === 'esp32cammb') notes.push((cpu.id === 'esp32cammb' ? 'Base MB: i piedini della ESP32-CAM sono coperti dagli zoccoli e non escono dalla base, quindi i sensori non si collegano con i dupont a questa scheda (servono fili saldati ai piedini o un altro processore). ' : '') + 'ESP32-CAM: fotocamera e microSD occupano quasi tutti i pin. Se non usi la microSD si liberano i GPIO 2, 4, 12, 13, 14, 15; i pin I²C dell\'esempio ESPHome della fotocamera sono GPIO26 (SDA) e GPIO27 (SCL)');
-      if (mods.some(q => q.id === 'ens160')) notes.push('ENS160: dopo la prima accensione ESPHome aspetta un\'ora prima di dare valori buoni, poi 3 minuti a ogni avvio');
-      if (mods.some(q => q.id === 'mpu6050' || q.id === 'bmi160')) notes.push('Accelerometro: fissa bene la scheda (le culle la tengono, ma non è bloccata); gli assi X, Y, Z sono quelli stampati sul circuito');
+      if (cpu.id === 'esp32cam' || cpu.id === 'esp32cammb') notes.push('~' + (cpu.id === 'esp32cammb' ? 'Base MB: i piedini della ESP32-CAM sono coperti dagli zoccoli e non escono dalla base, quindi i sensori non si collegano con i dupont a questa scheda (servono fili saldati ai piedini o un altro processore). ' : '') + 'ESP32-CAM: fotocamera e microSD occupano quasi tutti i pin. Se non usi la microSD si liberano i GPIO 2, 4, 12, 13, 14, 15; i pin I²C dell\'esempio ESPHome della fotocamera sono GPIO26 (SDA) e GPIO27 (SCL)');
+      if (mods.some(q => q.id === 'ens160')) notes.push('~ENS160: dopo la prima accensione ESPHome aspetta un\'ora prima di dare valori buoni, poi 3 minuti a ogni avvio');
+      if (mods.some(q => q.id === 'mpu6050' || q.id === 'bmi160')) notes.push('~Accelerometro: fissa bene la scheda (le culle la tengono, ma non è bloccata); gli assi X, Y, Z sono quelli stampati sul circuito');
       info.push(['Stampa', 'PLA o PETG. Scatola aperta in su, coperchio capovolto: senza supporti. Stampa prima il coperchio (è sottile e veloce) e prova le schede nelle finestre']);
       if (decoInfo) info.push(['Coperchio decorato', decoInfo]);
-      if (w < 1.2) notes.push(`Pareti da ${fmt(w)} mm (2 passate con ugello 0,4): leggere ma flessibili. Infila la spina USB tenendo la scatola, e stampa con almeno 2 perimetri pieni`);
-      if (f < 1.0) notes.push(`Fondo da ${fmt(f)} mm: si flette un po'. Le culle e le colonnine ci poggiano sopra; con le prese d'aria sul fondo diventa delicato`);
+      if (w < 1.2) notes.push(`~Pareti da ${fmt(w)} mm (2 passate con ugello 0,4): leggere ma flessibili. Infila la spina USB tenendo la scatola, e stampa con almeno 2 perimetri pieni`);
+      if (f < 1.0) notes.push(`~Fondo da ${fmt(f)} mm: si flette un po'. Le culle e le colonnine ci poggiano sopra; con le prese d'aria sul fondo diventa delicato`);
       for (const x of notes) info.push(['Nota', x]);
       if (DEC) { for (const x of DEC.NOTES) info.push(['Nota', x]); DEC.NOTES.clear(); }
 

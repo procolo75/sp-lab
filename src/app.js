@@ -340,7 +340,7 @@
         { sec: 'Coperchio decorato', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 8, max: 80, step: 1, def: 30, unit: 'mm', show: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
-        layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.6, show: p => p.stileCop !== 'traforata' }),
+        layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.2, show: p => p.stileCop !== 'traforata' }),
         ...linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.'),
         { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
@@ -561,7 +561,11 @@
         { sec: 'Misure', id: 'spessore', label: 'Spessore', type: 'num', min: 3, max: 15, step: 0.5, def: 7, unit: 'mm' },
         { sec: 'Misure', id: 'rinforzo', label: 'Estensione rinforzo', type: 'int', min: 30, max: 100, step: 5, def: 75, unit: '%', show: p => p.tipo !== 'nessuno', help: 'Quanta parte dei due bracci copre il rinforzo. Sotto resta lo spazio per le viti al muro.' },
         { sec: 'Misure', id: 'labbro', label: 'Labbro in punta', type: 'num', min: 0, max: 20, step: 1, def: 0, unit: 'mm', help: 'Un dentino sulla punta che impedisce alla mensola di scivolare (ottimo per il vetro). 0 = nessuno.' },
+        { sec: 'Piastra al muro', id: 'sopra', label: 'Sale sopra la mensola', type: 'num', min: 0, max: 200, step: 5, def: 0, unit: 'mm', help: 'La parte contro il muro continua sopra la mensola, con altre viti al muro: la mensola si appoggia contro la piastra. 0 = non sale.' },
+        { sec: 'Piastra al muro', id: 'spMensola', label: 'Spessore della mensola', type: 'num', min: 5, max: 60, step: 1, def: 18, unit: 'mm', show: p => p.sopra > 0, help: 'Le viti sopra partono sopra la mensola.' },
+        { sec: 'Piastra al muro', id: 'larghPiastra', label: 'Larghezza piastra', type: 'num', min: 10, max: 200, step: 1, def: 25, unit: 'mm', help: 'Larga come la squadra o di più (non meno). Più larga della squadra si stampa sulla schiena.' },
         { sec: 'Viti', id: 'foriMuro', label: 'Viti al muro', type: 'int', min: 0, max: 4, def: 2 },
+        { sec: 'Viti', id: 'foriSopra', label: 'Viti al muro sopra la mensola', type: 'int', min: 0, max: 6, def: 2, show: p => p.sopra > 0 },
         { sec: 'Viti', id: 'foriMensola', label: 'Viti sotto la mensola', type: 'int', min: 0, max: 4, def: 1 },
         { sec: 'Viti', id: 'vite', label: 'Diametro vite', type: 'num', min: 2.5, max: 8, step: 0.5, def: 4, unit: 'mm' },
         { sec: 'Viti', id: 'svasati', label: 'Fori svasati', type: 'bool', def: true, help: 'Per viti a testa piana: la testa resta a filo.' },
@@ -689,7 +693,7 @@
         { sec: 'Coperchio decorato', id: 'rotDisegno', label: 'Rotazione disegno', type: 'int', min: 0, max: 345, step: 15, def: 0, unit: '°', wrap: true, show: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
-        layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.6, show: p => p.stileCop !== 'traforata' }),
+        layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.2, show: p => p.stileCop !== 'traforata' }),
         ...withRot(linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
         { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
@@ -777,7 +781,7 @@
         { sec: 'Coperchio decorato', id: 'rotDisegno', label: 'Rotazione disegno', type: 'int', min: 0, max: 345, step: 15, def: 0, unit: '°', wrap: true, show: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
-        layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.6, show: p => p.stileCop !== 'traforata' }),
+        layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.2, show: p => p.stileCop !== 'traforata' }),
         ...withRot(linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
         { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
@@ -1171,14 +1175,16 @@
     if (!fitted || fitted.key !== key || size.length() > fitted.len * 1.3 || size.length() < fitted.len / 1.5) { fitView(bbAll, res.view); fitted = { key, len: size.length() }; }
     // info
     const info = $('#info');
-    info.innerHTML = res.info.map(([k, v]) => {
+    // Nota = qualcosa da cambiare (rosso, con il suggerimento). Le informazioni senza modifiche da fare iniziano con "~" e escono neutre come "Info"
+    const rows = res.info.map(([k, v]) => (k === 'Nota' && String(v)[0] === '~' ? ['Info', String(v).slice(1)] : [k, v]));
+    info.innerHTML = rows.map(([k, v]) => {
       const cls = k === 'Spazio interno' ? 'key' : k.startsWith('  ') ? 'sub' : k === 'Nota' ? 'warn' : '';
       return `<div class="${cls}"><dt>${esc(k.trim())}</dt><dd>${esc(v)}</dd></div>`;
     }).join('');
     const vol = real(res.parts).reduce((s, p) => s + p.mesh.volume, 0) / 1000;
     info.innerHTML += `<div><dt>Volume materiale</dt><dd>${vol.toFixed(1).replace('.', ',')} cm³</dd></div>`;
     // le note restano visibili come numero sul pulsante, anche a riquadro chiuso
-    const nNote = res.info.filter(([k]) => k === 'Nota').length, badge = $('#infoBadge');
+    const nNote = rows.filter(([k]) => k === 'Nota').length, badge = $('#infoBadge');
     badge.hidden = !nNote; badge.textContent = nNote; badge.title = nNote === 1 ? '1 nota' : `${nNote} note`;
     const rp = real(res.parts), bad = rp.find(p => p.mesh.status !== 'NoError');
     const ghosts = res.parts.length - rp.length;
@@ -1267,14 +1273,32 @@
       objs += `<object id="${oid}" name="${esc(part.name)}" type="model"${ci >= 0 ? ` pid="1" pindex="${ci}"` : ''}><mesh><vertices>${v.join('')}</vertices><triangles>${t.join('')}</triangles></mesh></object>\n`;
       return oid;
     };
+    // Gli slicer non leggono i colori del 3MF base: il filamento di ogni parte va scritto nei loro file di configurazione
+    // (Bambu Studio / OrcaSlicer: model_settings.config, PrusaSlicer: Slic3r_PE_model.config). Senza, la scritta a filo ha lo stesso
+    // filamento del resto e nello slicer non si vede.
+    const multi = colors.length > 1, extOf = (m) => Math.max(1, colors.indexOf(m.part.color) + 1);
+    let cfgB = '', cfgP = '';
     for (const u of units) {
-      let oid;
+      let oid, ids = [];
       if (u.members.length === 1) oid = meshObj(u.members[0].part, u.members[0].mesh);
       else {
         // oggetto con più parti: lo slicer lo apre come un solo pezzo e assegni un filamento a ogni parte
-        const ids = u.members.map(m => meshObj(m.part, m.mesh));
+        ids = u.members.map(m => meshObj(m.part, m.mesh));
         oid = ++id;
         objs += `<object id="${oid}" name="${esc(u.name)}" type="model"><components>${ids.map(c => `<component objectid="${c}"/>`).join('')}</components></object>\n`;
+      }
+      if (multi) {
+        const e0 = extOf(u.members[0]);
+        cfgB += `<object id="${oid}"><metadata key="name" value="${esc(u.name)}"/><metadata key="extruder" value="${e0}"/>`;
+        cfgP += `<object id="${oid}" instances_count="1"><metadata type="object" key="name" value="${esc(u.name)}"/><metadata type="object" key="extruder" value="${e0}"/>`;
+        let first = 0;
+        u.members.forEach((m, i) => {
+          const n = m.mesh.tri.length / 3, e = extOf(m), nm = esc(m.part.name);
+          if (u.members.length > 1) cfgB += `<part id="${ids[i]}" subtype="normal_part"><metadata key="name" value="${nm}"/><metadata key="extruder" value="${e}"/></part>`;
+          cfgP += `<volume firstid="${first}" lastid="${first + n - 1}"><metadata type="volume" key="name" value="${nm}"/><metadata type="volume" key="volume_type" value="ModelPart"/><metadata type="volume" key="extruder" value="${e}"/></volume>`;
+          first += n;
+        });
+        cfgB += '</object>\n'; cfgP += '</object>\n';
       }
       build += `<item objectid="${oid}" transform="1 0 0 0 1 0 0 0 1 ${n4(u.tx)} ${n4(u.ty)} ${n4(u.tz)}"/>\n`;
     }
@@ -1289,10 +1313,12 @@ ${mats}${objs}</resources>
 ${build}</build>
 </model>`;
     const ct = `<?xml version="1.0" encoding="UTF-8"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>`;
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/><Default Extension="config" ContentType="text/xml"/></Types>`;
     const rels = `<?xml version="1.0" encoding="UTF-8"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>`;
-    return zip([['[Content_Types].xml', ct], ['_rels/.rels', rels], ['3D/3dmodel.model', model]]);
+    const files = [['[Content_Types].xml', ct], ['_rels/.rels', rels], ['3D/3dmodel.model', model]];
+    if (multi) files.push(['Metadata/model_settings.config', `<?xml version="1.0" encoding="UTF-8"?>\n<config>\n${cfgB}</config>\n`], ['Metadata/Slic3r_PE_model.config', `<?xml version="1.0" encoding="UTF-8"?>\n<config>\n${cfgP}</config>\n`]);
+    return zip(files);
   }
   function buildSTL(res) {
     // STL: un solo colore, tutte le parti insieme

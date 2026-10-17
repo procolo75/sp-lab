@@ -91,7 +91,7 @@ In ogni scritta puoi mettere il **logo SP**, il **viso** e il **viso di Natale**
 - **Ugello:** le linee dei loghi sono sottili (0,86 mm nel logo SP alto 46 mm, 0,70 mm nel viso alto 58 mm). Se il logo è più piccolo, le linee vengono ingrossate fino alla larghezza dell'ugello scelto (0,2 · 0,4 · 0,6 · 0,8 mm), così si stampano comunque. Il riquadro misure dice di quanto e da che altezza in su il logo esce con tutti i dettagli: con ugello da 0,4 mm circa 23 mm per il logo SP e 36 mm per il viso.
 
 #### Colori nel file 3MF
-- Ogni colore è una **parte separata dello stesso oggetto**: nello slicer (Bambu Studio, OrcaSlicer, PrusaSlicer) assegni un filamento a ciascuna parte. I colori scelti sono anche scritti nel file.
+- Ogni colore è una **parte separata dello stesso oggetto**: nello slicer (Bambu Studio, OrcaSlicer, PrusaSlicer) assegni un filamento a ciascuna parte. I colori scelti sono anche scritti nel file, e a ogni parte è già assegnato il suo filamento (1, 2, 3…) nei file di configurazione di Bambu Studio / OrcaSlicer e di PrusaSlicer: nello slicer servono almeno tanti filamenti quanti sono i colori, altrimenti la scritta a filo ha lo stesso filamento del resto e non si vede.
 - **Stampante a un colore:** per le decorazioni piatte in rilievo il riquadro misure dice a che altezza cambiare filamento, quando i colori sono ad altezze diverse (per esempio un colore per il disegno e uno, più alto, per la scritta). Più colori alla stessa altezza richiedono una stampante multicolore: il riquadro lo segnala.
 - **Al massimo 4 filamenti** per pezzo, compreso quello del pezzo.
 - Lo **STL** ha un solo colore: per i colori usa il 3MF.
@@ -166,6 +166,7 @@ Si stampano **sdraiati sul fianco**: gli strati seguono il profilo, così la squ
   - rinforzo a scelta: triangolo pieno (il più robusto), triangolo traforato, puntone diagonale, raccordo curvo, arco, oppure nessuno (squadra a L); l'*estensione* dice quanta parte dei bracci copre;
   - viti al muro e sotto la mensola, diametro e svasatura. I fori vanno solo dove arriva il cacciavite (non dietro il rinforzo): se non c'è spazio il riquadro misure lo dice. Fori a goccia, stampabili senza supporti;
   - *labbro* in punta che non fa scivolare la mensola (comodo per il vetro);
+  - *piastra al muro* che può salire sopra la mensola con altre viti al muro (la mensola si appoggia contro la piastra), e può essere più larga della squadra: in quel caso si stampa sulla schiena;
   - numero di copie; nell'anteprima c'è una mensola d'esempio in azzurro.
 - **Gancio:**
   - *a muro*: uno o più ganci (appendiabiti) con la distanza tra loro, su una piastra fissata con viti (sopra i ganci, dove arriva il cacciavite), biadesivo o magneti incassati sul retro;
@@ -297,6 +298,7 @@ I valori che imposti restano salvati nel browser. **Ripristina valori** torna a 
 - Ogni pezzo è un oggetto separato e con il suo nome (per esempio "Cassetto 3" o "Cestello pescante 1").
 - Le parti di colori diversi dello stesso pezzo restano unite in un solo oggetto multicolore.
 - I pezzi sono già disposti sul piatto e orientati per la stampa senza supporti: coperchi e cestelli capovolti, cassetti accanto al mobile, viti con la testa in basso o sdraiate sul lato piatto, dadi e rondelle accanto.
+- Il riquadro misure separa le **Note** in rosso (c'è qualcosa da cambiare, con il suggerimento) dalle **Info** neutre (solo informazioni, niente da correggere).
 - Funziona con Bambu Studio, PrusaSlicer, OrcaSlicer, Cura e gli altri slicer che leggono il 3MF.
 
 ---

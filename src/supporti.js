@@ -24,7 +24,7 @@
       return U(segs);
     }
     // goccia: foro orizzontale stampabile senza supporti (la punta va verso l'alto di stampa, cioè +z)
-    const tear = (a, b, r, tip) => R2(CrossSection.hull([C2(a, b, r, 36), C2(a, b + tip * r * 1.41, 0.05, 4)]));
+    const tear = (a, b, r, tip, tipX = 0) => R2(CrossSection.hull([C2(a, b, r, 36), C2(a + tipX * r * 1.41, b + tip * r * 1.41, 0.05, 4)]));
 
     // ---------- estrusioni ----------
     const EXTZ = (c, z0, z1) => (empty(c) ? null : reg(reg(c.extrude(z1 - z0)).translate([0, 0, z0])));        // c nel piano x,y
@@ -41,9 +41,10 @@
       return union([hole, reg(reg(cone(hc + 0.02, r, dk / 2 + 0.2).rotate([0, 90, 0])).translate([T - hc, y, z]))]);
     }
     // foro per vite verticale (asse y) in un braccio orizzontale tra y0 e y1, svasatura sotto (faccia y0)
-    function holeY(x, z, d, y0, y1, csk) {
+    // back: il pezzo si stampa sulla schiena (x = 0 sul piatto), quindi la punta della goccia va verso +x
+    function holeY(x, z, d, y0, y1, csk, back) {
       const r = d / 2 + 0.15, dk = 2 * d, hc = (dk - d) / 2;
-      const hole = EXTY(tear(x, -z, r, -1), y0 - 1, y1 + 1);
+      const hole = EXTY(back ? tear(x, -z, r, 0, 1) : tear(x, -z, r, -1), y0 - 1, y1 + 1);
       if (!csk) return hole;
       return union([hole, reg(reg(cone(hc + 0.02, dk / 2 + 0.2, r).rotate([-90, 0, 0])).translate([x, y0 - 0.02, z]))]);
     }
@@ -88,7 +89,7 @@
         const rr = Math.min(4, T);
         const hole = OFF(OFF(tri, -(T * 1.1 + rr)), rr);
         rib = empty(hole) ? tri : D(tri, hole);
-        if (empty(hole)) notes.push('Rinforzo troppo piccolo per alleggerirlo: è rimasto pieno');
+        if (empty(hole)) notes.push('~Rinforzo troppo piccolo per alleggerirlo: è rimasto pieno');
       } else if (p.tipo === 'diagonale') {
         const w = T * 1.25;
         rib = I(stroke([[T * 0.5, y1], [x1, top + T * 0.5]], w), RECT(0, 0, D0, Hh));
@@ -102,8 +103,15 @@
         rib = D(RECT(T - 0.01, y1, x1, top + 0.01), E2(x1, y1, a, b));
       }
       const lip = p.labbro > 0 ? RECT(D0 - Math.max(3, T * 0.7), Hh - 0.01, D0, Hh + p.labbro) : null;
-      let prof = soft(U([wall, arm, fil, rib, lip]), Math.min(1.5, T * 0.2));
-      let m = EXTZ(prof, 0, W);
+      // piastra al muro: può salire sopra la mensola (altre viti al muro) ed essere più larga della squadra
+      const up = Math.max(0, +p.sopra || 0), Wp = Math.max(W, +p.larghPiastra || W), wide = Wp > W + 0.01;
+      const sM = Math.max(5, +p.spMensola || 18), zc = W / 2;
+      const plate = RECT(0, 0, T, Hh + up);
+      let m;
+      if (!wide) m = EXTZ(soft(U([wall, arm, fil, rib, lip, up ? plate : null]), Math.min(1.5, T * 0.2)), 0, W);
+      else m = union([EXTZ(soft(U([wall, arm, fil, rib, lip]), Math.min(1.5, T * 0.2)), 0, W), EXTZ(soft(plate, Math.min(1.5, T * 0.2)), zc - Wp / 2, zc + Wp / 2)]);
+      // piastra più larga della squadra: sul fianco il braccio sarebbe a sbalzo, quindi si stampa sulla schiena
+      const back = wide;
       // fori: solo dove la vite e il cacciavite non sbattono contro il rinforzo
       const d = p.vite, dk = 2 * d, free = p.tipo !== 'nessuno';
       const holes = [];
@@ -118,19 +126,42 @@
         const xA = (free ? x1 + dk / 2 + 2 : T + dk / 2 + 3), xB = D0 - (lip ? Math.max(3, T * 0.7) : 0) - dk / 2 - 2;
         const fit = Math.max(0, Math.floor((xB - xA) / (dk + 3)) + 1);
         if (fit < nM) { notes.push(fit ? `Sotto la mensola ci stanno solo ${fit} viti: allunga la squadra o riduci il rinforzo` : 'Nessuno spazio per le viti della mensola: allunga la squadra o riduci il rinforzo'); nM = fit; }
-        for (let i = 0; i < nM; i++) holes.push(holeY(nM === 1 ? (xA + xB) / 2 : xA + (xB - xA) * i / (nM - 1), W / 2, d, top, Hh, p.svasati));
+        for (let i = 0; i < nM; i++) holes.push(holeY(nM === 1 ? (xA + xB) / 2 : xA + (xB - xA) * i / (nM - 1), W / 2, d, top, Hh, p.svasati, back));
+      }
+      // viti al muro sopra la mensola: sopra lo spessore della mensola, in fila lungo la larghezza della piastra, poi su più righe
+      let nS = up ? Math.max(0, p.foriSopra | 0) : 0;
+      if (nS) {
+        const yA = Hh + sM + dk / 2 + 2, yB = Hh + up - dk / 2 - 3, zA = zc - Wp / 2 + dk / 2 + 3, zB = zc + Wp / 2 - dk / 2 - 3;
+        const rows = yB < yA - 0.01 ? 0 : Math.floor((yB - yA) / (dk + 3)) + 1, cols = zB < zA - 0.01 ? 1 : Math.floor((zB - zA) / (dk + 3)) + 1;
+        if (!rows) { notes.push(`Sopra la mensola non c'è posto per le viti: la piastra deve salire almeno ${fmt(Math.ceil(sM + dk + 5))} mm (con una mensola spessa ${fmt(sM)} mm)`); nS = 0; }
+        else {
+          if (rows * cols < nS) { notes.push(`Sopra la mensola ci stanno solo ${rows * cols} viti: alza o allarga la piastra`); nS = rows * cols; }
+          const nc = Math.min(cols, nS), nr = Math.ceil(nS / nc);
+          const ys = nr === 1 ? [(yA + yB) / 2] : Array.from({ length: nr }, (_, i) => yA + (yB - yA) * i / (nr - 1));
+          let left = nS;
+          for (const y of ys) {
+            const k = Math.min(nc, left); left -= k;
+            const span = Math.min(zB - zA, (k - 1) * Math.max(dk + 3, (zB - zA) / Math.max(1, nc - 1)));
+            for (let i = 0; i < k; i++) holes.push(holeX(y, k === 1 ? zc : zc - span / 2 + span * i / (k - 1), d, T, p.svasati));
+          }
+        }
       }
       if (holes.length) m = sub(m, union(holes));
       const n = Math.max(1, p.copie | 0), gap = Math.max(W + 30, 90), parts = [];
-      for (let i = 0; i < n; i++) parts.push(part(n > 1 ? `Reggimensola ${i + 1}` : 'Reggimensola', toUse(m, W), { print: m, at: [0, (i - (n - 1) / 2) * gap, 0] }));
-      // mensola d'esempio appoggiata sopra
-      const span = (n - 1) * gap + W + 80, depth = lip ? D0 - Math.max(3, T * 0.7) - 0.5 : D0;
-      parts.push(ghost(box(0, -span / 2, Hh, depth, span / 2, Hh + 18)));
-      info.push(['Misure', `${fmt(D0)} × ${fmt(Hh)} mm, larga ${fmt(W)} mm, spessore ${fmt(T)} mm`]);
-      info.push(['Viti', `${nW} al muro, ${nM} sotto la mensola, Ø ${fmt(d)} mm${p.svasati ? ' a testa svasata' : ''}`]);
-      if (lip) info.push(['Labbro', `${fmt(p.labbro)} mm: la mensola va profonda al massimo ${fmt(depth)} mm`]);
-      info.push(['Pezzi', `${n}, già sdraiati sul fianco`]);
-      info.push(['Stampa', 'sul fianco: gli strati seguono il profilo e la squadra non si apre sotto carico']);
+      const gapP = Math.max(Wp + 30, 90);
+      for (let i = 0; i < n; i++) parts.push(part(n > 1 ? `Reggimensola ${i + 1}` : 'Reggimensola', toUse(m, W), { print: back ? toBack(m) : m, at: [0, (i - (n - 1) / 2) * gapP, 0] }));
+      // mensola d'esempio appoggiata sopra (con la piastra alta parte dalla piastra)
+      const span = (n - 1) * gapP + Wp + 80, depth = lip ? D0 - Math.max(3, T * 0.7) - 0.5 : D0, x0g = up ? T + 0.5 : 0;
+      parts.push(ghost(box(x0g, -span / 2, Hh, depth, span / 2, Hh + sM)));
+      info.push(['Misure', `${fmt(D0)} × ${fmt(Hh + up)} mm, larga ${fmt(W)} mm, spessore ${fmt(T)} mm`]);
+      if (up || wide) info.push(['Piastra al muro', `alta ${fmt(Hh + up)} mm${up ? ` (sale ${fmt(up)} mm sopra la mensola)` : ''}, larga ${fmt(Wp)} mm`]);
+      info.push(['Viti', `${nW} al muro sotto la mensola${up ? `, ${nS} al muro sopra` : ''}, ${nM} nella mensola, Ø ${fmt(d)} mm${p.svasati ? ' a testa svasata' : ''}`]);
+      if (lip) info.push(['Labbro', `${fmt(p.labbro)} mm: la mensola va profonda al massimo ${fmt(depth - x0g)} mm`]);
+      else if (up) info.push(['Mensola', `appoggia contro la piastra: profonda al massimo ${fmt(D0 - T)} mm sopra la squadra`]);
+      info.push(['Pezzi', `${n}, già ${back ? 'sulla schiena' : 'sdraiati sul fianco'}`]);
+      info.push(['Stampa', back
+        ? 'sulla schiena (piastra sul piatto), perché la piastra è più larga della squadra: sul fianco il braccio sarebbe a sbalzo. Regge meno che sul fianco: per pesi forti usa almeno 4 perimetri e riempimento al 40%'
+        : 'sul fianco: gli strati seguono il profilo e la squadra non si apre sotto carico']);
       if (T < 5 || W < 15) notes.push('Squadra sottile: va bene per mensole leggere. Per libri e pesi spessore 7 mm o più e larghezza 25 mm o più');
       for (const x of notes) info.push(['Nota', x]);
       return { parts, info, view: [0.75, -0.9, 0.45] };
@@ -153,7 +184,7 @@
         const d = p.vite, dk = 2 * d;
         let Hp = p.altezzaP;
         const need = p.fissaggio === 'viti' ? j.top + dk + 8 : j.top * 0.6;
-        if (p.fissaggio === 'viti' && Hp < need) { notes.push(`Piastra alzata a ${fmt(need)} mm: le viti stanno sopra la punta, dove arriva il cacciavite`); Hp = need; }
+        if (p.fissaggio === 'viti' && Hp < need) { notes.push(`~Piastra alzata a ${fmt(need)} mm: le viti stanno sopra la punta, dove arriva il cacciavite`); Hp = need; }
         const nv = Math.max(1, p.viti | 0);
         if (p.fissaggio === 'viti') L = Math.max(L + 6, nv * (dk + 6));
         else if (p.fissaggio === 'magneti') L = Math.max(L + 6, (p.numMag | 0) * (p.magnete + 4) + 4);
@@ -176,7 +207,7 @@
         plate = EXTZ(soft(clip, Math.min(1, br * 0.3)), 0, L);
         const j = jHook(gap + T - 0.5, -p.interno + s / 2, p.sporgenza, p.raggio, p.punta, p.inclinazione, s, p.pomello);
         hooks.push(j.cs);
-        if (br > 3) notes.push(`Il ponte sopra la porta è ${fmt(br)} mm: controlla che passi nella fessura tra porta e telaio (di solito 2–3 mm)`);
+        if (br > 3) notes.push(`~Il ponte sopra la porta è ${fmt(br)} mm: controlla che passi nella fessura tra porta e telaio (di solito 2–3 mm)`);
         info.push(['Porta', `spessore ${fmt(p.porta)} mm + ${fmt(p.tolleranza)} di gioco, ponte ${fmt(br)} mm`]);
         ghostM = box(0, -p.interno - 80, -20, p.porta, 0, L + 20);
       } else if (tipo === 'tubo') {
@@ -213,7 +244,7 @@
       info.splice(1, 0, ['Gancio', `${nameT}${n > 1 ? `, ${n} ganci ogni ${fmt(ia)} mm` : ''}, spessore ${fmt(s)} mm`]);
       if (tipo !== 'esse') info.push(['Sporgenza', `${fmt(p.sporgenza)} mm, punta ${fmt(p.punta)} mm`]);
       info.push(['Stampa', print === m ? 'sul fianco: gli strati seguono la curva, il gancio non si spezza' : 'sulla schiena: più comodo, ma il gancio è meno robusto']);
-      if (p.interasse < W + 4 && n > 1) notes.push(`Interasse portato a ${fmt(ia)} mm: i ganci si toccavano`);
+      if (p.interasse < W + 4 && n > 1) notes.push(`~Interasse portato a ${fmt(ia)} mm: i ganci si toccavano`);
       if (s < 4) notes.push('Gancio sottile: per giacche e borse almeno 6 mm');
       for (const x of notes) info.push(['Nota', x]);
       return { parts, info, view: [0.8, -0.85, 0.45] };

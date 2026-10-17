@@ -508,7 +508,7 @@
       const art = artOf(p.forma, p.svg);
       const S = p.altezza, noz = +p.ugello || 0.4;
       if (!art) {
-        notes.push(p.forma === 'svg' ? 'Carica un file SVG con il pulsante qui a sinistra' : 'Disegno non trovato');
+        notes.push(p.forma === 'svg' ? 'Carica un file SVG con il pulsante qui a sinistra' : 'Disegno non trovato: caricalo di nuovo o scegli un altro motivo');
         return Object.assign(SHAPES.medaglione(S), { F: filaments(p) });
       }
       const g = artGeom(art, S), con = forStamp ? 1.5 : Math.max(0, p.contorno === undefined ? 1.6 : +p.contorno);   // nella formina un po' di contorno addolcisce la lama
@@ -523,7 +523,7 @@
         const bars = big.map(c => { const b = bounds(c); return stroke([[(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2], mc], w); });
         base = U([comps[0], ...big, ...bars]);
         if (small.length) notes.push(`${small.length} part${small.length > 1 ? 'i piccole staccate tolte' : 'e piccola staccata tolta'} (aumenta il contorno per tenerle)`);
-        if (big.length) notes.push(`${big.length} part${big.length > 1 ? 'i staccate unite' : 'e staccata unita'} con un ponticello`);
+        if (big.length) notes.push(`~${big.length} part${big.length > 1 ? 'i staccate unite' : 'e staccata unita'} con un ponticello`);
       }
       // nome: targhetta sotto o sopra il disegno, oppure sopra il disegno stesso
       const has = [p.scritta, p.scritta2].some(x => x && String(x).trim());
@@ -581,11 +581,11 @@
           if (txt && txt.cs) {
             const a0 = txt.cs.area();
             txt.cs = I(txt.cs, OFF(base, -(p.bordo && !forStamp ? p.bordoL + 0.4 : 0.8)));
-            if (txt.moved && (!txt.cs || txt.cs.area() < a0 * 0.98)) notes.push('La scritta spostata esce dal pezzo: la parte fuori viene tagliata');
+            if (txt.moved && (!txt.cs || txt.cs.area() < a0 * 0.98)) notes.push('La scritta spostata esce dal pezzo: la parte fuori viene tagliata: riportala dentro con le frecce');
           }
-        } else notes.push(`Il motivo "${SHAPE_NAMES[p.forma]}" non ha spazio per una scritta`);
+        } else notes.push(`Il motivo "${SHAPE_NAMES[p.forma]}" non ha spazio per una scritta: scegli un'altra forma o togli la scritta`);
       }
-      if (txt && txt.cap < 4.5) notes.push('Lettere sotto i 4,5 mm: vengono poco leggibili');
+      if (txt && txt.cap < 4.5) notes.push('Lettere sotto i 4,5 mm: vengono poco leggibili. Ingrandisci la scritta o accorcia il testo');
       return { sh, base, txt, notes };
     }
 
@@ -674,7 +674,7 @@
         } else if (sd === 'traforata') {
           const r = perforate(g.linesIn ? D(g.linesIn, OFF(zone, 0.6)) : des, base);
           if (r.holes) body = sub(body, EXT(r.holes, -1, t + 1));
-          if (r.bridges) notes.push(`${g.name}: ${r.bridges} ponticell${r.bridges > 1 ? 'i tengono' : 'o tiene'} attaccate le parti che sarebbero cadute`);
+          if (r.bridges) notes.push(`~${g.name}: ${r.bridges} ponticell${r.bridges > 1 ? 'i tengono' : 'o tiene'} attaccate le parti che sarebbero cadute`);
         } else {
           // tutto il disegno sporge dello stesso spessore, qualunque sia il colore delle sue parti
           for (const k of [2, 3, 4]) if (L[k]) { c[k].push(EXT(L[k], t, t + h)); up.push({ k, h }); }
@@ -704,7 +704,7 @@
       const used = [1, ...[2, 3, 4].filter(k => solid[k])];
       info.push(['Filamenti', used.length > 1 ? used.map(k => (k === 1 ? '1 pezzo' : String(k))).join(' · ') + ' (una parte per filamento nel 3MF)' : '1']);
       if (filo && parts.length > 1) {
-        notes.push('A filo i colori sono negli stessi strati: serve una stampante multicolore (AMS, MMU…)');
+        notes.push('~A filo i colori sono negli stessi strati: serve una stampante multicolore (AMS, MMU…)');
       } else if (parts.length > 1 && up.length) {
         // con un solo estrusore si cambia filamento salendo: a ogni altezza deve esserci un colore solo
         const byH = new Map();
@@ -717,7 +717,7 @@
       }
       if (filo) {
         const al = (v) => [0.2, 0.28].some(h => Math.abs(v / h - Math.round(v / h)) < 0.02);
-        if (![t, dT, hR, ...groups.map(g => g.h)].every(al)) notes.push('Alcuni spessori non sono multipli di 0,2 o 0,28 mm: lo slicer arrotonda agli strati');
+        if (![t, dT, hR, ...groups.map(g => g.h)].every(al)) notes.push('Alcuni spessori non sono multipli di 0,2 o 0,28 mm: lo slicer arrotonda agli strati: scegli spessori multipli di 0,2 o 0,28 mm');
       }
       // segnaposto: base con fessura
       if (p.supporto) {
@@ -843,7 +843,7 @@
         else textMs.push(turn(reg(prismY(c, 0, -big).intersect(shell(p.rilievoTesto)))));
         zonesM.push(turn(prismY(OFF(c, 1.5), 0, -big)));
         texts.push({ i, ang, zc, h: bc.h, halfA, cap: tf.cap });
-        if (tf.reduced) notes.push(`Scritta ${i} ridotta a ${fmt(tf.cap)} mm per starci`);
+        if (tf.reduced) notes.push(`~Scritta ${i} ridotta a ${fmt(tf.cap)} mm per starci`);
         if (p.costruzione === 'meta') {
           const a0 = ((ang % 180) + 180) % 180;   // distanza dalla giunzione (a 90° e 270°)
           if (Math.abs(a0 - 90) < halfA + 2) notes.push(`Scritta ${i} sulla giunzione delle due metà: spostala verso 0° o 180°`);
@@ -908,7 +908,7 @@
       if (p.foroLed && p.foroLed !== 'nessuno') {
         const rMaxL = Math.max(3, pr.rMax * 0.42);
         const rL = Math.min(p.diamLed / 2, rMaxL);
-        if (rL < p.diamLed / 2 - 0.01) notes.push(`Foro per il LED ridotto a Ø ${fmt(2 * rL)} mm: di più indebolisce la pallina`);
+        if (rL < p.diamLed / 2 - 0.01) notes.push(`~Foro per il LED ridotto a Ø ${fmt(2 * rL)} mm: di più indebolisce la pallina`);
         const tip = (c, r) => (p.costruzione === 'meta' ? R2(CrossSection.hull([c, C2(0, r * Math.SQRT2, 0.05, 4), C2(0, -r * Math.SQRT2, 0.05, 4)])) : c);
         const shapeL = (d) => tip(C2(0, 0, rL + d, 64), rL + d);
         const ext = (p.costruzione === 'meta' ? Math.SQRT2 : 1) * rL;
@@ -950,7 +950,7 @@
         };
         addHalf(front, 'Metà davanti', pf);
         addHalf(back, 'Metà dietro', pb);
-        notes.push('Due metà: fuori non servono supporti, ma dentro la cupola è a sbalzo e lo slicer può chiederli');
+        notes.push('~Due metà: fuori non servono supporti, ma dentro la cupola è a sbalzo e lo slicer può chiederli');
         // anello di giunzione: aderisce all'interno sul piano di separazione
         const inr = OFF(pr.cs, -t - p.tolleranza, J);
         let ring = reg(prismY(D(OFF(inr, 1, J), OFF(inr, -1.6, J)), 3, -3).intersect(rev(inr)));   // il bordo esterno lo dà la superficie interna
@@ -961,7 +961,7 @@
         parts.push(part('Pallina · corpo', body, col[0], 'Pallina'));
         if (dec) parts.push(part('Pallina · decorazioni', dec, col[1], 'Pallina'));
         if (textM) parts.push(part('Pallina · scritta', textM, col[2], 'Pallina'));
-        notes.push('Intera: serve il supporto sotto, e dentro la cupola in cima resta a sbalzo');
+        notes.push('~Intera: serve il supporto sotto, e dentro la cupola in cima resta a sbalzo');
       }
       if (cap) parts.push(part('Cappuccio', cap, col[1], 'Cappuccio', { print: reg(cap.rotate([180, 0, 0])) }));
       if (led && led.lid) parts.push(part('Tappo del LED', led.lid, col[0], 'Tappo', { at: [pr.rMax + 25, 0, 0], print: led.flat ? led.lid : reg(led.lid.rotate([180, 0, 0])) }));
@@ -1012,7 +1012,7 @@
       // piedino piatto (Ø 0,6 del diametro) e foro per il LED dentro il piedino
       let rLed = p.foroLed && p.foroLed !== 'nessuno' ? p.diamLed / 2 : 0;
       const rFoot = Math.max({ piccolo: 0.15, medio: 0.225, grande: 0.3 }[p.piedino] * Dm || 0.15 * Dm, rLed + 4);
-      if (rLed > rFoot - 3) { rLed = rFoot - 3; notes.push(`Foro per il LED ridotto a Ø ${fmt(2 * rLed)} mm`); }
+      if (rLed > rFoot - 3) { rLed = rFoot - 3; notes.push(`~Foro per il LED ridotto a Ø ${fmt(2 * rLed)} mm`); }
       const zF = -Math.sqrt(R * R - rFoot * rFoot), zT = R, rh = Math.max(2.2, Dm * 0.05);
       // ---- profondità delle valli (x = raggio valle / raggio cresta), dal polo verso l'equatore ----
       const DS = 0.02;
@@ -1055,9 +1055,9 @@
             cs = stencil(tf.cs, tf.cap); desc = `"${str}", lettere ${fmt(tf.cap)} mm`;
             // spostamento: in su e in giù solo finché resta nella fascia liscia
             const o = p['pos' + i] || [0, 0], dyMax = Math.max(0, (hBox - tf.box.h) / 2), dy = Math.max(-dyMax, Math.min(dyMax, +o[1] || 0));
-            if (Math.abs(dy - (+o[1] || 0)) > 0.05) notes.push(`${nm}: scritta spostata solo fino al bordo della fascia`);
+            if (Math.abs(dy - (+o[1] || 0)) > 0.05) notes.push(`~${nm}: scritta spostata solo fino al bordo della fascia`);
             if (+o[0] || dy) cs = MV(cs, +o[0] || 0, dy);
-            if (tf.reduced) notes.push(`${nm}: scritta ridotta a ${fmt(tf.cap)} mm per stare nella fascia`);
+            if (tf.reduced) notes.push(`~${nm}: scritta ridotta a ${fmt(tf.cap)} mm per stare nella fascia`);
           } else if (kind === 'simbolo') {
             const S = Math.min(p.altSimbolo, hBox);
             let c0 = symbolCS(p['simbolo' + i], S); if (!c0) return;
@@ -1065,7 +1065,7 @@
             if (f < 1) c0 = R2(c0.scale([f, f]));
             const b1 = bounds(c0); cs = MV(c0, -(b1.x0 + b1.x1) / 2, -(b1.y0 + b1.y1) / 2);
             desc = `${SPIR_SYMBOLS[p['simbolo' + i]] || ''}, alto ${fmt(bounds(cs).h)} mm`;
-            if (S < p.altSimbolo - 0.05 || f < 0.97) notes.push(`${nm}: simbolo ridotto per stare nella fascia`);
+            if (S < p.altSimbolo - 0.05 || f < 0.97) notes.push(`~${nm}: simbolo ridotto per stare nella fascia`);
           } else return;
           if (empty(cs)) return;
           const bb = bounds(cs), half = Math.asin(Math.min(1, (Math.max(-bb.x0, bb.x1) + 2) / R));
@@ -1234,7 +1234,7 @@
         if (tf) {
           textM = reg(prismY(tf.cs, 0, -rb * 2).intersect(sub(cylZ(rb + p.rilievoTesto, 0, hb, 0, 0, 96), cylZ(rb - 0.01, -1, hb + 1, 0, 0, 96))));
           info.push(['Lettere', `${fmt(tf.cap)} mm, sul bordo della base`]);
-          if (tf.reduced) notes.push('Scritta ridotta per stare sulla base');
+          if (tf.reduced) notes.push('~Scritta ridotta per stare sulla base');
         }
         zb = hb;
       }
@@ -1256,7 +1256,7 @@
       } else {
         tree = reg(reg(cs.extrude(hTree, Math.ceil(hTree / 1.2), p.torsione, 0.02)).translate([0, 0, zb]));
         parts.push(part('Albero', tree, p.col1, G));
-        notes.push('Si può stampare in modalità vaso a spirale: diventa vuoto e leggerissimo');
+        notes.push('~Si può stampare in modalità vaso a spirale: diventa vuoto e leggerissimo');
       }
       const zTop = zb + hTree;
       if (p.stella) {
@@ -1349,7 +1349,7 @@
           if (p.stileTesto === 'traforata') body = sub(body, prismY(stencil(c, tf.cap), 0, -2 * Dl));
           else textM = reg(prismY(c, 0, -2 * Dl).intersect(sh2));
           info.push(['Lettere', `${fmt(tf.cap)} mm`]);
-          if (tf.reduced) notes.push('Scritta ridotta per stare sulla fascia');
+          if (tf.reduced) notes.push('~Scritta ridotta per stare sulla fascia');
         }
       }
       // motivi traforati

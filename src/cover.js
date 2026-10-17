@@ -299,14 +299,14 @@
           }
           if (hasT) {
             txt = DEC.fitText(p, { x: 0, y: cy - Sa - gap - tH / 2, w: ax1 - ax0, h: Math.max(4, tH) }, p.altTesto);
-            if (txt && txt.reduced) notes.push(`Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
+            if (txt && txt.reduced) notes.push(`~Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
           }
           // colore della scritta: scelto, oppure quello che stacca di più dalla cover
           let ts = Math.min(4, Math.max(2, +p.colTesto || 3));
           if (p.colTesto === 'auto' && root.SPLAB_SVG) ts = [2, 3, 4].sort((a, b) => root.SPLAB_SVG.dist(F[b - 1], F[0]) - root.SPLAB_SVG.dist(F[a - 1], F[0]))[0];
           const mir = (c) => (empty(c) ? null : R2(c.mirror([1, 0])));
           const keep = (c) => D(D(I(c, area), slotCS), p.magsafe === 'fuori' ? OFF(magCS, 0.6) : null);
-          if (txt && txt.moved) { const kc = keep(txt.cs); if (empty(kc) || kc.area() < txt.cs.area() * 0.98) notes.push('La scritta spostata esce dalla zona libera del retro (sotto la fotocamera, a 5 mm dai bordi): la parte fuori viene tagliata'); }
+          if (txt && txt.moved) { const kc = keep(txt.cs); if (empty(kc) || kc.area() < txt.cs.area() * 0.98) notes.push('La scritta spostata esce dalla zona libera del retro (sotto la fotocamera, a 5 mm dai bordi): la parte fuori viene tagliata: riportala dentro con le frecce'); }
           if (st === 'filo') {
             const tcs = txt ? keep(txt.cs) : null;
             for (const k of [2, 3, 4]) {
@@ -317,13 +317,13 @@
             decoInfo = `a filo, nei primi ${fmt(depth)} mm del retro (serve una stampante multicolore, o un cambio di filamento a ${fmt(depth)} mm)`;
           } else {
             let hole = U([artCS ? keep(artCS) : null, txt ? keep(st === 'traforata' ? DEC.stencil(txt.cs, txt.cap) : txt.cs) : null]);
-            if (st === 'traforata' && artCS) { const r = DEC.perforate(hole, OFF(base, -3)); hole = r.holes; if (r.bridges) notes.push(`${r.bridges} ponticell${r.bridges > 1 ? 'i tengono' : 'o tiene'} attaccate le parti del disegno`); }
+            if (st === 'traforata' && artCS) { const r = DEC.perforate(hole, OFF(base, -3)); hole = r.holes; if (r.bridges) notes.push(`~${r.bridges} ponticell${r.bridges > 1 ? 'i tengono' : 'o tiene'} attaccate le parti del disegno`); }
             if (!empty(hole)) cuts.push(st === 'traforata' ? EXTZ(mir(hole), -1, tb + 0.05) : EXTZ(mir(hole), -1, depth));
             decoInfo = st === 'traforata' ? 'traforato: si vede il retro del telefono' : `inciso ${fmt(depth)} mm`;
           }
-          if (txt && txt.cap < 4) notes.push('Lettere sotto i 4 mm: vengono poco leggibili');
-          if (stand) notes.push('La guida del cavalletto passa sul retro: la decorazione le lascia spazio');
-        } else if (art || hasT) notes.push('Sul retro non c\'è spazio per la decorazione');
+          if (txt && txt.cap < 4) notes.push('Lettere sotto i 4 mm: vengono poco leggibili. Ingrandisci la scritta o accorcia il testo');
+          if (stand) notes.push('~La guida del cavalletto passa sul retro: la decorazione le lascia spazio');
+        } else if (art || hasT) notes.push('Sul retro non c\'è spazio per la decorazione: togli la scritta o il disegno, oppure rimpiccioliscili');
         DEC.logoNotes(noz);
       }
 
@@ -394,16 +394,16 @@
       if (magInfo) {
         info.push(['MagSafe', magInfo]);
         if (!empty(I(magCS, OFF(winOut, 0.5)))) notes.push('L\'incavo MagSafe arriva alla finestra della fotocamera: usa un anello più piccolo');
-        if (slotCS && !empty(I(magCS, slotCS))) notes.push(p.magsafe === 'dentro' ? 'La guida del cavalletto passa sotto l\'incavo MagSafe: il retro è più spesso perché tra i due restino 0,6 mm' : 'La guida del cavalletto attraversa l\'incavo MagSafe sul retro: l\'anello ci passa sopra');
-        if (t.custom) notes.push('Misure tue: l\'incavo MagSafe è al centro del telefono');
+        if (slotCS && !empty(I(magCS, slotCS))) notes.push(p.magsafe === 'dentro' ? '~La guida del cavalletto passa sotto l\'incavo MagSafe: il retro è più spesso perché tra i due restino 0,6 mm' : '~La guida del cavalletto attraversa l\'incavo MagSafe sul retro: l\'anello ci passa sopra');
+        if (t.custom) notes.push('~Misure tue: l\'incavo MagSafe è al centro del telefono');
       }
       if (strip) info.push(['Prova', `solo ${p.prova === 'cima' ? 'la cima' : 'il fondo'} (22 mm): stampala per controllare misure e gioco, poi spegni la prova`]);
       info.push(['Stampa', `retro sul piatto, senza supporti${tpu ? '; il TPU va stampato lento (20–30 mm/s)' : ''}`]);
       if (!insert && lens > 0.15) notes.push('Le lenti sporgono dalla cover: scegli la copertura a parte per proteggerle');
-      if (insert) notes.push('Stampa la copertura in PLA o PETG opaco, con la faccia esterna sul piatto come la cover: il TPU è troppo morbido e un materiale chiaro fa passare la luce del flash nelle foto');
-      if (!t.custom && tb > 2.1) notes.push(`Retro di ${fmt(tb)} mm: Apple indica al massimo 2,1 mm perché la ricarica MagSafe funzioni sempre`);
+      if (insert) notes.push('~Stampa la copertura in PLA o PETG opaco, con la faccia esterna sul piatto come la cover: il TPU è troppo morbido e un materiale chiaro fa passare la luce del flash nelle foto');
+      if (!t.custom && tb > 2.1) notes.push(`Retro di ${fmt(tb)} mm: Apple indica al massimo 2,1 mm perché la ricarica MagSafe funzioni sempre: riduci lo spessore del retro`);
       if (!tpu && lip > 0.8) notes.push(`Bordo sul vetro di ${fmt(lip)} mm: con PLA o PETG il telefono rischia di non entrare o di rompere la cover. Meglio 0,6 mm o meno`);
-      if (t.piano && lip > t.piano + 0.6) notes.push(`Il bordo arriva ${fmt(lip - t.piano)} mm dentro la parte piatta dello schermo`);
+      if (t.piano && lip > t.piano + 0.6) notes.push(`Il bordo arriva ${fmt(lip - t.piano)} mm dentro la parte piatta dello schermo: riduci il bordo sul vetro`);
       for (const n of notes) info.push(['Nota', n]);
       if (DEC) { for (const n of DEC.NOTES) info.push(['Nota', n]); DEC.NOTES.clear(); }
       return { parts: parts.filter(Boolean), info, view: [0.55, -0.9, 0.75] };

@@ -2308,7 +2308,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       info.push(['Lunghezza appoggio', `${fmt(L)} mm`]);
       if (p.stampa === 'fianco') info.push(['Stampa', 'sul fianco (separatori più robusti)']);
       const maxDim = p.stampa === 'fianco' ? Math.max(D, zB + hs, L) : Math.max(W, D);
-      if (maxDim > 250) info.push(['Nota', `Lato di ${fmt(maxDim)} mm: controlla che stia nel piatto`]);
+      if (maxDim > 250) info.push(['Nota', `Lato di ${fmt(maxDim)} mm: controlla che stia nel piatto, altrimenti riduci le misure`]);
       return { parts, info };
     }
 
@@ -2415,7 +2415,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         const zwb = f + 2;                                   // fondo del cestello, 2 mm sopra il fondo
         const Sin = (z, extra = 0) => S(z, th + g + extra);  // superficie esterna vaso interno
         let zr = f + p.riserva;                              // fondo del vaso interno
-        if (zr > H - 25) { zr = Math.max(f + 10, H - 25); warn.push(`Riserva ridotta a ${fmt(zr - f)} mm: serve spazio per la terra`); }
+        if (zr > H - 25) { zr = Math.max(f + 10, H - 25); warn.push(`~Riserva ridotta a ${fmt(zr - f)} mm: serve spazio per la terra`); }
         const ft = 2;      // flangia appoggiata sul bordo
         const fondoI = Math.max(1.6, t);
         let inner = union([loft(Sin(zr), Sin(H)), loft(S(H, 0).map(([x, y]) => [x, y, H]), S(H, 0).map(([x, y]) => [x, y, H + ft]))]);
@@ -2581,7 +2581,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       if (!p.testaSu || p.testa === 'nessuna') return std;
       let w = p.testaL, h = p.testaH, note = '';
       const minW = p.testa === 'esagonale' ? D + 2 : p.testa === 'svasata' ? D + 2 : D + 1.6;
-      if (w < minW) { w = minW; note = `Testa allargata a ${fmt(w)} mm: deve essere più larga del gambo`; }
+      if (w < minW) { w = minW; note = `~Testa allargata a ${fmt(w)} mm: deve essere più larga del gambo`; }
       if (p.testa === 'svasata') h = (w - D) / 2;   // svasatura a 90°: l'altezza segue il diametro
       return { w, h: Math.max(1, h), note };
     }
@@ -2597,7 +2597,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       let zH = L, zTop = L, head = null, drive = null, headTxt = '', minY = 0;
       const hd = headDims(sp, p), dkS = hd.w, khS = hd.h;
       if (hd.note) notes.push(hd.note);
-      if (testa === 'svasata') { if (L < khS + 2 * P + 1) { L = khS + 2 * P + 1; notes.push(`Lunghezza portata a ${fmt(L)} mm: la testa svasata è alta ${fmt(khS)} mm`); } zH = L - khS; zTop = L; }
+      if (testa === 'svasata') { if (L < khS + 2 * P + 1) { L = khS + 2 * P + 1; notes.push(`~Lunghezza portata a ${fmt(L)} mm: la testa svasata è alta ${fmt(khS)} mm`); } zH = L - khS; zTop = L; }
       else if (testa !== 'nessuna') zTop = L + hd.h;
       // gambo: parte filettata dalla punta, poi liscia fino alla testa
       const Lt = p.filettata > 0 ? Math.min(p.filettata, zH) : zH;
@@ -3398,7 +3398,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       const art = artOf(p.forma, p.svg);
       const S = p.altezza, noz = +p.ugello || 0.4;
       if (!art) {
-        notes.push(p.forma === 'svg' ? 'Carica un file SVG con il pulsante qui a sinistra' : 'Disegno non trovato');
+        notes.push(p.forma === 'svg' ? 'Carica un file SVG con il pulsante qui a sinistra' : 'Disegno non trovato: caricalo di nuovo o scegli un altro motivo');
         return Object.assign(SHAPES.medaglione(S), { F: filaments(p) });
       }
       const g = artGeom(art, S), con = forStamp ? 1.5 : Math.max(0, p.contorno === undefined ? 1.6 : +p.contorno);   // nella formina un po' di contorno addolcisce la lama
@@ -3413,7 +3413,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         const bars = big.map(c => { const b = bounds(c); return stroke([[(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2], mc], w); });
         base = U([comps[0], ...big, ...bars]);
         if (small.length) notes.push(`${small.length} part${small.length > 1 ? 'i piccole staccate tolte' : 'e piccola staccata tolta'} (aumenta il contorno per tenerle)`);
-        if (big.length) notes.push(`${big.length} part${big.length > 1 ? 'i staccate unite' : 'e staccata unita'} con un ponticello`);
+        if (big.length) notes.push(`~${big.length} part${big.length > 1 ? 'i staccate unite' : 'e staccata unita'} con un ponticello`);
       }
       // nome: targhetta sotto o sopra il disegno, oppure sopra il disegno stesso
       const has = [p.scritta, p.scritta2].some(x => x && String(x).trim());
@@ -3471,11 +3471,11 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           if (txt && txt.cs) {
             const a0 = txt.cs.area();
             txt.cs = I(txt.cs, OFF(base, -(p.bordo && !forStamp ? p.bordoL + 0.4 : 0.8)));
-            if (txt.moved && (!txt.cs || txt.cs.area() < a0 * 0.98)) notes.push('La scritta spostata esce dal pezzo: la parte fuori viene tagliata');
+            if (txt.moved && (!txt.cs || txt.cs.area() < a0 * 0.98)) notes.push('La scritta spostata esce dal pezzo: la parte fuori viene tagliata: riportala dentro con le frecce');
           }
-        } else notes.push(`Il motivo "${SHAPE_NAMES[p.forma]}" non ha spazio per una scritta`);
+        } else notes.push(`Il motivo "${SHAPE_NAMES[p.forma]}" non ha spazio per una scritta: scegli un'altra forma o togli la scritta`);
       }
-      if (txt && txt.cap < 4.5) notes.push('Lettere sotto i 4,5 mm: vengono poco leggibili');
+      if (txt && txt.cap < 4.5) notes.push('Lettere sotto i 4,5 mm: vengono poco leggibili. Ingrandisci la scritta o accorcia il testo');
       return { sh, base, txt, notes };
     }
 
@@ -3564,7 +3564,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         } else if (sd === 'traforata') {
           const r = perforate(g.linesIn ? D(g.linesIn, OFF(zone, 0.6)) : des, base);
           if (r.holes) body = sub(body, EXT(r.holes, -1, t + 1));
-          if (r.bridges) notes.push(`${g.name}: ${r.bridges} ponticell${r.bridges > 1 ? 'i tengono' : 'o tiene'} attaccate le parti che sarebbero cadute`);
+          if (r.bridges) notes.push(`~${g.name}: ${r.bridges} ponticell${r.bridges > 1 ? 'i tengono' : 'o tiene'} attaccate le parti che sarebbero cadute`);
         } else {
           // tutto il disegno sporge dello stesso spessore, qualunque sia il colore delle sue parti
           for (const k of [2, 3, 4]) if (L[k]) { c[k].push(EXT(L[k], t, t + h)); up.push({ k, h }); }
@@ -3594,7 +3594,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       const used = [1, ...[2, 3, 4].filter(k => solid[k])];
       info.push(['Filamenti', used.length > 1 ? used.map(k => (k === 1 ? '1 pezzo' : String(k))).join(' · ') + ' (una parte per filamento nel 3MF)' : '1']);
       if (filo && parts.length > 1) {
-        notes.push('A filo i colori sono negli stessi strati: serve una stampante multicolore (AMS, MMU…)');
+        notes.push('~A filo i colori sono negli stessi strati: serve una stampante multicolore (AMS, MMU…)');
       } else if (parts.length > 1 && up.length) {
         // con un solo estrusore si cambia filamento salendo: a ogni altezza deve esserci un colore solo
         const byH = new Map();
@@ -3607,7 +3607,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       }
       if (filo) {
         const al = (v) => [0.2, 0.28].some(h => Math.abs(v / h - Math.round(v / h)) < 0.02);
-        if (![t, dT, hR, ...groups.map(g => g.h)].every(al)) notes.push('Alcuni spessori non sono multipli di 0,2 o 0,28 mm: lo slicer arrotonda agli strati');
+        if (![t, dT, hR, ...groups.map(g => g.h)].every(al)) notes.push('Alcuni spessori non sono multipli di 0,2 o 0,28 mm: lo slicer arrotonda agli strati: scegli spessori multipli di 0,2 o 0,28 mm');
       }
       // segnaposto: base con fessura
       if (p.supporto) {
@@ -3733,7 +3733,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         else textMs.push(turn(reg(prismY(c, 0, -big).intersect(shell(p.rilievoTesto)))));
         zonesM.push(turn(prismY(OFF(c, 1.5), 0, -big)));
         texts.push({ i, ang, zc, h: bc.h, halfA, cap: tf.cap });
-        if (tf.reduced) notes.push(`Scritta ${i} ridotta a ${fmt(tf.cap)} mm per starci`);
+        if (tf.reduced) notes.push(`~Scritta ${i} ridotta a ${fmt(tf.cap)} mm per starci`);
         if (p.costruzione === 'meta') {
           const a0 = ((ang % 180) + 180) % 180;   // distanza dalla giunzione (a 90° e 270°)
           if (Math.abs(a0 - 90) < halfA + 2) notes.push(`Scritta ${i} sulla giunzione delle due metà: spostala verso 0° o 180°`);
@@ -3798,7 +3798,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       if (p.foroLed && p.foroLed !== 'nessuno') {
         const rMaxL = Math.max(3, pr.rMax * 0.42);
         const rL = Math.min(p.diamLed / 2, rMaxL);
-        if (rL < p.diamLed / 2 - 0.01) notes.push(`Foro per il LED ridotto a Ø ${fmt(2 * rL)} mm: di più indebolisce la pallina`);
+        if (rL < p.diamLed / 2 - 0.01) notes.push(`~Foro per il LED ridotto a Ø ${fmt(2 * rL)} mm: di più indebolisce la pallina`);
         const tip = (c, r) => (p.costruzione === 'meta' ? R2(CrossSection.hull([c, C2(0, r * Math.SQRT2, 0.05, 4), C2(0, -r * Math.SQRT2, 0.05, 4)])) : c);
         const shapeL = (d) => tip(C2(0, 0, rL + d, 64), rL + d);
         const ext = (p.costruzione === 'meta' ? Math.SQRT2 : 1) * rL;
@@ -3840,7 +3840,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         };
         addHalf(front, 'Metà davanti', pf);
         addHalf(back, 'Metà dietro', pb);
-        notes.push('Due metà: fuori non servono supporti, ma dentro la cupola è a sbalzo e lo slicer può chiederli');
+        notes.push('~Due metà: fuori non servono supporti, ma dentro la cupola è a sbalzo e lo slicer può chiederli');
         // anello di giunzione: aderisce all'interno sul piano di separazione
         const inr = OFF(pr.cs, -t - p.tolleranza, J);
         let ring = reg(prismY(D(OFF(inr, 1, J), OFF(inr, -1.6, J)), 3, -3).intersect(rev(inr)));   // il bordo esterno lo dà la superficie interna
@@ -3851,7 +3851,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         parts.push(part('Pallina · corpo', body, col[0], 'Pallina'));
         if (dec) parts.push(part('Pallina · decorazioni', dec, col[1], 'Pallina'));
         if (textM) parts.push(part('Pallina · scritta', textM, col[2], 'Pallina'));
-        notes.push('Intera: serve il supporto sotto, e dentro la cupola in cima resta a sbalzo');
+        notes.push('~Intera: serve il supporto sotto, e dentro la cupola in cima resta a sbalzo');
       }
       if (cap) parts.push(part('Cappuccio', cap, col[1], 'Cappuccio', { print: reg(cap.rotate([180, 0, 0])) }));
       if (led && led.lid) parts.push(part('Tappo del LED', led.lid, col[0], 'Tappo', { at: [pr.rMax + 25, 0, 0], print: led.flat ? led.lid : reg(led.lid.rotate([180, 0, 0])) }));
@@ -3902,7 +3902,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       // piedino piatto (Ø 0,6 del diametro) e foro per il LED dentro il piedino
       let rLed = p.foroLed && p.foroLed !== 'nessuno' ? p.diamLed / 2 : 0;
       const rFoot = Math.max({ piccolo: 0.15, medio: 0.225, grande: 0.3 }[p.piedino] * Dm || 0.15 * Dm, rLed + 4);
-      if (rLed > rFoot - 3) { rLed = rFoot - 3; notes.push(`Foro per il LED ridotto a Ø ${fmt(2 * rLed)} mm`); }
+      if (rLed > rFoot - 3) { rLed = rFoot - 3; notes.push(`~Foro per il LED ridotto a Ø ${fmt(2 * rLed)} mm`); }
       const zF = -Math.sqrt(R * R - rFoot * rFoot), zT = R, rh = Math.max(2.2, Dm * 0.05);
       // ---- profondità delle valli (x = raggio valle / raggio cresta), dal polo verso l'equatore ----
       const DS = 0.02;
@@ -3945,9 +3945,9 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
             cs = stencil(tf.cs, tf.cap); desc = `"${str}", lettere ${fmt(tf.cap)} mm`;
             // spostamento: in su e in giù solo finché resta nella fascia liscia
             const o = p['pos' + i] || [0, 0], dyMax = Math.max(0, (hBox - tf.box.h) / 2), dy = Math.max(-dyMax, Math.min(dyMax, +o[1] || 0));
-            if (Math.abs(dy - (+o[1] || 0)) > 0.05) notes.push(`${nm}: scritta spostata solo fino al bordo della fascia`);
+            if (Math.abs(dy - (+o[1] || 0)) > 0.05) notes.push(`~${nm}: scritta spostata solo fino al bordo della fascia`);
             if (+o[0] || dy) cs = MV(cs, +o[0] || 0, dy);
-            if (tf.reduced) notes.push(`${nm}: scritta ridotta a ${fmt(tf.cap)} mm per stare nella fascia`);
+            if (tf.reduced) notes.push(`~${nm}: scritta ridotta a ${fmt(tf.cap)} mm per stare nella fascia`);
           } else if (kind === 'simbolo') {
             const S = Math.min(p.altSimbolo, hBox);
             let c0 = symbolCS(p['simbolo' + i], S); if (!c0) return;
@@ -3955,7 +3955,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
             if (f < 1) c0 = R2(c0.scale([f, f]));
             const b1 = bounds(c0); cs = MV(c0, -(b1.x0 + b1.x1) / 2, -(b1.y0 + b1.y1) / 2);
             desc = `${SPIR_SYMBOLS[p['simbolo' + i]] || ''}, alto ${fmt(bounds(cs).h)} mm`;
-            if (S < p.altSimbolo - 0.05 || f < 0.97) notes.push(`${nm}: simbolo ridotto per stare nella fascia`);
+            if (S < p.altSimbolo - 0.05 || f < 0.97) notes.push(`~${nm}: simbolo ridotto per stare nella fascia`);
           } else return;
           if (empty(cs)) return;
           const bb = bounds(cs), half = Math.asin(Math.min(1, (Math.max(-bb.x0, bb.x1) + 2) / R));
@@ -4124,7 +4124,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         if (tf) {
           textM = reg(prismY(tf.cs, 0, -rb * 2).intersect(sub(cylZ(rb + p.rilievoTesto, 0, hb, 0, 0, 96), cylZ(rb - 0.01, -1, hb + 1, 0, 0, 96))));
           info.push(['Lettere', `${fmt(tf.cap)} mm, sul bordo della base`]);
-          if (tf.reduced) notes.push('Scritta ridotta per stare sulla base');
+          if (tf.reduced) notes.push('~Scritta ridotta per stare sulla base');
         }
         zb = hb;
       }
@@ -4146,7 +4146,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       } else {
         tree = reg(reg(cs.extrude(hTree, Math.ceil(hTree / 1.2), p.torsione, 0.02)).translate([0, 0, zb]));
         parts.push(part('Albero', tree, p.col1, G));
-        notes.push('Si può stampare in modalità vaso a spirale: diventa vuoto e leggerissimo');
+        notes.push('~Si può stampare in modalità vaso a spirale: diventa vuoto e leggerissimo');
       }
       const zTop = zb + hTree;
       if (p.stella) {
@@ -4239,7 +4239,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           if (p.stileTesto === 'traforata') body = sub(body, prismY(stencil(c, tf.cap), 0, -2 * Dl));
           else textM = reg(prismY(c, 0, -2 * Dl).intersect(sh2));
           info.push(['Lettere', `${fmt(tf.cap)} mm`]);
-          if (tf.reduced) notes.push('Scritta ridotta per stare sulla fascia');
+          if (tf.reduced) notes.push('~Scritta ridotta per stare sulla fascia');
         }
       }
       // motivi traforati
@@ -4308,7 +4308,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       return U(segs);
     }
     // goccia: foro orizzontale stampabile senza supporti (la punta va verso l'alto di stampa, cioè +z)
-    const tear = (a, b, r, tip) => R2(CrossSection.hull([C2(a, b, r, 36), C2(a, b + tip * r * 1.41, 0.05, 4)]));
+    const tear = (a, b, r, tip, tipX = 0) => R2(CrossSection.hull([C2(a, b, r, 36), C2(a + tipX * r * 1.41, b + tip * r * 1.41, 0.05, 4)]));
 
     // ---------- estrusioni ----------
     const EXTZ = (c, z0, z1) => (empty(c) ? null : reg(reg(c.extrude(z1 - z0)).translate([0, 0, z0])));        // c nel piano x,y
@@ -4325,9 +4325,10 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       return union([hole, reg(reg(cone(hc + 0.02, r, dk / 2 + 0.2).rotate([0, 90, 0])).translate([T - hc, y, z]))]);
     }
     // foro per vite verticale (asse y) in un braccio orizzontale tra y0 e y1, svasatura sotto (faccia y0)
-    function holeY(x, z, d, y0, y1, csk) {
+    // back: il pezzo si stampa sulla schiena (x = 0 sul piatto), quindi la punta della goccia va verso +x
+    function holeY(x, z, d, y0, y1, csk, back) {
       const r = d / 2 + 0.15, dk = 2 * d, hc = (dk - d) / 2;
-      const hole = EXTY(tear(x, -z, r, -1), y0 - 1, y1 + 1);
+      const hole = EXTY(back ? tear(x, -z, r, 0, 1) : tear(x, -z, r, -1), y0 - 1, y1 + 1);
       if (!csk) return hole;
       return union([hole, reg(reg(cone(hc + 0.02, dk / 2 + 0.2, r).rotate([-90, 0, 0])).translate([x, y0 - 0.02, z]))]);
     }
@@ -4372,7 +4373,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         const rr = Math.min(4, T);
         const hole = OFF(OFF(tri, -(T * 1.1 + rr)), rr);
         rib = empty(hole) ? tri : D(tri, hole);
-        if (empty(hole)) notes.push('Rinforzo troppo piccolo per alleggerirlo: è rimasto pieno');
+        if (empty(hole)) notes.push('~Rinforzo troppo piccolo per alleggerirlo: è rimasto pieno');
       } else if (p.tipo === 'diagonale') {
         const w = T * 1.25;
         rib = I(stroke([[T * 0.5, y1], [x1, top + T * 0.5]], w), RECT(0, 0, D0, Hh));
@@ -4386,8 +4387,15 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         rib = D(RECT(T - 0.01, y1, x1, top + 0.01), E2(x1, y1, a, b));
       }
       const lip = p.labbro > 0 ? RECT(D0 - Math.max(3, T * 0.7), Hh - 0.01, D0, Hh + p.labbro) : null;
-      let prof = soft(U([wall, arm, fil, rib, lip]), Math.min(1.5, T * 0.2));
-      let m = EXTZ(prof, 0, W);
+      // piastra al muro: può salire sopra la mensola (altre viti al muro) ed essere più larga della squadra
+      const up = Math.max(0, +p.sopra || 0), Wp = Math.max(W, +p.larghPiastra || W), wide = Wp > W + 0.01;
+      const sM = Math.max(5, +p.spMensola || 18), zc = W / 2;
+      const plate = RECT(0, 0, T, Hh + up);
+      let m;
+      if (!wide) m = EXTZ(soft(U([wall, arm, fil, rib, lip, up ? plate : null]), Math.min(1.5, T * 0.2)), 0, W);
+      else m = union([EXTZ(soft(U([wall, arm, fil, rib, lip]), Math.min(1.5, T * 0.2)), 0, W), EXTZ(soft(plate, Math.min(1.5, T * 0.2)), zc - Wp / 2, zc + Wp / 2)]);
+      // piastra più larga della squadra: sul fianco il braccio sarebbe a sbalzo, quindi si stampa sulla schiena
+      const back = wide;
       // fori: solo dove la vite e il cacciavite non sbattono contro il rinforzo
       const d = p.vite, dk = 2 * d, free = p.tipo !== 'nessuno';
       const holes = [];
@@ -4402,19 +4410,42 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         const xA = (free ? x1 + dk / 2 + 2 : T + dk / 2 + 3), xB = D0 - (lip ? Math.max(3, T * 0.7) : 0) - dk / 2 - 2;
         const fit = Math.max(0, Math.floor((xB - xA) / (dk + 3)) + 1);
         if (fit < nM) { notes.push(fit ? `Sotto la mensola ci stanno solo ${fit} viti: allunga la squadra o riduci il rinforzo` : 'Nessuno spazio per le viti della mensola: allunga la squadra o riduci il rinforzo'); nM = fit; }
-        for (let i = 0; i < nM; i++) holes.push(holeY(nM === 1 ? (xA + xB) / 2 : xA + (xB - xA) * i / (nM - 1), W / 2, d, top, Hh, p.svasati));
+        for (let i = 0; i < nM; i++) holes.push(holeY(nM === 1 ? (xA + xB) / 2 : xA + (xB - xA) * i / (nM - 1), W / 2, d, top, Hh, p.svasati, back));
+      }
+      // viti al muro sopra la mensola: sopra lo spessore della mensola, in fila lungo la larghezza della piastra, poi su più righe
+      let nS = up ? Math.max(0, p.foriSopra | 0) : 0;
+      if (nS) {
+        const yA = Hh + sM + dk / 2 + 2, yB = Hh + up - dk / 2 - 3, zA = zc - Wp / 2 + dk / 2 + 3, zB = zc + Wp / 2 - dk / 2 - 3;
+        const rows = yB < yA - 0.01 ? 0 : Math.floor((yB - yA) / (dk + 3)) + 1, cols = zB < zA - 0.01 ? 1 : Math.floor((zB - zA) / (dk + 3)) + 1;
+        if (!rows) { notes.push(`Sopra la mensola non c'è posto per le viti: la piastra deve salire almeno ${fmt(Math.ceil(sM + dk + 5))} mm (con una mensola spessa ${fmt(sM)} mm)`); nS = 0; }
+        else {
+          if (rows * cols < nS) { notes.push(`Sopra la mensola ci stanno solo ${rows * cols} viti: alza o allarga la piastra`); nS = rows * cols; }
+          const nc = Math.min(cols, nS), nr = Math.ceil(nS / nc);
+          const ys = nr === 1 ? [(yA + yB) / 2] : Array.from({ length: nr }, (_, i) => yA + (yB - yA) * i / (nr - 1));
+          let left = nS;
+          for (const y of ys) {
+            const k = Math.min(nc, left); left -= k;
+            const span = Math.min(zB - zA, (k - 1) * Math.max(dk + 3, (zB - zA) / Math.max(1, nc - 1)));
+            for (let i = 0; i < k; i++) holes.push(holeX(y, k === 1 ? zc : zc - span / 2 + span * i / (k - 1), d, T, p.svasati));
+          }
+        }
       }
       if (holes.length) m = sub(m, union(holes));
       const n = Math.max(1, p.copie | 0), gap = Math.max(W + 30, 90), parts = [];
-      for (let i = 0; i < n; i++) parts.push(part(n > 1 ? `Reggimensola ${i + 1}` : 'Reggimensola', toUse(m, W), { print: m, at: [0, (i - (n - 1) / 2) * gap, 0] }));
-      // mensola d'esempio appoggiata sopra
-      const span = (n - 1) * gap + W + 80, depth = lip ? D0 - Math.max(3, T * 0.7) - 0.5 : D0;
-      parts.push(ghost(box(0, -span / 2, Hh, depth, span / 2, Hh + 18)));
-      info.push(['Misure', `${fmt(D0)} × ${fmt(Hh)} mm, larga ${fmt(W)} mm, spessore ${fmt(T)} mm`]);
-      info.push(['Viti', `${nW} al muro, ${nM} sotto la mensola, Ø ${fmt(d)} mm${p.svasati ? ' a testa svasata' : ''}`]);
-      if (lip) info.push(['Labbro', `${fmt(p.labbro)} mm: la mensola va profonda al massimo ${fmt(depth)} mm`]);
-      info.push(['Pezzi', `${n}, già sdraiati sul fianco`]);
-      info.push(['Stampa', 'sul fianco: gli strati seguono il profilo e la squadra non si apre sotto carico']);
+      const gapP = Math.max(Wp + 30, 90);
+      for (let i = 0; i < n; i++) parts.push(part(n > 1 ? `Reggimensola ${i + 1}` : 'Reggimensola', toUse(m, W), { print: back ? toBack(m) : m, at: [0, (i - (n - 1) / 2) * gapP, 0] }));
+      // mensola d'esempio appoggiata sopra (con la piastra alta parte dalla piastra)
+      const span = (n - 1) * gapP + Wp + 80, depth = lip ? D0 - Math.max(3, T * 0.7) - 0.5 : D0, x0g = up ? T + 0.5 : 0;
+      parts.push(ghost(box(x0g, -span / 2, Hh, depth, span / 2, Hh + sM)));
+      info.push(['Misure', `${fmt(D0)} × ${fmt(Hh + up)} mm, larga ${fmt(W)} mm, spessore ${fmt(T)} mm`]);
+      if (up || wide) info.push(['Piastra al muro', `alta ${fmt(Hh + up)} mm${up ? ` (sale ${fmt(up)} mm sopra la mensola)` : ''}, larga ${fmt(Wp)} mm`]);
+      info.push(['Viti', `${nW} al muro sotto la mensola${up ? `, ${nS} al muro sopra` : ''}, ${nM} nella mensola, Ø ${fmt(d)} mm${p.svasati ? ' a testa svasata' : ''}`]);
+      if (lip) info.push(['Labbro', `${fmt(p.labbro)} mm: la mensola va profonda al massimo ${fmt(depth - x0g)} mm`]);
+      else if (up) info.push(['Mensola', `appoggia contro la piastra: profonda al massimo ${fmt(D0 - T)} mm sopra la squadra`]);
+      info.push(['Pezzi', `${n}, già ${back ? 'sulla schiena' : 'sdraiati sul fianco'}`]);
+      info.push(['Stampa', back
+        ? 'sulla schiena (piastra sul piatto), perché la piastra è più larga della squadra: sul fianco il braccio sarebbe a sbalzo. Regge meno che sul fianco: per pesi forti usa almeno 4 perimetri e riempimento al 40%'
+        : 'sul fianco: gli strati seguono il profilo e la squadra non si apre sotto carico']);
       if (T < 5 || W < 15) notes.push('Squadra sottile: va bene per mensole leggere. Per libri e pesi spessore 7 mm o più e larghezza 25 mm o più');
       for (const x of notes) info.push(['Nota', x]);
       return { parts, info, view: [0.75, -0.9, 0.45] };
@@ -4437,7 +4468,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         const d = p.vite, dk = 2 * d;
         let Hp = p.altezzaP;
         const need = p.fissaggio === 'viti' ? j.top + dk + 8 : j.top * 0.6;
-        if (p.fissaggio === 'viti' && Hp < need) { notes.push(`Piastra alzata a ${fmt(need)} mm: le viti stanno sopra la punta, dove arriva il cacciavite`); Hp = need; }
+        if (p.fissaggio === 'viti' && Hp < need) { notes.push(`~Piastra alzata a ${fmt(need)} mm: le viti stanno sopra la punta, dove arriva il cacciavite`); Hp = need; }
         const nv = Math.max(1, p.viti | 0);
         if (p.fissaggio === 'viti') L = Math.max(L + 6, nv * (dk + 6));
         else if (p.fissaggio === 'magneti') L = Math.max(L + 6, (p.numMag | 0) * (p.magnete + 4) + 4);
@@ -4460,7 +4491,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         plate = EXTZ(soft(clip, Math.min(1, br * 0.3)), 0, L);
         const j = jHook(gap + T - 0.5, -p.interno + s / 2, p.sporgenza, p.raggio, p.punta, p.inclinazione, s, p.pomello);
         hooks.push(j.cs);
-        if (br > 3) notes.push(`Il ponte sopra la porta è ${fmt(br)} mm: controlla che passi nella fessura tra porta e telaio (di solito 2–3 mm)`);
+        if (br > 3) notes.push(`~Il ponte sopra la porta è ${fmt(br)} mm: controlla che passi nella fessura tra porta e telaio (di solito 2–3 mm)`);
         info.push(['Porta', `spessore ${fmt(p.porta)} mm + ${fmt(p.tolleranza)} di gioco, ponte ${fmt(br)} mm`]);
         ghostM = box(0, -p.interno - 80, -20, p.porta, 0, L + 20);
       } else if (tipo === 'tubo') {
@@ -4497,7 +4528,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       info.splice(1, 0, ['Gancio', `${nameT}${n > 1 ? `, ${n} ganci ogni ${fmt(ia)} mm` : ''}, spessore ${fmt(s)} mm`]);
       if (tipo !== 'esse') info.push(['Sporgenza', `${fmt(p.sporgenza)} mm, punta ${fmt(p.punta)} mm`]);
       info.push(['Stampa', print === m ? 'sul fianco: gli strati seguono la curva, il gancio non si spezza' : 'sulla schiena: più comodo, ma il gancio è meno robusto']);
-      if (p.interasse < W + 4 && n > 1) notes.push(`Interasse portato a ${fmt(ia)} mm: i ganci si toccavano`);
+      if (p.interasse < W + 4 && n > 1) notes.push(`~Interasse portato a ${fmt(ia)} mm: i ganci si toccavano`);
       if (s < 4) notes.push('Gancio sottile: per giacche e borse almeno 6 mm');
       for (const x of notes) info.push(['Nota', x]);
       return { parts, info, view: [0.8, -0.85, 0.45] };
@@ -4810,14 +4841,14 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           }
           if (hasT) {
             txt = DEC.fitText(p, { x: 0, y: cy - Sa - gap - tH / 2, w: ax1 - ax0, h: Math.max(4, tH) }, p.altTesto);
-            if (txt && txt.reduced) notes.push(`Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
+            if (txt && txt.reduced) notes.push(`~Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
           }
           // colore della scritta: scelto, oppure quello che stacca di più dalla cover
           let ts = Math.min(4, Math.max(2, +p.colTesto || 3));
           if (p.colTesto === 'auto' && root.SPLAB_SVG) ts = [2, 3, 4].sort((a, b) => root.SPLAB_SVG.dist(F[b - 1], F[0]) - root.SPLAB_SVG.dist(F[a - 1], F[0]))[0];
           const mir = (c) => (empty(c) ? null : R2(c.mirror([1, 0])));
           const keep = (c) => D(D(I(c, area), slotCS), p.magsafe === 'fuori' ? OFF(magCS, 0.6) : null);
-          if (txt && txt.moved) { const kc = keep(txt.cs); if (empty(kc) || kc.area() < txt.cs.area() * 0.98) notes.push('La scritta spostata esce dalla zona libera del retro (sotto la fotocamera, a 5 mm dai bordi): la parte fuori viene tagliata'); }
+          if (txt && txt.moved) { const kc = keep(txt.cs); if (empty(kc) || kc.area() < txt.cs.area() * 0.98) notes.push('La scritta spostata esce dalla zona libera del retro (sotto la fotocamera, a 5 mm dai bordi): la parte fuori viene tagliata: riportala dentro con le frecce'); }
           if (st === 'filo') {
             const tcs = txt ? keep(txt.cs) : null;
             for (const k of [2, 3, 4]) {
@@ -4828,13 +4859,13 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
             decoInfo = `a filo, nei primi ${fmt(depth)} mm del retro (serve una stampante multicolore, o un cambio di filamento a ${fmt(depth)} mm)`;
           } else {
             let hole = U([artCS ? keep(artCS) : null, txt ? keep(st === 'traforata' ? DEC.stencil(txt.cs, txt.cap) : txt.cs) : null]);
-            if (st === 'traforata' && artCS) { const r = DEC.perforate(hole, OFF(base, -3)); hole = r.holes; if (r.bridges) notes.push(`${r.bridges} ponticell${r.bridges > 1 ? 'i tengono' : 'o tiene'} attaccate le parti del disegno`); }
+            if (st === 'traforata' && artCS) { const r = DEC.perforate(hole, OFF(base, -3)); hole = r.holes; if (r.bridges) notes.push(`~${r.bridges} ponticell${r.bridges > 1 ? 'i tengono' : 'o tiene'} attaccate le parti del disegno`); }
             if (!empty(hole)) cuts.push(st === 'traforata' ? EXTZ(mir(hole), -1, tb + 0.05) : EXTZ(mir(hole), -1, depth));
             decoInfo = st === 'traforata' ? 'traforato: si vede il retro del telefono' : `inciso ${fmt(depth)} mm`;
           }
-          if (txt && txt.cap < 4) notes.push('Lettere sotto i 4 mm: vengono poco leggibili');
-          if (stand) notes.push('La guida del cavalletto passa sul retro: la decorazione le lascia spazio');
-        } else if (art || hasT) notes.push('Sul retro non c\'è spazio per la decorazione');
+          if (txt && txt.cap < 4) notes.push('Lettere sotto i 4 mm: vengono poco leggibili. Ingrandisci la scritta o accorcia il testo');
+          if (stand) notes.push('~La guida del cavalletto passa sul retro: la decorazione le lascia spazio');
+        } else if (art || hasT) notes.push('Sul retro non c\'è spazio per la decorazione: togli la scritta o il disegno, oppure rimpiccioliscili');
         DEC.logoNotes(noz);
       }
 
@@ -4905,16 +4936,16 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       if (magInfo) {
         info.push(['MagSafe', magInfo]);
         if (!empty(I(magCS, OFF(winOut, 0.5)))) notes.push('L\'incavo MagSafe arriva alla finestra della fotocamera: usa un anello più piccolo');
-        if (slotCS && !empty(I(magCS, slotCS))) notes.push(p.magsafe === 'dentro' ? 'La guida del cavalletto passa sotto l\'incavo MagSafe: il retro è più spesso perché tra i due restino 0,6 mm' : 'La guida del cavalletto attraversa l\'incavo MagSafe sul retro: l\'anello ci passa sopra');
-        if (t.custom) notes.push('Misure tue: l\'incavo MagSafe è al centro del telefono');
+        if (slotCS && !empty(I(magCS, slotCS))) notes.push(p.magsafe === 'dentro' ? '~La guida del cavalletto passa sotto l\'incavo MagSafe: il retro è più spesso perché tra i due restino 0,6 mm' : '~La guida del cavalletto attraversa l\'incavo MagSafe sul retro: l\'anello ci passa sopra');
+        if (t.custom) notes.push('~Misure tue: l\'incavo MagSafe è al centro del telefono');
       }
       if (strip) info.push(['Prova', `solo ${p.prova === 'cima' ? 'la cima' : 'il fondo'} (22 mm): stampala per controllare misure e gioco, poi spegni la prova`]);
       info.push(['Stampa', `retro sul piatto, senza supporti${tpu ? '; il TPU va stampato lento (20–30 mm/s)' : ''}`]);
       if (!insert && lens > 0.15) notes.push('Le lenti sporgono dalla cover: scegli la copertura a parte per proteggerle');
-      if (insert) notes.push('Stampa la copertura in PLA o PETG opaco, con la faccia esterna sul piatto come la cover: il TPU è troppo morbido e un materiale chiaro fa passare la luce del flash nelle foto');
-      if (!t.custom && tb > 2.1) notes.push(`Retro di ${fmt(tb)} mm: Apple indica al massimo 2,1 mm perché la ricarica MagSafe funzioni sempre`);
+      if (insert) notes.push('~Stampa la copertura in PLA o PETG opaco, con la faccia esterna sul piatto come la cover: il TPU è troppo morbido e un materiale chiaro fa passare la luce del flash nelle foto');
+      if (!t.custom && tb > 2.1) notes.push(`Retro di ${fmt(tb)} mm: Apple indica al massimo 2,1 mm perché la ricarica MagSafe funzioni sempre: riduci lo spessore del retro`);
       if (!tpu && lip > 0.8) notes.push(`Bordo sul vetro di ${fmt(lip)} mm: con PLA o PETG il telefono rischia di non entrare o di rompere la cover. Meglio 0,6 mm o meno`);
-      if (t.piano && lip > t.piano + 0.6) notes.push(`Il bordo arriva ${fmt(lip - t.piano)} mm dentro la parte piatta dello schermo`);
+      if (t.piano && lip > t.piano + 0.6) notes.push(`Il bordo arriva ${fmt(lip - t.piano)} mm dentro la parte piatta dello schermo: riduci il bordo sul vetro`);
       for (const n of notes) info.push(['Nota', n]);
       if (DEC) { for (const n of DEC.NOTES) info.push(['Nota', n]); DEC.NOTES.clear(); }
       return { parts: parts.filter(Boolean), info, view: [0.55, -0.9, 0.75] };
@@ -5069,7 +5100,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       const FI = B.fianchi.filter(q => q[0] !== blocked);
       const pul = B.pulsante && B.pulsante.lato !== blocked ? B.pulsante : null;
       if (B.pulsante && !pul) notes.push('Il pulsante della scheda resta dalla parte delle celle e da fuori non si preme: metti le celle dall\'altra parte');
-      if (B.fianchi.length > FI.length) notes.push(`Dalla parte delle celle resta chiuso: ${B.fianchi.filter(q => q[0] === blocked).map(q => q[3]).join(', ')}`);
+      if (B.fianchi.length > FI.length) notes.push(`~Dalla parte delle celle resta chiuso: ${B.fianchi.filter(q => q[0] === blocked).map(q => q[3]).join(', ')}`);
       const lati = new Set(FI.map(q => q[0]));
       if (pul && pul.lato !== 'fronte') lati.add(pul.lato);
       const hasL = lati.has('sx'), hasR = lati.has('dx');
@@ -5258,7 +5289,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           for (const px of xs) for (const py of ys) posts.push([px, py]);
           // dalla parte della scheda: una colonnina dietro la scheda, se c'è posto
           if (Yin - (yB + 0.5) >= 2 * pr + 1.5) posts.push([pos === 'destra' ? ox + pr + 0.2 : ox + Xin - pr - 0.2, oy + Yin - pcy]);
-          else notes.push('Celle di fianco: dalla parte della scheda non c\'è posto per una vite, il coperchio è avvitato solo dalla parte delle celle');
+          else notes.push('~Celle di fianco: dalla parte della scheda non c\'è posto per una vite, il coperchio è avvitato solo dalla parte delle celle');
         }
         box0 = X(S, box(-1, -1, -1, Xo + 1, Yo + 1, Zw));
         box0 = sub(box0, U(cuts));
@@ -5344,8 +5375,8 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           }
           if (hasT) {
             txt = DEC.fitLines ? DEC.fitLines(p, { x: cx, y: cy - Sa - gap - tH / 2, w: lw, h: Math.max(4, tH), hMax: lh }, [p.rotTesto, p.rotTesto2]) : DEC.fitText(p, { x: cx, y: cy - Sa - gap - tH / 2, w: lw, h: Math.max(4, tH) }, p.altTesto);
-            if (txt && txt.reduced) notes.push(`Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
-            if (txt && txt.moved) { const kc = CI(txt.cs, area); if (emptyC(kc) || kc.area() < txt.cs.area() * 0.98) notes.push('La scritta spostata esce dalla zona libera del coperchio: la parte fuori viene tagliata'); }
+            if (txt && txt.reduced) notes.push(`~Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
+            if (txt && txt.moved) { const kc = CI(txt.cs, area); if (emptyC(kc) || kc.area() < txt.cs.area() * 0.98) notes.push('La scritta spostata esce dalla zona libera del coperchio: la parte fuori viene tagliata: riportala dentro con le frecce'); }
           }
           let ts = Math.min(4, Math.max(2, +p.colTesto || 3));
           if (p.colTesto === 'auto' && root.SPLAB_SVG) ts = [2, 3, 4].sort((a, b) => root.SPLAB_SVG.dist(F[b - 1], F[0]) - root.SPLAB_SVG.dist(F[a - 1], F[0]))[0];
@@ -5361,12 +5392,12 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
             decoInfo = `a filo, negli ultimi ${fmt(depth)} mm del coperchio (che si stampano per primi): serve una stampante multicolore, o un cambio di filamento a ${fmt(depth)} mm dal piatto`;
           } else {
             let hole = CU([artCS ? keep(artCS) : null, txt ? keep(st === 'traforata' ? DEC.stencil(txt.cs, txt.cap) : txt.cs) : null]);
-            if (st === 'traforata' && artCS) { const r = DEC.perforate(hole, OFF(area, -1)); hole = r.holes; if (r.bridges) notes.push(`${r.bridges} ponticell${r.bridges > 1 ? 'i tengono' : 'o tiene'} attaccate le parti del disegno`); }
+            if (st === 'traforata' && artCS) { const r = DEC.perforate(hole, OFF(area, -1)); hole = r.holes; if (r.bridges) notes.push(`~${r.bridges} ponticell${r.bridges > 1 ? 'i tengono' : 'o tiene'} attaccate le parti del disegno`); }
             if (!emptyC(hole)) lid = sub(lid, st === 'traforata' ? EZ(hole, Zw - 1, Htot + 1) : EZ(hole, Htot - depth, Htot + 1));
             decoInfo = st === 'traforata' ? 'traforato: si vede dentro la scatola' : `inciso ${fmt(depth)} mm`;
           }
-          if (txt && txt.cap < 4) notes.push('Lettere sotto i 4 mm: vengono poco leggibili');
-        } else if (art || hasT) notes.push('Sul coperchio non c\'è spazio per la decorazione');
+          if (txt && txt.cap < 4) notes.push('Lettere sotto i 4 mm: vengono poco leggibili. Ingrandisci la scritta o accorcia il testo');
+        } else if (art || hasT) notes.push('Sul coperchio non c\'è spazio per la decorazione: togli la scritta o il disegno, oppure rimpiccioliscili');
         if (hasT) DEC.logoNotes(noz);
         for (const k of [2, 3, 4]) if (lidCol[k]) lid = sub(lid, lidCol[k]);
       }
@@ -5440,7 +5471,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         const step = 2 * vm.D + 3, nP = posts.length;
         parts.push({ name: `Viti ${p.viteM}×${fmt(sc.L)} (${nP} pezzi)`, m: center(screwAsm), role: 'pin', print: U(posts.map((_, k) => reg(sc.print.translate([(k - (nP - 1) / 2) * step, 0, 0])))), at: p.__closed ? undefined : [Xo + 24, 0, 0] });
         info.push(['Viti stampate', `${p.viteM} (passo ${fmt(vm.P)} mm), testa svasata Ø ${fmt(2 * vm.D)} mm con taglio per il cacciavite, lunghe ${fmt(sc.L)} mm, ${nP} pezzi uguali. Gioco del filetto ${fmt(vg)} mm. Stampale in piedi con la testa sul piatto, strati sottili (0,12–0,16 mm), almeno 4 perimetri, PETG`]);
-        notes.push(`Viti stampate ${p.viteM}: con ugello da 0,4 mm la misura minima che viene è M6 (M8 è più robusta). Stampa prima una vite sola e provala nella boccola del coperchio: se è dura o balla cambia il gioco del filetto. Colonnine più grosse di quelle per M3: la scatola è un po' più larga`);
+        notes.push(`~Viti stampate ${p.viteM}: con ugello da 0,4 mm la misura minima che viene è M6 (M8 è più robusta). Stampa prima una vite sola e provala nella boccola del coperchio: se è dura o balla cambia il gioco del filetto. Colonnine più grosse di quelle per M3: la scatola è un po' più larga`);
       }
       if (prova === 'nessuna' || prova === 'fronte') parts.push({ name: 'esempio', m: center(ghostM), role: 'ghost' });
 
@@ -5471,10 +5502,10 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       if (decoInfo) info.push(['Coperchio decorato', decoInfo]);
       info.push(['Stampa', 'PETG o ASA (il PLA si deforma al sole in auto). Scatola aperta in su, coperchio capovolto: senza supporti']);
       if (!vitiC && (+p.pareti < 1.6 || +p.fondo < 1.2)) notes.push(`Coperchio a slitta: pareti almeno 1,6 mm e fondo almeno 1,2 mm (le guide si scavano nelle pareti). Uso ${fmt(w)} e ${fmt(f)} mm; per andare più sottile scegli il coperchio a viti`);
-      if (vitiC && w < 1.2) notes.push(`Pareti da ${fmt(w)} mm (2 passate con ugello 0,4): leggere ma flessibili. Le porte USB sono sulla parete davanti: tieni la scatola quando infili le spine`);
-      if (vitiC && f < 1.0) notes.push(`Fondo da ${fmt(f)} mm: si flette un po', e le celle pesano (circa 45 g l'una)`);
-      notes.push('Le piazzole B+ e B− della scheda sono da saldare: sono le uniche due saldature, tutto il resto è a contatti e morsetti. Se non saldi, fattele fare (bastano due minuti a chi ha un saldatore)');
-      notes.push('Metti nella scatola solo celle uguali e cariche allo stesso modo, con il + verso destra: al contrario la scheda si brucia');
+      if (vitiC && w < 1.2) notes.push(`~Pareti da ${fmt(w)} mm (2 passate con ugello 0,4): leggere ma flessibili. Le porte USB sono sulla parete davanti: tieni la scatola quando infili le spine`);
+      if (vitiC && f < 1.0) notes.push(`~Fondo da ${fmt(f)} mm: si flette un po', e le celle pesano (circa 45 g l'una)`);
+      notes.push('~Le piazzole B+ e B− della scheda sono da saldare: sono le uniche due saldature, tutto il resto è a contatti e morsetti. Se non saldi, fattele fare (bastano due minuti a chi ha un saldatore)');
+      notes.push('~Metti nella scatola solo celle uguali e cariche allo stesso modo, con il + verso destra: al contrario la scheda si brucia');
       if (pp && pp.H < 19) notes.push(`Portapile alto ${fmt(pp.H)} mm: controlla la misura, una 18650 è alta 18,5 mm`);
       if (p.cella === 'normale' && !pp) notes.push('Celle protette (più lunghe, fino a 70 mm)? Scegli "18650 protette", altrimenti non entrano');
       for (const x of notes) info.push(['Nota', x]);
@@ -5763,7 +5794,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         const lidC = v === 'coperchioCapo' && b.ruolo !== 'cpu';   // sotto il coperchio e capovolta: saldata sopra, componenti e piedini in giù, il retro verso il coperchio
         if (v !== 'capovolta' && v !== 'capovoltaSopra' && !lidC) return Object.assign({}, b, { su: v === 'sopra' });
         const sw = { S: 'N', N: 'S', W: 'W', E: 'E' };
-        if (b.finestra) capoNotes.push(`${b.nome} capovolta: i componenti guardano il fondo, quindi niente finestra nel coperchio`);
+        if (b.finestra) capoNotes.push(`~${b.nome} capovolta: i componenti guardano il fondo, quindi niente finestra nel coperchio`);
         return Object.assign({}, b, { su: v === 'capovolta', capo: true, lidM: lidC || undefined, finestra: null, usb: b.usb ? Object.assign({}, b.usb, { y: b.W - b.usb.y }) : null,
           pines: b.pines.map(q => Object.assign({}, q, { lato: sw[q.lato] })) });
       };
@@ -6139,7 +6170,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         supN.push(`sfera Ø ${fmt(2 * R)} mm (pezzo "Sfera") avvitata sotto il fondo con due viti ${vm ? vm.name + ' stampate (pezzo "Viti sfera")' : 'M3 svasate da 8 mm'} (a ${fmt(tx - ox)} mm da sinistra, ${fmt(ty - oy)} mm dal fronte), che entrano nella flangia da ${fmt(fl)} mm; poi si spinge nello snodo fino allo scatto`);
         supN.push(sup === 'parete' ? 'snodo a parete: due viti M3 a testa svasata per fissarlo' : sup === 'magnete' ? `snodo magnetico: sede per un magnete ${p.magnete === '8x2' ? '8 × 2' : '10 × 2'} mm dal lato della base (incollalo)` : 'snodo per treppiede: sede esagonale per un dado 1/4"-20 dal lato della base (11,4 mm tra i lati piani, 6,4 mm profonda)');
         { const h = urta(tx, ty); if (h) notes.push('Supporto: i rialzi per le viti della sfera cadono sotto i dupont di ' + (h.pl === place[0] ? 'il processore' : 'un modulo') + ': spostali con le frecce'); }
-        notes.push('Supporto: la sfera entra nello snodo con una spinta decisa (la coppa ha 4 tagli che si aprono): stampa lo snodo in PETG con 4 pareti. L\'inclinazione è limitata dalla larghezza della scatola: più è larga, prima tocca lo snodo.');
+        notes.push('~Supporto: la sfera entra nello snodo con una spinta decisa (la coppa ha 4 tagli che si aprono): stampa lo snodo in PETG con 4 pareti. L\'inclinazione è limitata dalla larghezza della scatola: più è larga, prima tocca lo snodo.');
       }
 
       let box0 = X(S, box(-1, -1, -1, Xo + 1, Yo + 1, Zw));
@@ -6246,7 +6277,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           }
           if (hasT) {
             txt = DEC.fitLines ? DEC.fitLines(p, { x: cx, y: cy - Sa - gap - tH / 2, w: bx1 - bx0, h: Math.max(4, tH), hMax: by1 - by0 }, [p.rotTesto, p.rotTesto2]) : DEC.fitText(p, { x: cx, y: cy - Sa - gap - tH / 2, w: bx1 - bx0, h: Math.max(4, tH) }, p.altTesto);
-            if (txt && txt.reduced) notes.push(`Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
+            if (txt && txt.reduced) notes.push(`~Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
             if (txt) { const kc = CI(txt.cs, area); if (emptyC(kc) || kc.area() < txt.cs.area() * 0.98) notes.push('La scritta tocca una finestra, un foro o il bordo del coperchio: lì viene tagliata. Spostala con le frecce, girala o rimpiccioliscila'); }
           }
           let ts = Math.min(4, Math.max(2, +p.colTesto || 3));
@@ -6268,9 +6299,9 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
             decoInfo = st === 'traforata' ? 'traforato: si vede dentro la scatola (attenzione alle schede sotto)' : `inciso ${fmt(depth)} mm`;
           }
           decoInfo += ` · zona usata ${fmt(bx1 - bx0)} × ${fmt(by1 - by0)} mm, lontano da viti, LED e finestre`;
-          if (txt && txt.cap < 4) notes.push('Lettere sotto i 4 mm: vengono poco leggibili');
+          if (txt && txt.cap < 4) notes.push('Lettere sotto i 4 mm: vengono poco leggibili. Ingrandisci la scritta o accorcia il testo');
           if (p.ariaTipo && p.ariaTipo !== 'nessuna' && p.ariaCop && p.ariaCop !== 'no') notes.push('Coperchio decorato con le prese d\'aria sul coperchio: dove si incrociano la decorazione resta bucata. Metti le prese solo sopra le schede, sulle pareti, o toglile dal coperchio');
-        } else if (art || hasT) notes.push('Sul coperchio non c\'è spazio libero per la decorazione (tra viti, LED e finestre)');
+        } else if (art || hasT) notes.push('Sul coperchio non c\'è spazio libero per la decorazione (tra viti, LED e finestre): togli la scritta o il disegno, oppure rimpiccioliscili');
         if (hasT) DEC.logoNotes(noz);
         for (const k of [2, 3, 4]) if (lidCol[k]) lid = sub(lid, lidCol[k]);
       }
@@ -6284,7 +6315,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           if (dist < 0) notes.push(`ATTENZIONE: ${nm(place[a], a)} e ${nm(place[b], b)} si sovrappongono: spostali con le frecce`);
           else if (dist < 4) notes.push(`${nm(place[a], a)} e ${nm(place[b], b)} sono a ${fmt(dist)} mm: le culle si fondono e i dupont non passano, meglio almeno 6 mm`);
         }
-        if (cpu.usb) place.slice(1).forEach((q, i) => { const r = rc[i + 1], r0 = rc[0], yc = r0[1] + cpu.usb.y; if (r[0] < r0[0] && r[3] > yc - 8 && r[1] < yc + 8) notes.push(`${nm(q, i + 1)} sta tra il processore e la parete con la USB: il cavo non arriva`); });
+        if (cpu.usb) place.slice(1).forEach((q, i) => { const r = rc[i + 1], r0 = rc[0], yc = r0[1] + cpu.usb.y; if (r[0] < r0[0] && r[3] > yc - 8 && r[1] < yc + 8) notes.push(`${nm(q, i + 1)} sta tra il processore e la parete con la USB: il cavo non arriva: sposta la scheda`); });
       }
       // ---- pezzi ----
       const center = (q) => reg(q.translate([-Xo / 2, -Yo / 2, 0]));
@@ -6306,7 +6337,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         const step = 2 * vm.D + 3;
         parts.push({ name: `Viti ${(p.viteM || 'M6')}×${fmt(sc.L)} (4 pezzi)`, m: center(lidScrewAsm), role: 'pin', print: U([0, 1, 2, 3].map(k => reg(sc.print.translate([(k - 1.5) * step, 0, 0])))), at: p.__closed ? undefined : [Xo + 24, 0, 0] });
         info.push(['Viti stampate', `${p.viteM} (passo ${fmt(vm.P)} mm), testa svasata Ø ${fmt(2 * vm.D)} mm con taglio per il cacciavite, lunghe ${fmt(sc.L)} mm. Gioco del filetto ${fmt(vg)} mm. Sono quattro pezzi uguali: stampali in piedi con la testa sul piatto, strati sottili (0,12–0,16 mm), almeno 4 perimetri, meglio PETG`]);
-        notes.push(`Viti stampate ${p.viteM}: con ugello da 0,4 mm la misura minima che viene è M6 (M8 è più robusta). Stampa prima una vite sola e provala nella boccola del coperchio: se è dura o balla cambia il gioco del filetto. Le colonnine sono più grosse di quelle per le viti M3, quindi la scatola cresce di qualche millimetro.`);
+        notes.push(`~Viti stampate ${p.viteM}: con ugello da 0,4 mm la misura minima che viene è M6 (M8 è più robusta). Stampa prima una vite sola e provala nella boccola del coperchio: se è dura o balla cambia il gioco del filetto. Le colonnine sono più grosse di quelle per le viti M3, quindi la scatola cresce di qualche millimetro.`);
       }
       // ---- base + campana ----
       let baseM = null, hoodM = null, campScrews = null;
@@ -6365,7 +6396,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           scTxt = `4 viti ${p.viteM} stampate`;
         } else scTxt = `4 viti ${p.vite} a testa svasata lunghe ${fmt(Math.ceil(z0p + 8))}–${fmt(Math.ceil(z0p + 12))} mm (autofilettanti, nel pre-foro da ${dv === 3 ? '2,6' : '2,1'} mm)`;
         info.push(['Base + campana', `base piatta con le culle e i 4 fori svasati; campana con pareti, coperchio e colonnine in un pezzo. Monti e colleghi le schede sulla base aperta, abbassi la campana (${notches.length ? 'la tacca scende sopra ' + (it0.usb ? 'la USB' : 'il connettore') + ' e il dentino della base la richiude' : 'si centra sul bordino della base'}) e la fissi con ${scTxt} da sotto la base. Stampa: base com'è, campana capovolta con il coperchio sul piatto, senza supporti`]);
-        if (padH > 0.01) notes.push(`Base + campana: sotto le viti la base ha dei rialzi da ${fmt(padH)} mm, perché la testa svasata è più alta del fondo`);
+        if (padH > 0.01) notes.push(`~Base + campana: sotto le viti la base ha dei rialzi da ${fmt(padH)} mm, perché la testa svasata è più alta del fondo`);
       }
       if (ballScrewAsm) parts.push({ name: `Viti sfera ${(p.viteM || 'M6')}×${fmt(ballScrewL)} (2 pezzi)`, m: center(ballScrewAsm), role: 'pin', print: ballScrewP, at: p.__closed ? undefined : [Xo + 24, 0, 0] });
       if (ballM) {
@@ -6401,7 +6432,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         info.push(['Prese d\'aria', `${nome} da ${fmt(+p.ariaD)} mm, bordo tra l'una e l'altra ${fmt(+p.ariaGap)} mm · area libera: ${ariaTxt.join(' · ')}`]);
         if (p.ariaFondo && p.ariaFondo !== 'no') notes.push('Prese d\'aria sul fondo: la scatola appoggiata sul tavolo le chiude. Incolla dei piedini di gomma (almeno 3 mm) o appoggiala su un supporto.');
         if (p.ariaCop && p.ariaCop !== 'no' && [p.ariaDietro, p.ariaDavanti, p.ariaDestra, p.ariaSinistra, p.ariaFondo].every(v => !v || v === 'no')) notes.push('Prese d\'aria solo sul coperchio: l\'aria calda esce ma ne entra poca. Aggiungi una presa in basso (parete o fondo) per far circolare l\'aria.');
-        notes.push('Prese d\'aria: l\'aria calda sale, quindi la presa che butta fuori va in alto e quella che fa entrare l\'aria va in basso, possibilmente su pareti diverse. Fessure e fori lasciano passare polvere e insetti: se serve, dietro ci va una reticella.');
+        notes.push('~Prese d\'aria: l\'aria calda sale, quindi la presa che butta fuori va in alto e quella che fa entrare l\'aria va in basso, possibilmente su pareti diverse. Fessure e fori lasciano passare polvere e insetti: se serve, dietro ci va una reticella.');
       }
       if (supN.length) info.push(['Supporto', supN.join(' · ')]);
       if (vm && !campana) { const iC = info.findIndex(r => r[0] === 'Coperchio'); if (iC >= 0) info[iC][1] = `4 viti ${p.viteM} stampate dal basso, a filo sotto il fondo, che si avvitano in boccole filettate sotto il coperchio: sopra non si vede niente`; }
@@ -6418,18 +6449,18 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         const alt = byAddr[a].find(q => q.i2c.length > 1 && q.i2c[1] !== '0x38');
         notes.push(`Indirizzo I²C ${a} in comune tra ${byAddr[a].map(q => q.nome.split(' (')[0]).join(' e ')}: ${alt ? `su uno dei due porta il pin AD0/SDO a 3,3 V per passare a ${alt.i2c[1]}` : 'usa un solo modulo o un multiplexer I²C (TCA9548A)'}`);
       }
-      if (mods.some(q => q.bus === 'SPI') && mods.filter(q => q.bus === 'SPI').length > 1) notes.push('RC522 e display SPI possono stare sullo stesso bus SPI (clk, miso, mosi), con un pin CS diverso per ciascuno');
+      if (mods.some(q => q.bus === 'SPI') && mods.filter(q => q.bus === 'SPI').length > 1) notes.push('~RC522 e display SPI possono stare sullo stesso bus SPI (clk, miso, mosi), con un pin CS diverso per ciascuno');
       if (mods.some(q => q.led)) {
-        notes.push('Il pannello LED va alimentato a 5 V con un alimentatore a parte (un 8 × 8 può arrivare a quasi 4 A a tutto bianco), con la massa in comune col processore. Metti un condensatore da circa 1000 µF all\'ingresso e una resistenza da 300–500 Ω sul filo dei dati; con 3,3 V di segnale serve un adattatore di livello');
-        if (cpu.piattaforma === 'esp8266') notes.push('Su ESP8266 il pannello va sul GPIO3 (metodo esp8266_dma di neopixelbus): è il pin RX, quindi durante il caricamento via USB scollega il filo');
+        notes.push('~Il pannello LED va alimentato a 5 V con un alimentatore a parte (un 8 × 8 può arrivare a quasi 4 A a tutto bianco), con la massa in comune col processore. Metti un condensatore da circa 1000 µF all\'ingresso e una resistenza da 300–500 Ω sul filo dei dati; con 3,3 V di segnale serve un adattatore di livello');
+        if (cpu.piattaforma === 'esp8266') notes.push('~Su ESP8266 il pannello va sul GPIO3 (metodo esp8266_dma di neopixelbus): è il pin RX, quindi durante il caricamento via USB scollega il filo');
       }
-      if (cpu.id === 'esp32cam' || cpu.id === 'esp32cammb') notes.push((cpu.id === 'esp32cammb' ? 'Base MB: i piedini della ESP32-CAM sono coperti dagli zoccoli e non escono dalla base, quindi i sensori non si collegano con i dupont a questa scheda (servono fili saldati ai piedini o un altro processore). ' : '') + 'ESP32-CAM: fotocamera e microSD occupano quasi tutti i pin. Se non usi la microSD si liberano i GPIO 2, 4, 12, 13, 14, 15; i pin I²C dell\'esempio ESPHome della fotocamera sono GPIO26 (SDA) e GPIO27 (SCL)');
-      if (mods.some(q => q.id === 'ens160')) notes.push('ENS160: dopo la prima accensione ESPHome aspetta un\'ora prima di dare valori buoni, poi 3 minuti a ogni avvio');
-      if (mods.some(q => q.id === 'mpu6050' || q.id === 'bmi160')) notes.push('Accelerometro: fissa bene la scheda (le culle la tengono, ma non è bloccata); gli assi X, Y, Z sono quelli stampati sul circuito');
+      if (cpu.id === 'esp32cam' || cpu.id === 'esp32cammb') notes.push('~' + (cpu.id === 'esp32cammb' ? 'Base MB: i piedini della ESP32-CAM sono coperti dagli zoccoli e non escono dalla base, quindi i sensori non si collegano con i dupont a questa scheda (servono fili saldati ai piedini o un altro processore). ' : '') + 'ESP32-CAM: fotocamera e microSD occupano quasi tutti i pin. Se non usi la microSD si liberano i GPIO 2, 4, 12, 13, 14, 15; i pin I²C dell\'esempio ESPHome della fotocamera sono GPIO26 (SDA) e GPIO27 (SCL)');
+      if (mods.some(q => q.id === 'ens160')) notes.push('~ENS160: dopo la prima accensione ESPHome aspetta un\'ora prima di dare valori buoni, poi 3 minuti a ogni avvio');
+      if (mods.some(q => q.id === 'mpu6050' || q.id === 'bmi160')) notes.push('~Accelerometro: fissa bene la scheda (le culle la tengono, ma non è bloccata); gli assi X, Y, Z sono quelli stampati sul circuito');
       info.push(['Stampa', 'PLA o PETG. Scatola aperta in su, coperchio capovolto: senza supporti. Stampa prima il coperchio (è sottile e veloce) e prova le schede nelle finestre']);
       if (decoInfo) info.push(['Coperchio decorato', decoInfo]);
-      if (w < 1.2) notes.push(`Pareti da ${fmt(w)} mm (2 passate con ugello 0,4): leggere ma flessibili. Infila la spina USB tenendo la scatola, e stampa con almeno 2 perimetri pieni`);
-      if (f < 1.0) notes.push(`Fondo da ${fmt(f)} mm: si flette un po'. Le culle e le colonnine ci poggiano sopra; con le prese d'aria sul fondo diventa delicato`);
+      if (w < 1.2) notes.push(`~Pareti da ${fmt(w)} mm (2 passate con ugello 0,4): leggere ma flessibili. Infila la spina USB tenendo la scatola, e stampa con almeno 2 perimetri pieni`);
+      if (f < 1.0) notes.push(`~Fondo da ${fmt(f)} mm: si flette un po'. Le culle e le colonnine ci poggiano sopra; con le prese d'aria sul fondo diventa delicato`);
       for (const x of notes) info.push(['Nota', x]);
       if (DEC) { for (const x of DEC.NOTES) info.push(['Nota', x]); DEC.NOTES.clear(); }
 
@@ -6846,7 +6877,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Coperchio decorato', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 8, max: 80, step: 1, def: 30, unit: 'mm', show: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
-        layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.6, show: p => p.stileCop !== 'traforata' }),
+        layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.2, show: p => p.stileCop !== 'traforata' }),
         ...linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.'),
         { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
@@ -7067,7 +7098,11 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Misure', id: 'spessore', label: 'Spessore', type: 'num', min: 3, max: 15, step: 0.5, def: 7, unit: 'mm' },
         { sec: 'Misure', id: 'rinforzo', label: 'Estensione rinforzo', type: 'int', min: 30, max: 100, step: 5, def: 75, unit: '%', show: p => p.tipo !== 'nessuno', help: 'Quanta parte dei due bracci copre il rinforzo. Sotto resta lo spazio per le viti al muro.' },
         { sec: 'Misure', id: 'labbro', label: 'Labbro in punta', type: 'num', min: 0, max: 20, step: 1, def: 0, unit: 'mm', help: 'Un dentino sulla punta che impedisce alla mensola di scivolare (ottimo per il vetro). 0 = nessuno.' },
+        { sec: 'Piastra al muro', id: 'sopra', label: 'Sale sopra la mensola', type: 'num', min: 0, max: 200, step: 5, def: 0, unit: 'mm', help: 'La parte contro il muro continua sopra la mensola, con altre viti al muro: la mensola si appoggia contro la piastra. 0 = non sale.' },
+        { sec: 'Piastra al muro', id: 'spMensola', label: 'Spessore della mensola', type: 'num', min: 5, max: 60, step: 1, def: 18, unit: 'mm', show: p => p.sopra > 0, help: 'Le viti sopra partono sopra la mensola.' },
+        { sec: 'Piastra al muro', id: 'larghPiastra', label: 'Larghezza piastra', type: 'num', min: 10, max: 200, step: 1, def: 25, unit: 'mm', help: 'Larga come la squadra o di più (non meno). Più larga della squadra si stampa sulla schiena.' },
         { sec: 'Viti', id: 'foriMuro', label: 'Viti al muro', type: 'int', min: 0, max: 4, def: 2 },
+        { sec: 'Viti', id: 'foriSopra', label: 'Viti al muro sopra la mensola', type: 'int', min: 0, max: 6, def: 2, show: p => p.sopra > 0 },
         { sec: 'Viti', id: 'foriMensola', label: 'Viti sotto la mensola', type: 'int', min: 0, max: 4, def: 1 },
         { sec: 'Viti', id: 'vite', label: 'Diametro vite', type: 'num', min: 2.5, max: 8, step: 0.5, def: 4, unit: 'mm' },
         { sec: 'Viti', id: 'svasati', label: 'Fori svasati', type: 'bool', def: true, help: 'Per viti a testa piana: la testa resta a filo.' },
@@ -7195,7 +7230,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Coperchio decorato', id: 'rotDisegno', label: 'Rotazione disegno', type: 'int', min: 0, max: 345, step: 15, def: 0, unit: '°', wrap: true, show: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
-        layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.6, show: p => p.stileCop !== 'traforata' }),
+        layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.2, show: p => p.stileCop !== 'traforata' }),
         ...withRot(linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
         { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
@@ -7283,7 +7318,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Coperchio decorato', id: 'rotDisegno', label: 'Rotazione disegno', type: 'int', min: 0, max: 345, step: 15, def: 0, unit: '°', wrap: true, show: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
-        layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.6, show: p => p.stileCop !== 'traforata' }),
+        layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.2, show: p => p.stileCop !== 'traforata' }),
         ...withRot(linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
         { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
@@ -7677,14 +7712,16 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
     if (!fitted || fitted.key !== key || size.length() > fitted.len * 1.3 || size.length() < fitted.len / 1.5) { fitView(bbAll, res.view); fitted = { key, len: size.length() }; }
     // info
     const info = $('#info');
-    info.innerHTML = res.info.map(([k, v]) => {
+    // Nota = qualcosa da cambiare (rosso, con il suggerimento). Le informazioni senza modifiche da fare iniziano con "~" e escono neutre come "Info"
+    const rows = res.info.map(([k, v]) => (k === 'Nota' && String(v)[0] === '~' ? ['Info', String(v).slice(1)] : [k, v]));
+    info.innerHTML = rows.map(([k, v]) => {
       const cls = k === 'Spazio interno' ? 'key' : k.startsWith('  ') ? 'sub' : k === 'Nota' ? 'warn' : '';
       return `<div class="${cls}"><dt>${esc(k.trim())}</dt><dd>${esc(v)}</dd></div>`;
     }).join('');
     const vol = real(res.parts).reduce((s, p) => s + p.mesh.volume, 0) / 1000;
     info.innerHTML += `<div><dt>Volume materiale</dt><dd>${vol.toFixed(1).replace('.', ',')} cm³</dd></div>`;
     // le note restano visibili come numero sul pulsante, anche a riquadro chiuso
-    const nNote = res.info.filter(([k]) => k === 'Nota').length, badge = $('#infoBadge');
+    const nNote = rows.filter(([k]) => k === 'Nota').length, badge = $('#infoBadge');
     badge.hidden = !nNote; badge.textContent = nNote; badge.title = nNote === 1 ? '1 nota' : `${nNote} note`;
     const rp = real(res.parts), bad = rp.find(p => p.mesh.status !== 'NoError');
     const ghosts = res.parts.length - rp.length;
@@ -7773,14 +7810,32 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       objs += `<object id="${oid}" name="${esc(part.name)}" type="model"${ci >= 0 ? ` pid="1" pindex="${ci}"` : ''}><mesh><vertices>${v.join('')}</vertices><triangles>${t.join('')}</triangles></mesh></object>\n`;
       return oid;
     };
+    // Gli slicer non leggono i colori del 3MF base: il filamento di ogni parte va scritto nei loro file di configurazione
+    // (Bambu Studio / OrcaSlicer: model_settings.config, PrusaSlicer: Slic3r_PE_model.config). Senza, la scritta a filo ha lo stesso
+    // filamento del resto e nello slicer non si vede.
+    const multi = colors.length > 1, extOf = (m) => Math.max(1, colors.indexOf(m.part.color) + 1);
+    let cfgB = '', cfgP = '';
     for (const u of units) {
-      let oid;
+      let oid, ids = [];
       if (u.members.length === 1) oid = meshObj(u.members[0].part, u.members[0].mesh);
       else {
         // oggetto con più parti: lo slicer lo apre come un solo pezzo e assegni un filamento a ogni parte
-        const ids = u.members.map(m => meshObj(m.part, m.mesh));
+        ids = u.members.map(m => meshObj(m.part, m.mesh));
         oid = ++id;
         objs += `<object id="${oid}" name="${esc(u.name)}" type="model"><components>${ids.map(c => `<component objectid="${c}"/>`).join('')}</components></object>\n`;
+      }
+      if (multi) {
+        const e0 = extOf(u.members[0]);
+        cfgB += `<object id="${oid}"><metadata key="name" value="${esc(u.name)}"/><metadata key="extruder" value="${e0}"/>`;
+        cfgP += `<object id="${oid}" instances_count="1"><metadata type="object" key="name" value="${esc(u.name)}"/><metadata type="object" key="extruder" value="${e0}"/>`;
+        let first = 0;
+        u.members.forEach((m, i) => {
+          const n = m.mesh.tri.length / 3, e = extOf(m), nm = esc(m.part.name);
+          if (u.members.length > 1) cfgB += `<part id="${ids[i]}" subtype="normal_part"><metadata key="name" value="${nm}"/><metadata key="extruder" value="${e}"/></part>`;
+          cfgP += `<volume firstid="${first}" lastid="${first + n - 1}"><metadata type="volume" key="name" value="${nm}"/><metadata type="volume" key="volume_type" value="ModelPart"/><metadata type="volume" key="extruder" value="${e}"/></volume>`;
+          first += n;
+        });
+        cfgB += '</object>\n'; cfgP += '</object>\n';
       }
       build += `<item objectid="${oid}" transform="1 0 0 0 1 0 0 0 1 ${n4(u.tx)} ${n4(u.ty)} ${n4(u.tz)}"/>\n`;
     }
@@ -7795,10 +7850,12 @@ ${mats}${objs}</resources>
 ${build}</build>
 </model>`;
     const ct = `<?xml version="1.0" encoding="UTF-8"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>`;
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/><Default Extension="config" ContentType="text/xml"/></Types>`;
     const rels = `<?xml version="1.0" encoding="UTF-8"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>`;
-    return zip([['[Content_Types].xml', ct], ['_rels/.rels', rels], ['3D/3dmodel.model', model]]);
+    const files = [['[Content_Types].xml', ct], ['_rels/.rels', rels], ['3D/3dmodel.model', model]];
+    if (multi) files.push(['Metadata/model_settings.config', `<?xml version="1.0" encoding="UTF-8"?>\n<config>\n${cfgB}</config>\n`], ['Metadata/Slic3r_PE_model.config', `<?xml version="1.0" encoding="UTF-8"?>\n<config>\n${cfgP}</config>\n`]);
+    return zip(files);
   }
   function buildSTL(res) {
     // STL: un solo colore, tutte le parti insieme

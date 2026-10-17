@@ -141,7 +141,7 @@
       const FI = B.fianchi.filter(q => q[0] !== blocked);
       const pul = B.pulsante && B.pulsante.lato !== blocked ? B.pulsante : null;
       if (B.pulsante && !pul) notes.push('Il pulsante della scheda resta dalla parte delle celle e da fuori non si preme: metti le celle dall\'altra parte');
-      if (B.fianchi.length > FI.length) notes.push(`Dalla parte delle celle resta chiuso: ${B.fianchi.filter(q => q[0] === blocked).map(q => q[3]).join(', ')}`);
+      if (B.fianchi.length > FI.length) notes.push(`~Dalla parte delle celle resta chiuso: ${B.fianchi.filter(q => q[0] === blocked).map(q => q[3]).join(', ')}`);
       const lati = new Set(FI.map(q => q[0]));
       if (pul && pul.lato !== 'fronte') lati.add(pul.lato);
       const hasL = lati.has('sx'), hasR = lati.has('dx');
@@ -330,7 +330,7 @@
           for (const px of xs) for (const py of ys) posts.push([px, py]);
           // dalla parte della scheda: una colonnina dietro la scheda, se c'è posto
           if (Yin - (yB + 0.5) >= 2 * pr + 1.5) posts.push([pos === 'destra' ? ox + pr + 0.2 : ox + Xin - pr - 0.2, oy + Yin - pcy]);
-          else notes.push('Celle di fianco: dalla parte della scheda non c\'è posto per una vite, il coperchio è avvitato solo dalla parte delle celle');
+          else notes.push('~Celle di fianco: dalla parte della scheda non c\'è posto per una vite, il coperchio è avvitato solo dalla parte delle celle');
         }
         box0 = X(S, box(-1, -1, -1, Xo + 1, Yo + 1, Zw));
         box0 = sub(box0, U(cuts));
@@ -416,8 +416,8 @@
           }
           if (hasT) {
             txt = DEC.fitLines ? DEC.fitLines(p, { x: cx, y: cy - Sa - gap - tH / 2, w: lw, h: Math.max(4, tH), hMax: lh }, [p.rotTesto, p.rotTesto2]) : DEC.fitText(p, { x: cx, y: cy - Sa - gap - tH / 2, w: lw, h: Math.max(4, tH) }, p.altTesto);
-            if (txt && txt.reduced) notes.push(`Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
-            if (txt && txt.moved) { const kc = CI(txt.cs, area); if (emptyC(kc) || kc.area() < txt.cs.area() * 0.98) notes.push('La scritta spostata esce dalla zona libera del coperchio: la parte fuori viene tagliata'); }
+            if (txt && txt.reduced) notes.push(`~Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
+            if (txt && txt.moved) { const kc = CI(txt.cs, area); if (emptyC(kc) || kc.area() < txt.cs.area() * 0.98) notes.push('La scritta spostata esce dalla zona libera del coperchio: la parte fuori viene tagliata: riportala dentro con le frecce'); }
           }
           let ts = Math.min(4, Math.max(2, +p.colTesto || 3));
           if (p.colTesto === 'auto' && root.SPLAB_SVG) ts = [2, 3, 4].sort((a, b) => root.SPLAB_SVG.dist(F[b - 1], F[0]) - root.SPLAB_SVG.dist(F[a - 1], F[0]))[0];
@@ -433,12 +433,12 @@
             decoInfo = `a filo, negli ultimi ${fmt(depth)} mm del coperchio (che si stampano per primi): serve una stampante multicolore, o un cambio di filamento a ${fmt(depth)} mm dal piatto`;
           } else {
             let hole = CU([artCS ? keep(artCS) : null, txt ? keep(st === 'traforata' ? DEC.stencil(txt.cs, txt.cap) : txt.cs) : null]);
-            if (st === 'traforata' && artCS) { const r = DEC.perforate(hole, OFF(area, -1)); hole = r.holes; if (r.bridges) notes.push(`${r.bridges} ponticell${r.bridges > 1 ? 'i tengono' : 'o tiene'} attaccate le parti del disegno`); }
+            if (st === 'traforata' && artCS) { const r = DEC.perforate(hole, OFF(area, -1)); hole = r.holes; if (r.bridges) notes.push(`~${r.bridges} ponticell${r.bridges > 1 ? 'i tengono' : 'o tiene'} attaccate le parti del disegno`); }
             if (!emptyC(hole)) lid = sub(lid, st === 'traforata' ? EZ(hole, Zw - 1, Htot + 1) : EZ(hole, Htot - depth, Htot + 1));
             decoInfo = st === 'traforata' ? 'traforato: si vede dentro la scatola' : `inciso ${fmt(depth)} mm`;
           }
-          if (txt && txt.cap < 4) notes.push('Lettere sotto i 4 mm: vengono poco leggibili');
-        } else if (art || hasT) notes.push('Sul coperchio non c\'è spazio per la decorazione');
+          if (txt && txt.cap < 4) notes.push('Lettere sotto i 4 mm: vengono poco leggibili. Ingrandisci la scritta o accorcia il testo');
+        } else if (art || hasT) notes.push('Sul coperchio non c\'è spazio per la decorazione: togli la scritta o il disegno, oppure rimpiccioliscili');
         if (hasT) DEC.logoNotes(noz);
         for (const k of [2, 3, 4]) if (lidCol[k]) lid = sub(lid, lidCol[k]);
       }
@@ -512,7 +512,7 @@
         const step = 2 * vm.D + 3, nP = posts.length;
         parts.push({ name: `Viti ${p.viteM}×${fmt(sc.L)} (${nP} pezzi)`, m: center(screwAsm), role: 'pin', print: U(posts.map((_, k) => reg(sc.print.translate([(k - (nP - 1) / 2) * step, 0, 0])))), at: p.__closed ? undefined : [Xo + 24, 0, 0] });
         info.push(['Viti stampate', `${p.viteM} (passo ${fmt(vm.P)} mm), testa svasata Ø ${fmt(2 * vm.D)} mm con taglio per il cacciavite, lunghe ${fmt(sc.L)} mm, ${nP} pezzi uguali. Gioco del filetto ${fmt(vg)} mm. Stampale in piedi con la testa sul piatto, strati sottili (0,12–0,16 mm), almeno 4 perimetri, PETG`]);
-        notes.push(`Viti stampate ${p.viteM}: con ugello da 0,4 mm la misura minima che viene è M6 (M8 è più robusta). Stampa prima una vite sola e provala nella boccola del coperchio: se è dura o balla cambia il gioco del filetto. Colonnine più grosse di quelle per M3: la scatola è un po' più larga`);
+        notes.push(`~Viti stampate ${p.viteM}: con ugello da 0,4 mm la misura minima che viene è M6 (M8 è più robusta). Stampa prima una vite sola e provala nella boccola del coperchio: se è dura o balla cambia il gioco del filetto. Colonnine più grosse di quelle per M3: la scatola è un po' più larga`);
       }
       if (prova === 'nessuna' || prova === 'fronte') parts.push({ name: 'esempio', m: center(ghostM), role: 'ghost' });
 
@@ -543,10 +543,10 @@
       if (decoInfo) info.push(['Coperchio decorato', decoInfo]);
       info.push(['Stampa', 'PETG o ASA (il PLA si deforma al sole in auto). Scatola aperta in su, coperchio capovolto: senza supporti']);
       if (!vitiC && (+p.pareti < 1.6 || +p.fondo < 1.2)) notes.push(`Coperchio a slitta: pareti almeno 1,6 mm e fondo almeno 1,2 mm (le guide si scavano nelle pareti). Uso ${fmt(w)} e ${fmt(f)} mm; per andare più sottile scegli il coperchio a viti`);
-      if (vitiC && w < 1.2) notes.push(`Pareti da ${fmt(w)} mm (2 passate con ugello 0,4): leggere ma flessibili. Le porte USB sono sulla parete davanti: tieni la scatola quando infili le spine`);
-      if (vitiC && f < 1.0) notes.push(`Fondo da ${fmt(f)} mm: si flette un po', e le celle pesano (circa 45 g l'una)`);
-      notes.push('Le piazzole B+ e B− della scheda sono da saldare: sono le uniche due saldature, tutto il resto è a contatti e morsetti. Se non saldi, fattele fare (bastano due minuti a chi ha un saldatore)');
-      notes.push('Metti nella scatola solo celle uguali e cariche allo stesso modo, con il + verso destra: al contrario la scheda si brucia');
+      if (vitiC && w < 1.2) notes.push(`~Pareti da ${fmt(w)} mm (2 passate con ugello 0,4): leggere ma flessibili. Le porte USB sono sulla parete davanti: tieni la scatola quando infili le spine`);
+      if (vitiC && f < 1.0) notes.push(`~Fondo da ${fmt(f)} mm: si flette un po', e le celle pesano (circa 45 g l'una)`);
+      notes.push('~Le piazzole B+ e B− della scheda sono da saldare: sono le uniche due saldature, tutto il resto è a contatti e morsetti. Se non saldi, fattele fare (bastano due minuti a chi ha un saldatore)');
+      notes.push('~Metti nella scatola solo celle uguali e cariche allo stesso modo, con il + verso destra: al contrario la scheda si brucia');
       if (pp && pp.H < 19) notes.push(`Portapile alto ${fmt(pp.H)} mm: controlla la misura, una 18650 è alta 18,5 mm`);
       if (p.cella === 'normale' && !pp) notes.push('Celle protette (più lunghe, fino a 70 mm)? Scegli "18650 protette", altrimenti non entrano');
       for (const x of notes) info.push(['Nota', x]);

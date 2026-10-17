@@ -384,7 +384,7 @@
       info.push(['Lunghezza appoggio', `${fmt(L)} mm`]);
       if (p.stampa === 'fianco') info.push(['Stampa', 'sul fianco (separatori più robusti)']);
       const maxDim = p.stampa === 'fianco' ? Math.max(D, zB + hs, L) : Math.max(W, D);
-      if (maxDim > 250) info.push(['Nota', `Lato di ${fmt(maxDim)} mm: controlla che stia nel piatto`]);
+      if (maxDim > 250) info.push(['Nota', `Lato di ${fmt(maxDim)} mm: controlla che stia nel piatto, altrimenti riduci le misure`]);
       return { parts, info };
     }
 
@@ -491,7 +491,7 @@
         const zwb = f + 2;                                   // fondo del cestello, 2 mm sopra il fondo
         const Sin = (z, extra = 0) => S(z, th + g + extra);  // superficie esterna vaso interno
         let zr = f + p.riserva;                              // fondo del vaso interno
-        if (zr > H - 25) { zr = Math.max(f + 10, H - 25); warn.push(`Riserva ridotta a ${fmt(zr - f)} mm: serve spazio per la terra`); }
+        if (zr > H - 25) { zr = Math.max(f + 10, H - 25); warn.push(`~Riserva ridotta a ${fmt(zr - f)} mm: serve spazio per la terra`); }
         const ft = 2;      // flangia appoggiata sul bordo
         const fondoI = Math.max(1.6, t);
         let inner = union([loft(Sin(zr), Sin(H)), loft(S(H, 0).map(([x, y]) => [x, y, H]), S(H, 0).map(([x, y]) => [x, y, H + ft]))]);
@@ -657,7 +657,7 @@
       if (!p.testaSu || p.testa === 'nessuna') return std;
       let w = p.testaL, h = p.testaH, note = '';
       const minW = p.testa === 'esagonale' ? D + 2 : p.testa === 'svasata' ? D + 2 : D + 1.6;
-      if (w < minW) { w = minW; note = `Testa allargata a ${fmt(w)} mm: deve essere più larga del gambo`; }
+      if (w < minW) { w = minW; note = `~Testa allargata a ${fmt(w)} mm: deve essere più larga del gambo`; }
       if (p.testa === 'svasata') h = (w - D) / 2;   // svasatura a 90°: l'altezza segue il diametro
       return { w, h: Math.max(1, h), note };
     }
@@ -673,7 +673,7 @@
       let zH = L, zTop = L, head = null, drive = null, headTxt = '', minY = 0;
       const hd = headDims(sp, p), dkS = hd.w, khS = hd.h;
       if (hd.note) notes.push(hd.note);
-      if (testa === 'svasata') { if (L < khS + 2 * P + 1) { L = khS + 2 * P + 1; notes.push(`Lunghezza portata a ${fmt(L)} mm: la testa svasata è alta ${fmt(khS)} mm`); } zH = L - khS; zTop = L; }
+      if (testa === 'svasata') { if (L < khS + 2 * P + 1) { L = khS + 2 * P + 1; notes.push(`~Lunghezza portata a ${fmt(L)} mm: la testa svasata è alta ${fmt(khS)} mm`); } zH = L - khS; zTop = L; }
       else if (testa !== 'nessuna') zTop = L + hd.h;
       // gambo: parte filettata dalla punta, poi liscia fino alla testa
       const Lt = p.filettata > 0 ? Math.min(p.filettata, zH) : zH;
