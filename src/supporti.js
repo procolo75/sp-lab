@@ -128,26 +128,25 @@
         if (fit < nM) { notes.push(fit ? `Sotto la mensola ci stanno solo ${fit} viti: allunga la squadra o riduci il rinforzo` : 'Nessuno spazio per le viti della mensola: allunga la squadra o riduci il rinforzo'); nM = fit; }
         for (let i = 0; i < nM; i++) holes.push(holeY(nM === 1 ? (xA + xB) / 2 : xA + (xB - xA) * i / (nM - 1), W / 2, d, top, Hh, p.svasati, back));
       }
-      // viti al muro sopra la mensola: sopra lo spessore della mensola, in fila lungo la larghezza della piastra, poi su più righe
+      // viti al muro sopra la mensola: centrate sulla parte di piastra che sporge sopra la squadra (si avvitano prima di appoggiare la mensola).
+      // Più viti: in fila lungo la larghezza, poi su più righe, sempre raccolte attorno al centro
       let nS = up ? Math.max(0, p.foriSopra | 0) : 0;
       if (nS) {
-        const yA = Hh + sM + dk / 2 + 2, yB = Hh + up - dk / 2 - 3, zA = zc - Wp / 2 + dk / 2 + 3, zB = zc + Wp / 2 - dk / 2 - 3;
-        const rows = yB < yA - 0.01 ? 0 : Math.floor((yB - yA) / (dk + 3)) + 1, cols = zB < zA - 0.01 ? 1 : Math.floor((zB - zA) / (dk + 3)) + 1;
-        if (!rows) { notes.push(`Sopra la mensola non c'è posto per le viti: la piastra deve salire almeno ${fmt(Math.ceil(sM + dk + 5))} mm (con una mensola spessa ${fmt(sM)} mm)`); nS = 0; }
+        const step = dk + 3, yc = Hh + up / 2, hy = up / 2 - dk / 2 - 3, hz = Wp / 2 - dk / 2 - 3;
+        const rows = hy < -0.01 ? 0 : Math.floor((2 * hy) / step + 1e-6) + 1, cols = hz < -0.01 ? 0 : Math.floor((2 * hz) / step + 1e-6) + 1;
+        if (!rows || !cols) { notes.push(`La piastra sopra la squadra è troppo bassa per le viti: falla salire almeno ${fmt(Math.ceil(dk + 6))} mm`); nS = 0; }
         else {
-          if (rows * cols < nS) { notes.push(`Sopra la mensola ci stanno solo ${rows * cols} viti: alza o allarga la piastra`); nS = rows * cols; }
+          if (rows * cols < nS) { notes.push(`Sopra la squadra ci stanno solo ${rows * cols} viti: alza o allarga la piastra`); nS = rows * cols; }
           const nc = Math.min(cols, nS), nr = Math.ceil(nS / nc);
-          const ys = nr === 1 ? [(yA + yB) / 2] : Array.from({ length: nr }, (_, i) => yA + (yB - yA) * i / (nr - 1));
           let left = nS;
-          for (const y of ys) {
-            const k = Math.min(nc, left); left -= k;
-            const span = Math.min(zB - zA, (k - 1) * Math.max(dk + 3, (zB - zA) / Math.max(1, nc - 1)));
-            for (let i = 0; i < k; i++) holes.push(holeX(y, k === 1 ? zc : zc - span / 2 + span * i / (k - 1), d, T, p.svasati));
+          for (let r = 0; r < nr; r++) {
+            const y = yc + (r - (nr - 1) / 2) * step, k = Math.min(nc, left); left -= k;
+            for (let i = 0; i < k; i++) holes.push(holeX(y, zc + (i - (k - 1) / 2) * Math.max(step, Math.min(2 * hz / Math.max(1, k - 1), Wp / 3)), d, T, p.svasati));
           }
         }
       }
       if (holes.length) m = sub(m, union(holes));
-      const n = Math.max(1, p.copie | 0), gap = Math.max(W + 30, 90), parts = [];
+      const n = Math.max(1, p.copie | 0), parts = [];
       const gapP = Math.max(Wp + 30, 90);
       for (let i = 0; i < n; i++) parts.push(part(n > 1 ? `Reggimensola ${i + 1}` : 'Reggimensola', toUse(m, W), { print: back ? toBack(m) : m, at: [0, (i - (n - 1) / 2) * gapP, 0] }));
       // mensola d'esempio appoggiata sopra (con la piastra alta parte dalla piastra)

@@ -562,7 +562,7 @@
         { sec: 'Misure', id: 'rinforzo', label: 'Estensione rinforzo', type: 'int', min: 30, max: 100, step: 5, def: 75, unit: '%', show: p => p.tipo !== 'nessuno', help: 'Quanta parte dei due bracci copre il rinforzo. Sotto resta lo spazio per le viti al muro.' },
         { sec: 'Misure', id: 'labbro', label: 'Labbro in punta', type: 'num', min: 0, max: 20, step: 1, def: 0, unit: 'mm', help: 'Un dentino sulla punta che impedisce alla mensola di scivolare (ottimo per il vetro). 0 = nessuno.' },
         { sec: 'Piastra al muro', id: 'sopra', label: 'Sale sopra la mensola', type: 'num', min: 0, max: 200, step: 5, def: 0, unit: 'mm', help: 'La parte contro il muro continua sopra la mensola, con altre viti al muro: la mensola si appoggia contro la piastra. 0 = non sale.' },
-        { sec: 'Piastra al muro', id: 'spMensola', label: 'Spessore della mensola', type: 'num', min: 5, max: 60, step: 1, def: 18, unit: 'mm', show: p => p.sopra > 0, help: 'Le viti sopra partono sopra la mensola.' },
+        { sec: 'Piastra al muro', id: 'spMensola', label: 'Spessore della mensola', type: 'num', min: 5, max: 60, step: 1, def: 18, unit: 'mm', show: p => p.sopra > 0, help: 'Serve solo per la mensola d\'esempio nell\'anteprima.' },
         { sec: 'Piastra al muro', id: 'larghPiastra', label: 'Larghezza piastra', type: 'num', min: 10, max: 200, step: 1, def: 25, unit: 'mm', help: 'Larga come la squadra o di più (non meno). Più larga della squadra si stampa sulla schiena.' },
         { sec: 'Viti', id: 'foriMuro', label: 'Viti al muro', type: 'int', min: 0, max: 4, def: 2 },
         { sec: 'Viti', id: 'foriSopra', label: 'Viti al muro sopra la mensola', type: 'int', min: 0, max: 6, def: 2, show: p => p.sopra > 0 },
