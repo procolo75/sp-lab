@@ -239,6 +239,11 @@
       const X = (u) => -t.W / 2 + u, [uc, uw] = t.usb, sp = t.sp || [uc, uc];
       const fx0 = Math.max(X(Math.min(sp[0], uc - uw / 2 - cb) - 3), -t.W / 2 + 9), fx1 = Math.min(X(Math.max(sp[1], uc + uw / 2 + cb) + 3), t.W / 2 - 9);
       cuts.push(prismY(RR(fx0, tb + 0.2, fx1, zr + 6, 2.5), -t.L / 2 - g - s - 1, -t.L / 2 + 6));
+      // ---- cima: fori dei microfoni [centro x guardando lo schermo, larghezza], asole tonde a metà spessore ----
+      for (const [u, w] of (t.cima || [])) {
+        const a = w + 2 * cb, h = Math.min(a, t.T - 2);
+        cuts.push(prismY(RR(X(u) - a / 2, zm - h / 2, X(u) + a / 2, zm + h / 2, h / 2), t.L / 2 - 3, t.L / 2 + g + s + 1));
+      }
 
       // ---- MagSafe: incavo ad anello per un anello magnetico adesivo, centrato sul MagSafe del telefono ----
       // dentro: sul lato del telefono, l'anello resta nascosto; fuori: sul retro, a vista
@@ -288,12 +293,13 @@
           let artCS = null, txt = null;
           const slots = {};
           if (art) {
-            const g0 = DEC.artGeom(art, Sa, ax1 - ax0), ay = cy - Sa / 2, place = (c) => (c ? MV(c, 0, ay) : null);
+            const dP = Array.isArray(p.posDisegno) ? p.posDisegno : [0, 0], g0 = DEC.artGeom(art, Sa, ax1 - ax0), ay = cy - Sa / 2 + (+dP[1] || 0), place = (c) => (c ? MV(c, +dP[0] || 0, ay) : null);
             const sil = place(g0.sil);
             artCS = st === 'filo' ? sil : st === 'inciso' ? (g0.lines ? place(g0.lines) : sil) : (g0.lines ? place(I(g0.lines, OFF(g0.sil, -1.3 * g0.k))) : sil);
             if (st === 'filo') {
-              const sl = DEC.artSlots(g0, F, OFF(g0.sil, 0.01), noz, notes);
+              const sl = DEC.artSlots(g0, F, OFF(g0.sil, 0.01), noz, notes, true);
               for (const k of [2, 3, 4]) if (sl[k]) slots[k] = place(sl[k]);
+              { const sA = g0.sil.area(), cA = [2, 3, 4].reduce((s, k) => s + (sl[k] ? sl[k].area() : 0), 0); if (sA > 1 && cA < 0.05 * sA) notes.push('Il disegno ha quasi solo il colore della cover (Colore 1), quindi a filo non si vede: dagli un colore diverso nei Colori 2–4, oppure cambia il Colore 1'); }
               // le parti del colore della cover restano della cover: la sagoma serve solo a ritagliare
             }
           }
@@ -378,7 +384,7 @@
       parts.push({ name: 'Telefono', m: flip(cut(ghostM), zr), role: 'ghost' });
 
       // ---- riquadro misure ----
-      info.push(['Telefono', `${t.nome}: ${fmt(t.W)} × ${fmt(t.L)} × ${fmt(t.T)} mm` + (t.fonte ? ` (disegno Apple del ${t.fonte.split('-').reverse().join('/')})` : '')]);
+      info.push(['Telefono', `${t.nome}: ${fmt(t.W)} × ${fmt(t.L)} × ${fmt(t.T)} mm` + (t.fonte ? ` (disegno Apple del ${t.fonte.split('-').reverse().join('/')})` : t.misure ? ` (${t.misure})` : '')]);
       info.push(['Cover', `${fmt(Wo)} × ${fmt(Lo)} × ${fmt(zr)} mm · pareti ${fmt(s)} mm · retro ${fmt(tb)} mm`]);
       info.push(['Materiale', tpu ? 'TPU: il telefono entra a scatto sotto il bordo' : 'PLA o PETG: rigida. Il telefono entra inclinato: prima la cima sotto il bordo, poi premi giù il fondo (le pareti si piegano un poco)']);
       info.push(['Gioco', `${fmt(g)} mm sui lati, ${fmt(gz)} mm sullo spessore, ${fmt(cb)} mm attorno a tasti e connettore`]);
@@ -388,7 +394,7 @@
       else info.push(['Fotocamera', lens > 0.05 ? `le lenti sporgono ${fmt(lens)} mm dal retro della cover` : `lenti ${fmt(-lens)} mm dentro il retro: appoggiata sul tavolo la cover non le tocca`]);
       if (thick) info.push(['Retro', `${fmt(tb)} mm: il rialzo della fotocamera è largo quanto il telefono e sta in una tasca, così fuori il retro resta piatto`]);
       if (covered) info.push(['Tasti', `${covered} coperti: si premono attraverso la cover`]);
-      info.push(['Aperture', `${opens ? 'fianchi aperti dal retro al bordo dove ci sono i tasti' : 'tasti coperti'}${ccSlot ? ', asola per il Camera Control' : ''}; fondo aperto per cavo, altoparlante e microfoni`]);
+      info.push(['Aperture', `${opens ? 'fianchi aperti dal retro al bordo dove ci sono i tasti' : 'tasti coperti'}${ccSlot ? ', asola per il Camera Control' : ''}; fondo aperto per cavo, altoparlante e microfoni${t.cima ? '; foro per il microfono in cima' : ''}`]);
       if (decoInfo) info.push(['Decorazione', decoInfo]);
       if (standInfo) info.push(['Cavalletto', standInfo]);
       if (magInfo) {
@@ -401,9 +407,10 @@
       info.push(['Stampa', `retro sul piatto, senza supporti${tpu ? '; il TPU va stampato lento (20–30 mm/s)' : ''}`]);
       if (!insert && lens > 0.15) notes.push('Le lenti sporgono dalla cover: scegli la copertura a parte per proteggerle');
       if (insert) notes.push('~Stampa la copertura in PLA o PETG opaco, con la faccia esterna sul piatto come la cover: il TPU è troppo morbido e un materiale chiaro fa passare la luce del flash nelle foto');
-      if (!t.custom && tb > 2.1) notes.push(`Retro di ${fmt(tb)} mm: Apple indica al massimo 2,1 mm perché la ricarica MagSafe funzioni sempre: riduci lo spessore del retro`);
+      if (t.fonte && tb > 2.1) notes.push(`Retro di ${fmt(tb)} mm: Apple indica al massimo 2,1 mm perché la ricarica MagSafe funzioni sempre: riduci lo spessore del retro`);
       if (!tpu && lip > 0.8) notes.push(`Bordo sul vetro di ${fmt(lip)} mm: con PLA o PETG il telefono rischia di non entrare o di rompere la cover. Meglio 0,6 mm o meno`);
       if (t.piano && lip > t.piano + 0.6) notes.push(`Il bordo arriva ${fmt(lip - t.piano)} mm dentro la parte piatta dello schermo: riduci il bordo sul vetro`);
+      if (t.misure) notes.push('~Misure non da un disegno ufficiale: stampa prima la striscia di prova (cima e fondo) per controllare fotocamera, tasti e gioco');
       for (const n of notes) info.push(['Nota', n]);
       if (DEC) { for (const n of DEC.NOTES) info.push(['Nota', n]); DEC.NOTES.clear(); }
       return { parts: parts.filter(Boolean), info, view: [0.55, -0.9, 0.75] };

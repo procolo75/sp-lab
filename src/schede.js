@@ -296,19 +296,23 @@
       // ---- LED sul coperchio ----
       const LT = LED[p.ledTipo] || LED.led5;
       const nLed = Math.max(0, Math.min(4, p.ledN | 0));
-      const stripF = nLed ? 2 * Math.max(LT.anello, LT.r) + 3.5 : 0;   // fascia libera davanti
+      // dove stanno i LED: sul coperchio (fascia davanti) o su una parete. Sulle pareti dietro ai LED resta libero lo spazio per collarino, gambe e dupont
+      const ledSide = ['davanti', 'dietro', 'sinistra', 'destra'].includes(p.ledLato) ? p.ledLato : 'coperchio', ledOnLid = ledSide === 'coperchio';
+      const lP = Array.isArray(p.ledPos) ? p.ledPos : [0, 0];
+      const ledDepth = nLed && !ledOnLid ? (LT.pelle ? 9 : 1) + 16 : 0;
+      const stripF = nLed && ledOnLid ? 2 * Math.max(LT.anello, LT.r) + 3.5 : 0;   // fascia libera davanti
       const lx0 = vm ? Math.max(13, pc + prP + LT.anello + 1) : 13;     // primo LED: lontano dalle colonnine
 
       // ---- disposizione: righe da sinistra a destra, il processore per primo ----
       const gap = Math.max(5, p.distanza);
-      const ymF = Math.max(7.0, stripF, vm ? pc + prP + 2.4 : 0), ymB = Math.max(7.0, vm ? pc + prP + 2.4 : 0);   // con le boccole sotto il coperchio serve anche lo spessore del muretto delle culle (1,6 mm)     // davanti e dietro restano liberi gli angoli per le colonnine delle viti
+      const ymF = Math.max(7.0, stripF, vm ? pc + prP + 2.4 : 0, ledSide === 'davanti' ? ledDepth : 0), ymB = Math.max(7.0, vm ? pc + prP + 2.4 : 0, ledSide === 'dietro' ? ledDepth : 0);   // con le boccole sotto il coperchio serve anche lo spessore del muretto delle culle (1,6 mm)     // davanti e dietro restano liberi gli angoli per le colonnine delle viti
       const xFirst = cpu.usb ? 0.2 : 2.5, xNext = 2.5;
       const place = [];
-      let cx = xFirst, cy = ymF, rowH = 0, maxX = 0;
+      let cx = xFirst, cy = ymF, rowH = 0, maxX = 0, rowN = 0;
       for (const it of items) {
         const le = it.L + 2 * g, we = it.W + 2 * g;
-        if (place.length && cx > xNext + 0.01 && cx + le + 2.5 > p.largMax) { cy += rowH + gap; cx = xNext; rowH = 0; }
-        place.push({ it, px: cx, py: cy, le, we });
+        if (place.length && cx > xNext + 0.01 && cx + le + 2.5 > p.largMax) { cy += rowH + gap; cx = xNext; rowH = 0; rowN++; }
+        place.push({ it, px: cx, py: cy, le, we, row: rowN });
         cx += le + gap; rowH = Math.max(rowH, we); maxX = Math.max(maxX, cx - gap);
       }
       // posizione scelta con le frecce: spostamento in mm rispetto alla fila automatica (destra e su = verso il retro); a sinistra e davanti non si esce dal bordo
@@ -318,8 +322,13 @@
         pl.px = Math.max(k === 0 ? xFirst : xNext, pl.px + pl.dx);
         pl.py = Math.max(ymF, pl.py + pl.dy);
       });
-      const Xin = Math.max(Math.max(...place.map(q => q.px + q.le)) + 2.5, 16, nLed ? 2 * lx0 + (nLed - 1) * 9 : 0, vm ? 4 * prP + 4 : 0);
-      const Yin = Math.max(...place.map(q => q.py + q.we)) + ymB;
+      // LED sulla parete sinistra: le schede si staccano dalla parete per lasciare spazio ai LED; il processore con la USB resta contro la parete (i LED vanno accanto)
+      // si spostano le file intere (così le schede di una fila non si sovrappongono); con la USB la fila del processore resta e i LED vanno nel tratto di parete accanto
+      if (ledSide === 'sinistra' && nLed) place.forEach(pl => { if (!cpu.usb || pl.row > 0) pl.px += ledDepth; });
+      const Xin = Math.max(Math.max(...place.map(q => q.px + q.le)) + 2.5 + (ledSide === 'destra' ? ledDepth : 0), 16, nLed ? 2 * lx0 + (nLed - 1) * 9 : 0, vm ? 4 * prP + 4 : 0);
+      // LED a sinistra con la USB: la parete accanto al processore deve essere lunga abbastanza per i LED
+      const Yin = Math.max(Math.max(...place.map(q => q.py + q.we)) + ymB,
+        ledSide === 'sinistra' && nLed && cpu.usb ? place[0].py + place[0].we + 2 + (14 + LT.anello) + (nLed - 1) * (2 * LT.anello + 5) + 2 * LT.r + 4 : 0);
 
       // ---- altezze ----
       // piedini sotto: sotto la scheda il vano dei dupont; piedini sopra: i dupont salgono verso il coperchio (16,5 mm + 3 mm per la curva dei fili)
@@ -454,6 +463,39 @@
         cuts.push(cylY(xx, zCav, Yo - w - 1, Yo + 1, cavR, 40));
       }
 
+      // ---- LED sulle pareti: foro a goccia (si stampa in verticale senza supporti); il LED entra da dentro e il collarino batte contro la parete ----
+      const ledWall = { davanti: [], dietro: [], sinistra: [], destra: [] };   // zone da lasciare libere dalle prese d'aria [u0, z0, u1, z1]
+      let ledWallZ = 0;
+      if (nLed && !ledOnLid) {
+        const alongX = ledSide === 'davanti' || ledSide === 'dietro', len = alongX ? Xin : Yin, mC = Math.max(9, pc + pr + LT.anello + 1);
+        let a0 = mC, a1 = len - mC;
+        if (ledSide === 'sinistra' && cpu.usb) {   // il tratto di parete accanto al processore (lì esce la USB)
+          const c0 = place[0].py - 2, c1 = place[0].py + place[0].we + 2;
+          const opts = [[a0, Math.min(a1, c0)], [Math.max(a0, c1), a1]].filter(q => q[1] - q[0] > 0);
+          if (opts.length) [a0, a1] = opts.sort((q, r) => (r[1] - r[0]) - (q[1] - q[0]))[0];
+        }
+        const sp = 2 * LT.anello + 5, rr = LT.r, tip = 1.25 * rr;
+        const zc = Math.min(Zw - Math.max(LT.anello, rr) - 1.5, Math.max(f + Math.max(LT.anello, rr) + 1.5, f + Hin / 2 + (+lP[1] || 0)));
+        ledWallZ = zc;
+        const tearY = (x, y0, y1) => hull([cylY(x, zc, y0, y1, rr, 36), cylY(x, zc + tip, y0, y1, 0.05, 6)]);
+        const tearX = (y, x0, x1) => hull([cylX(x0, x1, y, zc, rr, 36), cylX(x0, x1, y, zc + tip, 0.05, 6)]);
+        const pel = LT.pelle || 0;
+        for (let i = 0; i < nLed; i++) {
+          const a = Math.min(len - mC, Math.max(mC, (a0 + a1) / 2 + (+lP[0] || 0) + (i - (nLed - 1) / 2) * sp));
+          if (ledSide === 'davanti') cuts.push(tearY(ox + a, pel ? pel : -1, w + 1));
+          else if (ledSide === 'dietro') cuts.push(tearY(ox + a, Yo - w - 1, pel ? Yo - pel : Yo + 1));
+          else if (ledSide === 'sinistra') cuts.push(tearX(oy + a, pel ? pel : -1, w + 1));
+          else cuts.push(tearX(oy + a, Xo - w - 1, pel ? Xo - pel : Xo + 1));
+          const u = (alongX ? ox : oy) + a;
+          ledWall[ledSide].push([u - rr - 3, zc - rr - 3, u + rr + 3, zc + tip + 3]);
+          // dietro al LED: spazio per collarino, gambe e dupont; se una scheda ci sta dentro, avviso
+          const half = LT.anello + 1, inner = ledSide === 'davanti' ? [ox + a - half, oy, ox + a + half, oy + ledDepth] : ledSide === 'dietro' ? [ox + a - half, oy + Yin - ledDepth, ox + a + half, oy + Yin]
+            : ledSide === 'sinistra' ? [ox, oy + a - half, ox + ledDepth, oy + a + half] : [ox + Xin - ledDepth, oy + a - half, ox + Xin, oy + a + half];
+          const hitPl = place.find(pl => inner[0] < ox + pl.px + pl.le && inner[2] > ox + pl.px && inner[1] < oy + pl.py + pl.we && inner[3] > oy + pl.py);
+          if (hitPl) notes.push(`LED ${i + 1} sulla parete ${ledSide}: a meno di ${fmt(ledDepth)} mm c'è ${hitPl.it.nome.split(' (')[0]}, gambe e dupont non ci stanno. Spostalo con le frecce di "Posizione LED" o sposta la scheda`);
+        }
+      }
+
 
       // ---- prese d'aria: fessure, fori o esagoni su coperchio, fondo e pareti ----
       const ariaTxt = [];
@@ -501,7 +543,7 @@
         // coperchio: salta finestre, fascia dei LED e viti
         if (p.ariaCop && p.ariaCop !== 'no') {
           const ex = viteRects(Math.max(7, pr + 3));
-          if (nLed) ex.push([ox, oy, ox + Xin, oy + stripF + 1]);
+          if (nLed && ledOnLid) ex.push([ox, oy, ox + Xin, oy + stripF + 1]);
           for (const pl of place) {
             const fin = pl.it.finestra; if (!fin) continue;
             const bx = ox + pl.px + g, by = oy + pl.py + g, m = p.margineFin + 2.5;
@@ -540,10 +582,10 @@
           if (res.out.length) cuts.push(polyPrism(axis, res.out, t0, t1));
           report(nome, res);
         };
-        parete(p.ariaDietro, 'parete dietro', 'y', ox + mw, ox + Xin - mw, Yo - w - 1, Yo + 1, cavRects);
-        parete(p.ariaDavanti, 'parete davanti', 'y', ox + mw, ox + Xin - mw, -1, w + 1, null);
-        parete(p.ariaDestra, 'parete destra', 'x', oy + mw, oy + Yin - mw, Xo - w - 1, Xo + 1, null);
-        parete(p.ariaSinistra, 'parete sinistra', 'x', oy + mw, oy + Yin - mw, -1, w + 1, sideRects);
+        parete(p.ariaDietro, 'parete dietro', 'y', ox + mw, ox + Xin - mw, Yo - w - 1, Yo + 1, [...cavRects, ...ledWall.dietro]);
+        parete(p.ariaDavanti, 'parete davanti', 'y', ox + mw, ox + Xin - mw, -1, w + 1, ledWall.davanti);
+        parete(p.ariaDestra, 'parete destra', 'x', oy + mw, oy + Yin - mw, Xo - w - 1, Xo + 1, ledWall.destra);
+        parete(p.ariaSinistra, 'parete sinistra', 'x', oy + mw, oy + Yin - mw, -1, w + 1, [...sideRects, ...ledWall.sinistra]);
       }
 
 
@@ -654,7 +696,7 @@
       let lid = X(S, box(-1, -1, Zw + 0.01, Xo + 1, Yo + 1, Htot + 1));
       // LED: fori allineati sulla fascia davanti, con un anello sotto il coperchio che tiene il LED
       const ledXY = [];
-      for (let i = 0; i < nLed; i++) ledXY.push([ox + (nLed === 1 ? Xin / 2 : lx0 + i * (Xin - 2 * lx0) / (nLed - 1)), oy + stripF / 2]);
+      if (ledOnLid) for (let i = 0; i < nLed; i++) ledXY.push([ox + (nLed === 1 ? Xin / 2 : lx0 + i * (Xin - 2 * lx0) / (nLed - 1)) + (+lP[0] || 0), oy + stripF / 2 + (+lP[1] || 0)]);
       // sporgenza: il collarino del LED batte sotto il tubetto; più è lungo il tubetto, più il LED sta dentro
       const ledTop = { sporgente: null, filo: 0, incassato: -1 }[p.ledSporg || 'sporgente'];
       const ringLen = LT.pelle ? 0 : ledTop === null ? 1.8 : Math.min(Hin - 3, Math.max(1.8, LT.h - ledTop - tl));
@@ -738,12 +780,13 @@
           const cx = (bx0 + bx1) / 2, cy = (by0 + by1) / 2 + (Sa + gap + tH) / 2;
           let artCS = null, txt = null; const slots = {};
           if (art) {
-            const g0 = DEC.artGeom(art, Sa, bx1 - bx0), acx = cx, acy = cy - Sa / 2;
+            const dP = Array.isArray(p.posDisegno) ? p.posDisegno : [0, 0], g0 = DEC.artGeom(art, Sa, bx1 - bx0), acx = cx + (+dP[0] || 0), acy = cy - Sa / 2 + (+dP[1] || 0);
             const ROT = (c) => (!c || !thA ? c : R2(R2(R2(c.translate([-acx, -acy])).rotate(thA)).translate([acx, acy])));
             const placeA = (c) => (c ? MV(c, acx, acy) : null);
             const sil = placeA(g0.sil);
             artCS = st === 'filo' ? sil : st === 'inciso' ? (g0.lines ? placeA(g0.lines) : sil) : (g0.lines ? placeA(CI(g0.lines, OFF(g0.sil, -1.3 * g0.k))) : sil);
-            if (st === 'filo') { const sl = DEC.artSlots(g0, F, OFF(g0.sil, 0.01), noz, notes); for (const k of [2, 3, 4]) if (sl[k]) slots[k] = ROT(placeA(sl[k])); }
+            if (st === 'filo') { const sl = DEC.artSlots(g0, F, OFF(g0.sil, 0.01), noz, notes, true); for (const k of [2, 3, 4]) if (sl[k]) slots[k] = ROT(placeA(sl[k]));
+              { const sA = g0.sil.area(), cA = [2, 3, 4].reduce((s, k) => s + (sl[k] ? sl[k].area() : 0), 0); if (sA > 1 && cA < 0.05 * sA) notes.push('Il disegno ha quasi solo il colore del coperchio (Colore 1), quindi a filo non si vede: dagli un colore diverso nei Colori 2–4, oppure cambia il Colore 1'); } }
             artCS = ROT(artCS);
           }
           if (hasT) {
@@ -914,7 +957,8 @@
       info.push(['Culle', `ogni scheda ha un muretto sotto i bordi senza piedini (${fmt(lip0)} mm sotto la scheda) e un contorno alto quanto il circuito; sui bordi con i piedini solo due dentini; gioco ${fmt(g)} mm per lato`]);
       info.push(['Altezza', `tutte le schede arrivano a 0,6 mm dal coperchio, così display, fotocamera e sensori sono vicini alle finestre`]);
       if (!campana) info.push(['Coperchio', `4 viti ${p.vite} a testa svasata dall'alto, in colonnine agli angoli (pre-foro ${dv === 3 ? '2,6' : '2,1'} mm, per viti autofilettanti o da avvitare nel PETG)`]);
-      if (nLed) info.push(['LED', `${nLed} × ${LT.nome} sulla fascia davanti del coperchio${LT.pelle ? `: resta una pelle da ${LT.pelle} mm sopra al LED, la luce passa (meglio se il coperchio è chiaro)` : `: foro Ø ${fmt(2 * LT.r)} mm e tubetto sotto il coperchio lungo ${fmt(ringLen)} mm: il collarino del LED batte sotto il tubetto, ${ledOut > 0.3 ? `il LED esce di circa ${fmt(ledOut)} mm` : ledOut < -0.3 ? `il LED resta ${fmt(-ledOut)} mm sotto la superficie` : 'il LED arriva a filo'} (misure tipiche dei LED: controlla i tuoi). Spingilo da dentro, una goccia di colla a caldo lo tiene fermo. Va collegato con i dupont`}`]);
+      if (nLed && !ledOnLid) info.push(['LED', `${nLed} × ${LT.nome} sulla parete ${ledSide}, a ${fmt(ledWallZ - f)} mm dal fondo: ${LT.pelle ? `da dentro resta una pelle da ${LT.pelle} mm, la luce passa (meglio se la scatola è chiara)` : `foro Ø ${fmt(2 * LT.r)} mm a goccia (si stampa senza supporti): infila il LED da dentro, il collarino batte contro la parete; fermalo con una goccia di colla`}. Dietro ai LED restano liberi ${fmt(ledDepth)} mm per gambe e dupont`]);
+      if (nLed && ledOnLid) info.push(['LED', `${nLed} × ${LT.nome} sulla fascia davanti del coperchio${LT.pelle ? `: resta una pelle da ${LT.pelle} mm sopra al LED, la luce passa (meglio se il coperchio è chiaro)` : `: foro Ø ${fmt(2 * LT.r)} mm e tubetto sotto il coperchio lungo ${fmt(ringLen)} mm: il collarino del LED batte sotto il tubetto, ${ledOut > 0.3 ? `il LED esce di circa ${fmt(ledOut)} mm` : ledOut < -0.3 ? `il LED resta ${fmt(-ledOut)} mm sotto la superficie` : 'il LED arriva a filo'} (misure tipiche dei LED: controlla i tuoi). Spingilo da dentro, una goccia di colla a caldo lo tiene fermo. Va collegato con i dupont`}`]);
       if (nCav) info.push(['Passacavi', `${nCav} × Ø ${fmt(p.cavoD)} mm sulla parete dietro, nel vano dei fili`]);
       for (const it of items) if (it.stima) info.push(['Da verificare', `${it.nome}: ${it.stima}`]);
       // indirizzi I²C

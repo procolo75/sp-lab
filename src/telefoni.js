@@ -14,6 +14,9 @@
 //   usb  connettore sul fondo [centro x, larghezza, altezza, raggio] (zona da lasciare libera); lightning: true se Lightning
 //   sp   fori di altoparlanti e microfoni sul fondo [x0, x1]; piano: distanza dal bordo dove il vetro diventa piatto
 //   mag  centro del MagSafe dalla cima, se non è al centro del telefono
+//   cima fori sulla cima [centro x, larghezza] (microfoni), se servono
+// Altri telefoni (marca diversa da Apple): niente disegni quotati pubblici. `misure` dice da dove vengono le quote:
+// ingombri dalla scheda tecnica, contorno, fotocamera e tasti in scala dalla foto ufficiale del retro, il resto stimato.
 (function (root) {
   const A = (...v) => v.map((x, i) => [x, v[v.length - 1 - i]]);
   // profili ricorrenti
@@ -129,6 +132,20 @@
     { id: 'iphone-12-mini', nome: 'iPhone 12 mini', fonte: '2020-10-16', W: 64.21, L: 131.50, T: 7.39, a: A(0, 0.11, 0.84, 2.83, 5.92, 9.42, 13.03), pf: P12,
       sx: [mute(23.37, 2.85), vol(36.68, 5.65), vol(50.68, 5.65)], dx: [side(43.68, 8.90)], w: 2.76,
       cam: { r: [1.67, 1.67, 30.78, 33.98, 9.5], h: 0.73, v: 1.51 }, usb: [32.11, 13.65, 6.85, 3.40], lightning: true, sp: [17.78, 50.94], piano: 1.15 },
+    // OnePlus Nord (2020, AC2003). 158,3 × 73,3 × 8,2 mm dalla scheda tecnica OnePlus. Contorno, fotocamera, flash e tasti misurati
+    // in scala (10,28 px/mm, ±0,2 mm) sulla foto ufficiale del retro di oneplus.com/it/nord. Profilo dei bordi, finestra del flash
+    // e aperture sul fondo ripresi da una cover già provata sul telefono (One_Plus_Nord_case_v13.stl: cavità 74,3 × 159,3 mm,
+    // 0,5 mm di gioco per lato; isola della fotocamera e tasti coincidono con la foto entro 0,3 mm). Sporgenza della fotocamera: stima.
+    // Schermo piatto, telaio in plastica, retro in vetro curvo ai lati. Tasti: volume a sinistra; Alert Slider e accensione a destra.
+    { id: 'oneplus-nord', nome: 'OnePlus Nord', marca: 'OnePlus', W: 73.3, L: 158.3, T: 8.2,
+      misure: 'scheda tecnica OnePlus; contorno, fotocamera e tasti in scala dalla foto ufficiale del retro (±0,2 mm), confrontati con una cover già provata, da cui vengono anche bordi, flash e fondo; sporgenza della fotocamera stimata',
+      a: A(0, 0.06, 0.19, 0.44, 0.92, 1.50, 2.50, 3.60, 4.85, 6.30, 7.75, 9.20, 10.60),
+      pf: [[2.65, 0], [3.15, 0.25], [3.65, 0.57], [3.95, 0.88], [4.10, 1.05]],                 // dalla cover di riferimento
+      pr: [[1.85, 0], [2.25, 0.09], [2.55, 0.21], [2.85, 0.34], [3.05, 0.49], [3.35, 0.72], [3.65, 1.10], [3.85, 1.46], [4.05, 2.12], [4.10, 2.30]],   // vetro curvo sul retro
+      sx: [vol(54.82, 9.54)], dx: [mute(44.45, 4.33), side(65.57, 5.79)], w: 2.6,               // mute = Alert Slider (sempre aperto)
+      // isola verticale a pillola con 4 lenti; flash doppio fuori dall'isola, a destra guardando il retro. Sporgenza: stima
+      cam: { r: [7.44, 6.25, 19.49, 47.61, 6.0], h: 1.2, v: 1.2, fori: [[22.80, 12.40, 6.2]] },   // flash: foto (y 10,3–15,4) e cover di riferimento (y 7,5–16,2)
+      usb: [36.65, 12.45, 6.60, 3.25], sp: [25.6, 64.6], cima: [[42.8, 3.1]], piano: 1.0 },   // fondo come la cover di riferimento: microfono e USB, altoparlante
   ];
   // lenti, flash, microfono e sensore sul retro [x, y, Ø] (quote del disegno del retro): i fori della copertura della fotocamera
   const L16 = [[13.62, 13.62, 16.00], [13.62, 31.34, 16.00], [30.01, 22.48, 6.28], [20.54, 22.48, 1.00]];

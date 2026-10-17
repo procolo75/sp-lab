@@ -1778,6 +1778,9 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
 //   usb  connettore sul fondo [centro x, larghezza, altezza, raggio] (zona da lasciare libera); lightning: true se Lightning
 //   sp   fori di altoparlanti e microfoni sul fondo [x0, x1]; piano: distanza dal bordo dove il vetro diventa piatto
 //   mag  centro del MagSafe dalla cima, se non è al centro del telefono
+//   cima fori sulla cima [centro x, larghezza] (microfoni), se servono
+// Altri telefoni (marca diversa da Apple): niente disegni quotati pubblici. `misure` dice da dove vengono le quote:
+// ingombri dalla scheda tecnica, contorno, fotocamera e tasti in scala dalla foto ufficiale del retro, il resto stimato.
 (function (root) {
   const A = (...v) => v.map((x, i) => [x, v[v.length - 1 - i]]);
   // profili ricorrenti
@@ -1893,6 +1896,20 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
     { id: 'iphone-12-mini', nome: 'iPhone 12 mini', fonte: '2020-10-16', W: 64.21, L: 131.50, T: 7.39, a: A(0, 0.11, 0.84, 2.83, 5.92, 9.42, 13.03), pf: P12,
       sx: [mute(23.37, 2.85), vol(36.68, 5.65), vol(50.68, 5.65)], dx: [side(43.68, 8.90)], w: 2.76,
       cam: { r: [1.67, 1.67, 30.78, 33.98, 9.5], h: 0.73, v: 1.51 }, usb: [32.11, 13.65, 6.85, 3.40], lightning: true, sp: [17.78, 50.94], piano: 1.15 },
+    // OnePlus Nord (2020, AC2003). 158,3 × 73,3 × 8,2 mm dalla scheda tecnica OnePlus. Contorno, fotocamera, flash e tasti misurati
+    // in scala (10,28 px/mm, ±0,2 mm) sulla foto ufficiale del retro di oneplus.com/it/nord. Profilo dei bordi, finestra del flash
+    // e aperture sul fondo ripresi da una cover già provata sul telefono (One_Plus_Nord_case_v13.stl: cavità 74,3 × 159,3 mm,
+    // 0,5 mm di gioco per lato; isola della fotocamera e tasti coincidono con la foto entro 0,3 mm). Sporgenza della fotocamera: stima.
+    // Schermo piatto, telaio in plastica, retro in vetro curvo ai lati. Tasti: volume a sinistra; Alert Slider e accensione a destra.
+    { id: 'oneplus-nord', nome: 'OnePlus Nord', marca: 'OnePlus', W: 73.3, L: 158.3, T: 8.2,
+      misure: 'scheda tecnica OnePlus; contorno, fotocamera e tasti in scala dalla foto ufficiale del retro (±0,2 mm), confrontati con una cover già provata, da cui vengono anche bordi, flash e fondo; sporgenza della fotocamera stimata',
+      a: A(0, 0.06, 0.19, 0.44, 0.92, 1.50, 2.50, 3.60, 4.85, 6.30, 7.75, 9.20, 10.60),
+      pf: [[2.65, 0], [3.15, 0.25], [3.65, 0.57], [3.95, 0.88], [4.10, 1.05]],                 // dalla cover di riferimento
+      pr: [[1.85, 0], [2.25, 0.09], [2.55, 0.21], [2.85, 0.34], [3.05, 0.49], [3.35, 0.72], [3.65, 1.10], [3.85, 1.46], [4.05, 2.12], [4.10, 2.30]],   // vetro curvo sul retro
+      sx: [vol(54.82, 9.54)], dx: [mute(44.45, 4.33), side(65.57, 5.79)], w: 2.6,               // mute = Alert Slider (sempre aperto)
+      // isola verticale a pillola con 4 lenti; flash doppio fuori dall'isola, a destra guardando il retro. Sporgenza: stima
+      cam: { r: [7.44, 6.25, 19.49, 47.61, 6.0], h: 1.2, v: 1.2, fori: [[22.80, 12.40, 6.2]] },   // flash: foto (y 10,3–15,4) e cover di riferimento (y 7,5–16,2)
+      usb: [36.65, 12.45, 6.60, 3.25], sp: [25.6, 64.6], cima: [[42.8, 3.1]], piano: 1.0 },   // fondo come la cover di riferimento: microfono e USB, altoparlante
   ];
   // lenti, flash, microfono e sensore sul retro [x, y, Ø] (quote del disegno del retro): i fori della copertura della fotocamera
   const L16 = [[13.62, 13.62, 16.00], [13.62, 31.34, 16.00], [30.01, 22.48, 6.28], [20.54, 22.48, 1.00]];
@@ -3157,9 +3174,12 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       for (let i = 0; i < 14; i++) { const m = (lo + hi) / 2; if (loss(m) <= 0.01) lo = m; else hi = m; }
       return lo > 0 ? r * H0 / lo : null;
     }
-    function artSlots(g, F, clip, noz, notes) {
-      const by = { 2: [], 3: [], 4: [] };
-      for (const [hex, cs] of Object.entries(g.regions)) { const k = SVGL ? SVGL.nearest(hex, F) + 1 : 2; if (k > 1) by[k].push(cs); }
+    // onTop: il disegno sta sopra un pezzo (coperchio): se ha un solo colore va sul filamento 2–4 che si stacca di più dal pezzo
+    // (come la scritta con "Auto"), mai sul colore del pezzo, sennò non si vede
+    function artSlots(g, F, clip, noz, notes, onTop) {
+      const by = { 2: [], 3: [], 4: [] }, one = onTop && Object.keys(g.regions).length === 1;
+      const far = SVGL ? [2, 3, 4].sort((a, b) => SVGL.dist(F[b - 1], F[0]) - SVGL.dist(F[a - 1], F[0]))[0] : 2;
+      for (const [hex, cs] of Object.entries(g.regions)) { const k = !SVGL ? 2 : one ? far : SVGL.nearest(hex, F) + 1; if (k > 1) by[k].push(cs); }
       const out = {}; let lost = 0, tot = 0;
       for (const k of [2, 3, 4]) {
         let c = I(U(by[k]), clip);
@@ -4809,6 +4829,11 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       const X = (u) => -t.W / 2 + u, [uc, uw] = t.usb, sp = t.sp || [uc, uc];
       const fx0 = Math.max(X(Math.min(sp[0], uc - uw / 2 - cb) - 3), -t.W / 2 + 9), fx1 = Math.min(X(Math.max(sp[1], uc + uw / 2 + cb) + 3), t.W / 2 - 9);
       cuts.push(prismY(RR(fx0, tb + 0.2, fx1, zr + 6, 2.5), -t.L / 2 - g - s - 1, -t.L / 2 + 6));
+      // ---- cima: fori dei microfoni [centro x guardando lo schermo, larghezza], asole tonde a metà spessore ----
+      for (const [u, w] of (t.cima || [])) {
+        const a = w + 2 * cb, h = Math.min(a, t.T - 2);
+        cuts.push(prismY(RR(X(u) - a / 2, zm - h / 2, X(u) + a / 2, zm + h / 2, h / 2), t.L / 2 - 3, t.L / 2 + g + s + 1));
+      }
 
       // ---- MagSafe: incavo ad anello per un anello magnetico adesivo, centrato sul MagSafe del telefono ----
       // dentro: sul lato del telefono, l'anello resta nascosto; fuori: sul retro, a vista
@@ -4858,12 +4883,13 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           let artCS = null, txt = null;
           const slots = {};
           if (art) {
-            const g0 = DEC.artGeom(art, Sa, ax1 - ax0), ay = cy - Sa / 2, place = (c) => (c ? MV(c, 0, ay) : null);
+            const dP = Array.isArray(p.posDisegno) ? p.posDisegno : [0, 0], g0 = DEC.artGeom(art, Sa, ax1 - ax0), ay = cy - Sa / 2 + (+dP[1] || 0), place = (c) => (c ? MV(c, +dP[0] || 0, ay) : null);
             const sil = place(g0.sil);
             artCS = st === 'filo' ? sil : st === 'inciso' ? (g0.lines ? place(g0.lines) : sil) : (g0.lines ? place(I(g0.lines, OFF(g0.sil, -1.3 * g0.k))) : sil);
             if (st === 'filo') {
-              const sl = DEC.artSlots(g0, F, OFF(g0.sil, 0.01), noz, notes);
+              const sl = DEC.artSlots(g0, F, OFF(g0.sil, 0.01), noz, notes, true);
               for (const k of [2, 3, 4]) if (sl[k]) slots[k] = place(sl[k]);
+              { const sA = g0.sil.area(), cA = [2, 3, 4].reduce((s, k) => s + (sl[k] ? sl[k].area() : 0), 0); if (sA > 1 && cA < 0.05 * sA) notes.push('Il disegno ha quasi solo il colore della cover (Colore 1), quindi a filo non si vede: dagli un colore diverso nei Colori 2–4, oppure cambia il Colore 1'); }
               // le parti del colore della cover restano della cover: la sagoma serve solo a ritagliare
             }
           }
@@ -4948,7 +4974,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       parts.push({ name: 'Telefono', m: flip(cut(ghostM), zr), role: 'ghost' });
 
       // ---- riquadro misure ----
-      info.push(['Telefono', `${t.nome}: ${fmt(t.W)} × ${fmt(t.L)} × ${fmt(t.T)} mm` + (t.fonte ? ` (disegno Apple del ${t.fonte.split('-').reverse().join('/')})` : '')]);
+      info.push(['Telefono', `${t.nome}: ${fmt(t.W)} × ${fmt(t.L)} × ${fmt(t.T)} mm` + (t.fonte ? ` (disegno Apple del ${t.fonte.split('-').reverse().join('/')})` : t.misure ? ` (${t.misure})` : '')]);
       info.push(['Cover', `${fmt(Wo)} × ${fmt(Lo)} × ${fmt(zr)} mm · pareti ${fmt(s)} mm · retro ${fmt(tb)} mm`]);
       info.push(['Materiale', tpu ? 'TPU: il telefono entra a scatto sotto il bordo' : 'PLA o PETG: rigida. Il telefono entra inclinato: prima la cima sotto il bordo, poi premi giù il fondo (le pareti si piegano un poco)']);
       info.push(['Gioco', `${fmt(g)} mm sui lati, ${fmt(gz)} mm sullo spessore, ${fmt(cb)} mm attorno a tasti e connettore`]);
@@ -4958,7 +4984,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       else info.push(['Fotocamera', lens > 0.05 ? `le lenti sporgono ${fmt(lens)} mm dal retro della cover` : `lenti ${fmt(-lens)} mm dentro il retro: appoggiata sul tavolo la cover non le tocca`]);
       if (thick) info.push(['Retro', `${fmt(tb)} mm: il rialzo della fotocamera è largo quanto il telefono e sta in una tasca, così fuori il retro resta piatto`]);
       if (covered) info.push(['Tasti', `${covered} coperti: si premono attraverso la cover`]);
-      info.push(['Aperture', `${opens ? 'fianchi aperti dal retro al bordo dove ci sono i tasti' : 'tasti coperti'}${ccSlot ? ', asola per il Camera Control' : ''}; fondo aperto per cavo, altoparlante e microfoni`]);
+      info.push(['Aperture', `${opens ? 'fianchi aperti dal retro al bordo dove ci sono i tasti' : 'tasti coperti'}${ccSlot ? ', asola per il Camera Control' : ''}; fondo aperto per cavo, altoparlante e microfoni${t.cima ? '; foro per il microfono in cima' : ''}`]);
       if (decoInfo) info.push(['Decorazione', decoInfo]);
       if (standInfo) info.push(['Cavalletto', standInfo]);
       if (magInfo) {
@@ -4971,9 +4997,10 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       info.push(['Stampa', `retro sul piatto, senza supporti${tpu ? '; il TPU va stampato lento (20–30 mm/s)' : ''}`]);
       if (!insert && lens > 0.15) notes.push('Le lenti sporgono dalla cover: scegli la copertura a parte per proteggerle');
       if (insert) notes.push('~Stampa la copertura in PLA o PETG opaco, con la faccia esterna sul piatto come la cover: il TPU è troppo morbido e un materiale chiaro fa passare la luce del flash nelle foto');
-      if (!t.custom && tb > 2.1) notes.push(`Retro di ${fmt(tb)} mm: Apple indica al massimo 2,1 mm perché la ricarica MagSafe funzioni sempre: riduci lo spessore del retro`);
+      if (t.fonte && tb > 2.1) notes.push(`Retro di ${fmt(tb)} mm: Apple indica al massimo 2,1 mm perché la ricarica MagSafe funzioni sempre: riduci lo spessore del retro`);
       if (!tpu && lip > 0.8) notes.push(`Bordo sul vetro di ${fmt(lip)} mm: con PLA o PETG il telefono rischia di non entrare o di rompere la cover. Meglio 0,6 mm o meno`);
       if (t.piano && lip > t.piano + 0.6) notes.push(`Il bordo arriva ${fmt(lip - t.piano)} mm dentro la parte piatta dello schermo: riduci il bordo sul vetro`);
+      if (t.misure) notes.push('~Misure non da un disegno ufficiale: stampa prima la striscia di prova (cima e fondo) per controllare fotocamera, tasti e gioco');
       for (const n of notes) info.push(['Nota', n]);
       if (DEC) { for (const n of DEC.NOTES) info.push(['Nota', n]); DEC.NOTES.clear(); }
       return { parts: parts.filter(Boolean), info, view: [0.55, -0.9, 0.75] };
@@ -5395,11 +5422,12 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           const cx = zcx, cy = zcy + (Sa + gap + tH) / 2;
           let artCS = null, txt = null; const slots = {};
           if (art) {
-            const g0 = DEC.artGeom(art, Sa, lw), acx = cx, acy = cy - Sa / 2;
+            const dP = Array.isArray(p.posDisegno) ? p.posDisegno : [0, 0], g0 = DEC.artGeom(art, Sa, lw), acx = cx + (+dP[0] || 0), acy = cy - Sa / 2 + (+dP[1] || 0);
             const place = (c) => (c ? (thA ? R2(R2(R2(MV(c, acx, acy).translate([-acx, -acy])).rotate(thA)).translate([acx, acy])) : MV(c, acx, acy)) : null);
             const sil = place(g0.sil);
             artCS = st === 'filo' ? sil : st === 'inciso' ? (g0.lines ? place(g0.lines) : sil) : (g0.lines ? place(CI(g0.lines, OFF(g0.sil, -1.3 * g0.k))) : sil);
-            if (st === 'filo') { const sl = DEC.artSlots(g0, F, OFF(g0.sil, 0.01), noz, notes); for (const k of [2, 3, 4]) if (sl[k]) slots[k] = place(sl[k]); }
+            if (st === 'filo') { const sl = DEC.artSlots(g0, F, OFF(g0.sil, 0.01), noz, notes, true); for (const k of [2, 3, 4]) if (sl[k]) slots[k] = place(sl[k]);
+              { const sA = g0.sil.area(), cA = [2, 3, 4].reduce((s, k) => s + (sl[k] ? sl[k].area() : 0), 0); if (sA > 1 && cA < 0.05 * sA) notes.push('Il disegno ha quasi solo il colore del coperchio (Colore 1), quindi a filo non si vede: dagli un colore diverso nei Colori 2–4, oppure cambia il Colore 1'); } }
           }
           if (hasT) {
             txt = DEC.fitLines ? DEC.fitLines(p, { x: cx, y: cy - Sa - gap - tH / 2, w: lw, h: Math.max(4, tH), hMax: lh }, [p.rotTesto, p.rotTesto2]) : DEC.fitText(p, { x: cx, y: cy - Sa - gap - tH / 2, w: lw, h: Math.max(4, tH) }, p.altTesto);
@@ -5853,19 +5881,23 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       // ---- LED sul coperchio ----
       const LT = LED[p.ledTipo] || LED.led5;
       const nLed = Math.max(0, Math.min(4, p.ledN | 0));
-      const stripF = nLed ? 2 * Math.max(LT.anello, LT.r) + 3.5 : 0;   // fascia libera davanti
+      // dove stanno i LED: sul coperchio (fascia davanti) o su una parete. Sulle pareti dietro ai LED resta libero lo spazio per collarino, gambe e dupont
+      const ledSide = ['davanti', 'dietro', 'sinistra', 'destra'].includes(p.ledLato) ? p.ledLato : 'coperchio', ledOnLid = ledSide === 'coperchio';
+      const lP = Array.isArray(p.ledPos) ? p.ledPos : [0, 0];
+      const ledDepth = nLed && !ledOnLid ? (LT.pelle ? 9 : 1) + 16 : 0;
+      const stripF = nLed && ledOnLid ? 2 * Math.max(LT.anello, LT.r) + 3.5 : 0;   // fascia libera davanti
       const lx0 = vm ? Math.max(13, pc + prP + LT.anello + 1) : 13;     // primo LED: lontano dalle colonnine
 
       // ---- disposizione: righe da sinistra a destra, il processore per primo ----
       const gap = Math.max(5, p.distanza);
-      const ymF = Math.max(7.0, stripF, vm ? pc + prP + 2.4 : 0), ymB = Math.max(7.0, vm ? pc + prP + 2.4 : 0);   // con le boccole sotto il coperchio serve anche lo spessore del muretto delle culle (1,6 mm)     // davanti e dietro restano liberi gli angoli per le colonnine delle viti
+      const ymF = Math.max(7.0, stripF, vm ? pc + prP + 2.4 : 0, ledSide === 'davanti' ? ledDepth : 0), ymB = Math.max(7.0, vm ? pc + prP + 2.4 : 0, ledSide === 'dietro' ? ledDepth : 0);   // con le boccole sotto il coperchio serve anche lo spessore del muretto delle culle (1,6 mm)     // davanti e dietro restano liberi gli angoli per le colonnine delle viti
       const xFirst = cpu.usb ? 0.2 : 2.5, xNext = 2.5;
       const place = [];
-      let cx = xFirst, cy = ymF, rowH = 0, maxX = 0;
+      let cx = xFirst, cy = ymF, rowH = 0, maxX = 0, rowN = 0;
       for (const it of items) {
         const le = it.L + 2 * g, we = it.W + 2 * g;
-        if (place.length && cx > xNext + 0.01 && cx + le + 2.5 > p.largMax) { cy += rowH + gap; cx = xNext; rowH = 0; }
-        place.push({ it, px: cx, py: cy, le, we });
+        if (place.length && cx > xNext + 0.01 && cx + le + 2.5 > p.largMax) { cy += rowH + gap; cx = xNext; rowH = 0; rowN++; }
+        place.push({ it, px: cx, py: cy, le, we, row: rowN });
         cx += le + gap; rowH = Math.max(rowH, we); maxX = Math.max(maxX, cx - gap);
       }
       // posizione scelta con le frecce: spostamento in mm rispetto alla fila automatica (destra e su = verso il retro); a sinistra e davanti non si esce dal bordo
@@ -5875,8 +5907,13 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         pl.px = Math.max(k === 0 ? xFirst : xNext, pl.px + pl.dx);
         pl.py = Math.max(ymF, pl.py + pl.dy);
       });
-      const Xin = Math.max(Math.max(...place.map(q => q.px + q.le)) + 2.5, 16, nLed ? 2 * lx0 + (nLed - 1) * 9 : 0, vm ? 4 * prP + 4 : 0);
-      const Yin = Math.max(...place.map(q => q.py + q.we)) + ymB;
+      // LED sulla parete sinistra: le schede si staccano dalla parete per lasciare spazio ai LED; il processore con la USB resta contro la parete (i LED vanno accanto)
+      // si spostano le file intere (così le schede di una fila non si sovrappongono); con la USB la fila del processore resta e i LED vanno nel tratto di parete accanto
+      if (ledSide === 'sinistra' && nLed) place.forEach(pl => { if (!cpu.usb || pl.row > 0) pl.px += ledDepth; });
+      const Xin = Math.max(Math.max(...place.map(q => q.px + q.le)) + 2.5 + (ledSide === 'destra' ? ledDepth : 0), 16, nLed ? 2 * lx0 + (nLed - 1) * 9 : 0, vm ? 4 * prP + 4 : 0);
+      // LED a sinistra con la USB: la parete accanto al processore deve essere lunga abbastanza per i LED
+      const Yin = Math.max(Math.max(...place.map(q => q.py + q.we)) + ymB,
+        ledSide === 'sinistra' && nLed && cpu.usb ? place[0].py + place[0].we + 2 + (14 + LT.anello) + (nLed - 1) * (2 * LT.anello + 5) + 2 * LT.r + 4 : 0);
 
       // ---- altezze ----
       // piedini sotto: sotto la scheda il vano dei dupont; piedini sopra: i dupont salgono verso il coperchio (16,5 mm + 3 mm per la curva dei fili)
@@ -6011,6 +6048,39 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         cuts.push(cylY(xx, zCav, Yo - w - 1, Yo + 1, cavR, 40));
       }
 
+      // ---- LED sulle pareti: foro a goccia (si stampa in verticale senza supporti); il LED entra da dentro e il collarino batte contro la parete ----
+      const ledWall = { davanti: [], dietro: [], sinistra: [], destra: [] };   // zone da lasciare libere dalle prese d'aria [u0, z0, u1, z1]
+      let ledWallZ = 0;
+      if (nLed && !ledOnLid) {
+        const alongX = ledSide === 'davanti' || ledSide === 'dietro', len = alongX ? Xin : Yin, mC = Math.max(9, pc + pr + LT.anello + 1);
+        let a0 = mC, a1 = len - mC;
+        if (ledSide === 'sinistra' && cpu.usb) {   // il tratto di parete accanto al processore (lì esce la USB)
+          const c0 = place[0].py - 2, c1 = place[0].py + place[0].we + 2;
+          const opts = [[a0, Math.min(a1, c0)], [Math.max(a0, c1), a1]].filter(q => q[1] - q[0] > 0);
+          if (opts.length) [a0, a1] = opts.sort((q, r) => (r[1] - r[0]) - (q[1] - q[0]))[0];
+        }
+        const sp = 2 * LT.anello + 5, rr = LT.r, tip = 1.25 * rr;
+        const zc = Math.min(Zw - Math.max(LT.anello, rr) - 1.5, Math.max(f + Math.max(LT.anello, rr) + 1.5, f + Hin / 2 + (+lP[1] || 0)));
+        ledWallZ = zc;
+        const tearY = (x, y0, y1) => hull([cylY(x, zc, y0, y1, rr, 36), cylY(x, zc + tip, y0, y1, 0.05, 6)]);
+        const tearX = (y, x0, x1) => hull([cylX(x0, x1, y, zc, rr, 36), cylX(x0, x1, y, zc + tip, 0.05, 6)]);
+        const pel = LT.pelle || 0;
+        for (let i = 0; i < nLed; i++) {
+          const a = Math.min(len - mC, Math.max(mC, (a0 + a1) / 2 + (+lP[0] || 0) + (i - (nLed - 1) / 2) * sp));
+          if (ledSide === 'davanti') cuts.push(tearY(ox + a, pel ? pel : -1, w + 1));
+          else if (ledSide === 'dietro') cuts.push(tearY(ox + a, Yo - w - 1, pel ? Yo - pel : Yo + 1));
+          else if (ledSide === 'sinistra') cuts.push(tearX(oy + a, pel ? pel : -1, w + 1));
+          else cuts.push(tearX(oy + a, Xo - w - 1, pel ? Xo - pel : Xo + 1));
+          const u = (alongX ? ox : oy) + a;
+          ledWall[ledSide].push([u - rr - 3, zc - rr - 3, u + rr + 3, zc + tip + 3]);
+          // dietro al LED: spazio per collarino, gambe e dupont; se una scheda ci sta dentro, avviso
+          const half = LT.anello + 1, inner = ledSide === 'davanti' ? [ox + a - half, oy, ox + a + half, oy + ledDepth] : ledSide === 'dietro' ? [ox + a - half, oy + Yin - ledDepth, ox + a + half, oy + Yin]
+            : ledSide === 'sinistra' ? [ox, oy + a - half, ox + ledDepth, oy + a + half] : [ox + Xin - ledDepth, oy + a - half, ox + Xin, oy + a + half];
+          const hitPl = place.find(pl => inner[0] < ox + pl.px + pl.le && inner[2] > ox + pl.px && inner[1] < oy + pl.py + pl.we && inner[3] > oy + pl.py);
+          if (hitPl) notes.push(`LED ${i + 1} sulla parete ${ledSide}: a meno di ${fmt(ledDepth)} mm c'è ${hitPl.it.nome.split(' (')[0]}, gambe e dupont non ci stanno. Spostalo con le frecce di "Posizione LED" o sposta la scheda`);
+        }
+      }
+
 
       // ---- prese d'aria: fessure, fori o esagoni su coperchio, fondo e pareti ----
       const ariaTxt = [];
@@ -6058,7 +6128,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         // coperchio: salta finestre, fascia dei LED e viti
         if (p.ariaCop && p.ariaCop !== 'no') {
           const ex = viteRects(Math.max(7, pr + 3));
-          if (nLed) ex.push([ox, oy, ox + Xin, oy + stripF + 1]);
+          if (nLed && ledOnLid) ex.push([ox, oy, ox + Xin, oy + stripF + 1]);
           for (const pl of place) {
             const fin = pl.it.finestra; if (!fin) continue;
             const bx = ox + pl.px + g, by = oy + pl.py + g, m = p.margineFin + 2.5;
@@ -6097,10 +6167,10 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           if (res.out.length) cuts.push(polyPrism(axis, res.out, t0, t1));
           report(nome, res);
         };
-        parete(p.ariaDietro, 'parete dietro', 'y', ox + mw, ox + Xin - mw, Yo - w - 1, Yo + 1, cavRects);
-        parete(p.ariaDavanti, 'parete davanti', 'y', ox + mw, ox + Xin - mw, -1, w + 1, null);
-        parete(p.ariaDestra, 'parete destra', 'x', oy + mw, oy + Yin - mw, Xo - w - 1, Xo + 1, null);
-        parete(p.ariaSinistra, 'parete sinistra', 'x', oy + mw, oy + Yin - mw, -1, w + 1, sideRects);
+        parete(p.ariaDietro, 'parete dietro', 'y', ox + mw, ox + Xin - mw, Yo - w - 1, Yo + 1, [...cavRects, ...ledWall.dietro]);
+        parete(p.ariaDavanti, 'parete davanti', 'y', ox + mw, ox + Xin - mw, -1, w + 1, ledWall.davanti);
+        parete(p.ariaDestra, 'parete destra', 'x', oy + mw, oy + Yin - mw, Xo - w - 1, Xo + 1, ledWall.destra);
+        parete(p.ariaSinistra, 'parete sinistra', 'x', oy + mw, oy + Yin - mw, -1, w + 1, [...sideRects, ...ledWall.sinistra]);
       }
 
 
@@ -6211,7 +6281,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       let lid = X(S, box(-1, -1, Zw + 0.01, Xo + 1, Yo + 1, Htot + 1));
       // LED: fori allineati sulla fascia davanti, con un anello sotto il coperchio che tiene il LED
       const ledXY = [];
-      for (let i = 0; i < nLed; i++) ledXY.push([ox + (nLed === 1 ? Xin / 2 : lx0 + i * (Xin - 2 * lx0) / (nLed - 1)), oy + stripF / 2]);
+      if (ledOnLid) for (let i = 0; i < nLed; i++) ledXY.push([ox + (nLed === 1 ? Xin / 2 : lx0 + i * (Xin - 2 * lx0) / (nLed - 1)) + (+lP[0] || 0), oy + stripF / 2 + (+lP[1] || 0)]);
       // sporgenza: il collarino del LED batte sotto il tubetto; più è lungo il tubetto, più il LED sta dentro
       const ledTop = { sporgente: null, filo: 0, incassato: -1 }[p.ledSporg || 'sporgente'];
       const ringLen = LT.pelle ? 0 : ledTop === null ? 1.8 : Math.min(Hin - 3, Math.max(1.8, LT.h - ledTop - tl));
@@ -6295,12 +6365,13 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           const cx = (bx0 + bx1) / 2, cy = (by0 + by1) / 2 + (Sa + gap + tH) / 2;
           let artCS = null, txt = null; const slots = {};
           if (art) {
-            const g0 = DEC.artGeom(art, Sa, bx1 - bx0), acx = cx, acy = cy - Sa / 2;
+            const dP = Array.isArray(p.posDisegno) ? p.posDisegno : [0, 0], g0 = DEC.artGeom(art, Sa, bx1 - bx0), acx = cx + (+dP[0] || 0), acy = cy - Sa / 2 + (+dP[1] || 0);
             const ROT = (c) => (!c || !thA ? c : R2(R2(R2(c.translate([-acx, -acy])).rotate(thA)).translate([acx, acy])));
             const placeA = (c) => (c ? MV(c, acx, acy) : null);
             const sil = placeA(g0.sil);
             artCS = st === 'filo' ? sil : st === 'inciso' ? (g0.lines ? placeA(g0.lines) : sil) : (g0.lines ? placeA(CI(g0.lines, OFF(g0.sil, -1.3 * g0.k))) : sil);
-            if (st === 'filo') { const sl = DEC.artSlots(g0, F, OFF(g0.sil, 0.01), noz, notes); for (const k of [2, 3, 4]) if (sl[k]) slots[k] = ROT(placeA(sl[k])); }
+            if (st === 'filo') { const sl = DEC.artSlots(g0, F, OFF(g0.sil, 0.01), noz, notes, true); for (const k of [2, 3, 4]) if (sl[k]) slots[k] = ROT(placeA(sl[k]));
+              { const sA = g0.sil.area(), cA = [2, 3, 4].reduce((s, k) => s + (sl[k] ? sl[k].area() : 0), 0); if (sA > 1 && cA < 0.05 * sA) notes.push('Il disegno ha quasi solo il colore del coperchio (Colore 1), quindi a filo non si vede: dagli un colore diverso nei Colori 2–4, oppure cambia il Colore 1'); } }
             artCS = ROT(artCS);
           }
           if (hasT) {
@@ -6471,7 +6542,8 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       info.push(['Culle', `ogni scheda ha un muretto sotto i bordi senza piedini (${fmt(lip0)} mm sotto la scheda) e un contorno alto quanto il circuito; sui bordi con i piedini solo due dentini; gioco ${fmt(g)} mm per lato`]);
       info.push(['Altezza', `tutte le schede arrivano a 0,6 mm dal coperchio, così display, fotocamera e sensori sono vicini alle finestre`]);
       if (!campana) info.push(['Coperchio', `4 viti ${p.vite} a testa svasata dall'alto, in colonnine agli angoli (pre-foro ${dv === 3 ? '2,6' : '2,1'} mm, per viti autofilettanti o da avvitare nel PETG)`]);
-      if (nLed) info.push(['LED', `${nLed} × ${LT.nome} sulla fascia davanti del coperchio${LT.pelle ? `: resta una pelle da ${LT.pelle} mm sopra al LED, la luce passa (meglio se il coperchio è chiaro)` : `: foro Ø ${fmt(2 * LT.r)} mm e tubetto sotto il coperchio lungo ${fmt(ringLen)} mm: il collarino del LED batte sotto il tubetto, ${ledOut > 0.3 ? `il LED esce di circa ${fmt(ledOut)} mm` : ledOut < -0.3 ? `il LED resta ${fmt(-ledOut)} mm sotto la superficie` : 'il LED arriva a filo'} (misure tipiche dei LED: controlla i tuoi). Spingilo da dentro, una goccia di colla a caldo lo tiene fermo. Va collegato con i dupont`}`]);
+      if (nLed && !ledOnLid) info.push(['LED', `${nLed} × ${LT.nome} sulla parete ${ledSide}, a ${fmt(ledWallZ - f)} mm dal fondo: ${LT.pelle ? `da dentro resta una pelle da ${LT.pelle} mm, la luce passa (meglio se la scatola è chiara)` : `foro Ø ${fmt(2 * LT.r)} mm a goccia (si stampa senza supporti): infila il LED da dentro, il collarino batte contro la parete; fermalo con una goccia di colla`}. Dietro ai LED restano liberi ${fmt(ledDepth)} mm per gambe e dupont`]);
+      if (nLed && ledOnLid) info.push(['LED', `${nLed} × ${LT.nome} sulla fascia davanti del coperchio${LT.pelle ? `: resta una pelle da ${LT.pelle} mm sopra al LED, la luce passa (meglio se il coperchio è chiaro)` : `: foro Ø ${fmt(2 * LT.r)} mm e tubetto sotto il coperchio lungo ${fmt(ringLen)} mm: il collarino del LED batte sotto il tubetto, ${ledOut > 0.3 ? `il LED esce di circa ${fmt(ledOut)} mm` : ledOut < -0.3 ? `il LED resta ${fmt(-ledOut)} mm sotto la superficie` : 'il LED arriva a filo'} (misure tipiche dei LED: controlla i tuoi). Spingilo da dentro, una goccia di colla a caldo lo tiene fermo. Va collegato con i dupont`}`]);
       if (nCav) info.push(['Passacavi', `${nCav} × Ø ${fmt(p.cavoD)} mm sulla parete dietro, nel vano dei fili`]);
       for (const it of items) if (it.stima) info.push(['Da verificare', `${it.nome}: ${it.stima}`]);
       // indirizzi I²C
@@ -6625,6 +6697,10 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
     const k = v[key];
     const pal = k === 'svg' ? (v.svg && v.svg.pal) : EMO_BY[k] && EMO_BY[k].pal;
     if (!pal || !pal.length) return null;
+    // sui coperchi e sulle cover un disegno di un solo colore non cambia i colori scelti: va comunque su un colore diverso dal pezzo (vedi artSlots)
+    if (key === 'disegno' && pal.length === 1) return {};
+    // con più colori vanno sui colori 2–4: il colore 1 resta quello del pezzo (sennò il colore principale del disegno diventa il pezzo e sparisce)
+    if (key === 'disegno') { const o2 = {}; pal.slice(0, 3).forEach((c, i) => { o2['col' + (i + 2)] = c; }); return o2; }
     const out = {}; pal.slice(0, 4).forEach((c, i) => { out['col' + (i + 1)] = c; });
     return out;
   };
@@ -6730,7 +6806,8 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
   // cover: i telefoni del database (src/telefoni.js), raggruppati per serie, più le misure scritte a mano
   const PHONES = window.SP_TELEFONI || [];
   const serie = (t) => (/Air/.test(t.nome) ? '17' : (t.nome.match(/iPhone (\d+)/) || [0, ''])[1]);
-  const PHONE_OPTS = [...PHONES.map(t => [t.id, t.nome, serie(t) === '17' ? 'iPhone 17 e Air' : 'iPhone ' + serie(t)]), ['misure', 'Misure mie', 'Altro']];
+  const gruppo = (t) => (t.marca ? t.marca : serie(t) === '17' ? 'iPhone 17 e Air' : 'iPhone ' + serie(t));
+  const PHONE_OPTS = [...PHONES.map(t => [t.id, t.nome, gruppo(t)]), ['misure', 'Misure mie', 'Altro']];
   const mine = (p) => p.modello === 'misure';
   const PHONE_FIELDS = [
     { id: 'larghezza', label: 'Larghezza', min: 40, max: 120, def: 71.63 },
@@ -6847,7 +6924,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       artKey: 'disegno',
       params: [
         { sec: 'Telefono', id: 'modello', label: 'Modello', type: 'select', menu: true, def: 'iphone-16', options: PHONE_OPTS, onSet: (k) => (k === 'misure' ? null : phoneFields(k)),
-          help: 'Misure prese dai disegni quotati che Apple pubblica per chi fa accessori. "Misure mie" parte dall\'ultimo modello scelto e lascia cambiare tutto.' },
+          help: 'iPhone: misure prese dai disegni quotati che Apple pubblica per chi fa accessori. OnePlus Nord: scheda tecnica e foto ufficiale in scala, alcune quote stimate. "Misure mie" parte dall\'ultimo modello scelto e lascia cambiare tutto.' },
         ...PHONE_FIELDS.map(f => Object.assign({ sec: 'Telefono', type: 'num', step: 0.01, unit: 'mm', show: mine }, f)),
         { sec: 'Telefono', id: 'tipo', label: 'Tipo', type: 'select', def: 'completa', options: [['completa', 'Cover completa'], ['cavalletto', 'Con cavalletto']] },
         { sec: 'Materiale e gioco', id: 'materiale', label: 'Materiale', type: 'select', def: 'tpu', options: [['tpu', 'TPU (flessibile)'], ['pla', 'PLA o PETG (rigido)']],
@@ -6883,6 +6960,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Retro', id: 'svg', label: 'Il tuo disegno (SVG)', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
         { sec: 'Retro', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
         { sec: 'Retro', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 10, max: 120, step: 1, def: 45, unit: 'mm', show: p => p.disegno === 'svg' },
+        { sec: 'Retro', id: 'posDisegno', label: 'Posizione disegno', type: 'pad', def: [0, 0], show: p => p.disegno === 'svg', help: 'Le frecce spostano il disegno sul retro; il centro lo rimette al suo posto. Fuori dalla zona libera viene tagliato.' },
         { sec: 'Retro', id: 'stileRetro', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il retro è sul piatto, quindi niente rilievo. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Traforato: si vede il retro del telefono.' },
         layerP({ sec: 'Retro', id: 'profRetro', label: 'Spessore', min: 0.2, max: 2, def: 0.6, show: p => p.stileRetro !== 'traforata' }),
@@ -7262,6 +7340,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Coperchio decorato', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
         { sec: 'Coperchio decorato', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 8, max: 80, step: 1, def: 30, unit: 'mm', show: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'rotDisegno', label: 'Rotazione disegno', type: 'int', min: 0, max: 345, step: 15, def: 0, unit: '°', wrap: true, show: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'posDisegno', label: 'Posizione disegno', type: 'pad', def: [0, 0], show: p => p.disegno === 'svg', help: 'Le frecce spostano il disegno sul coperchio; il centro lo rimette al suo posto. Dove tocca finestre, fori o il bordo viene tagliato.' },
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
         layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.2, show: p => p.stileCop !== 'traforata' }),
@@ -7313,10 +7392,13 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Altra scheda', id: 'altH', label: 'Altezza componenti', type: 'num', min: 0.5, max: 20, step: 0.1, def: 4, unit: 'mm', show: schedeAltro, help: 'Dal circuito al punto più alto sopra (senza i piedini).' },
         { sec: 'Altra scheda', id: 'altPiedini', label: 'Piedini', type: 'select', def: 'lunghi', show: schedeAltro, options: [['lunghi', 'Due file sui lati lunghi'], ['corti', 'Una fila sul lato corto a sinistra'], ['nessuno', 'Nessuno']] },
         { sec: 'Altra scheda', id: 'altUsb', label: 'USB (se è il processore)', type: 'select', def: 'micro', show: schedeAltro, options: [['nessuna', 'Nessuna'], ['micro', 'micro-USB sul lato sinistro'], ['usbc', 'USB-C sul lato sinistro']] },
-        { sec: 'LED', id: 'ledN', label: 'LED sul coperchio', type: 'int', min: 0, max: 4, def: 1, help: 'Fori sulla fascia davanti del coperchio, con un anello che tiene il LED. Si collegano ai pin del processore con i dupont. I pannelli WS2812B sono un modulo a parte.' },
+        { sec: 'LED', id: 'ledN', label: 'LED', type: 'int', min: 0, max: 4, def: 1, help: 'LED singoli, sul coperchio o su una parete. Si collegano ai pin del processore con i dupont. I pannelli WS2812B sono un modulo a parte.' },
+        { sec: 'LED', id: 'ledLato', label: 'Dove', type: 'select', def: 'coperchio', show: p => p.ledN > 0, options: [['coperchio', 'Coperchio'], ['davanti', 'Davanti'], ['dietro', 'Dietro'], ['sinistra', 'Sinistra'], ['destra', 'Destra']],
+          help: 'Coperchio: sulla fascia davanti, con un anello che tiene il LED. Pareti: foro a goccia, il LED entra da dentro. Sulle pareti la scatola si allarga da quel lato, così dietro ai LED restano liberi gambe e dupont.' },
+        { sec: 'LED', id: 'ledPos', label: 'Posizione LED', type: 'pad', def: [0, 0], show: p => p.ledN > 0, help: 'Sul coperchio le frecce spostano i LED sul piano. Sulle pareti destra/sinistra li spostano lungo la parete e su/giù in altezza. Il centro li rimette al loro posto.' },
         { sec: 'LED', id: 'ledTipo', label: 'Tipo di LED', type: 'select', def: 'led5', show: p => p.ledN > 0, options: [['led3', 'LED 3 mm'], ['led5', 'LED 5 mm'], ['led8', 'LED 8 mm'], ['diffuso', 'Diffuso: la luce passa dal coperchio']],
           help: 'Diffuso: sopra al LED il coperchio resta spesso 0,6 mm e la luce passa (meglio con filamento chiaro): va bene anche per un WS2812B singolo.' },
-        { sec: 'LED', id: 'ledSporg', label: 'Il LED', type: 'select', def: 'sporgente', show: p => p.ledN > 0 && p.ledTipo !== 'diffuso', options: [['sporgente', 'Sporge'], ['filo', 'A filo'], ['incassato', 'Incassato']],
+        { sec: 'LED', id: 'ledSporg', label: 'Il LED', type: 'select', def: 'sporgente', show: p => p.ledN > 0 && p.ledTipo !== 'diffuso' && (p.ledLato || 'coperchio') === 'coperchio', options: [['sporgente', 'Sporge'], ['filo', 'A filo'], ['incassato', 'Incassato']],
           help: 'Sporge: il LED esce dal coperchio (5 mm: circa 4 mm). A filo: sotto il coperchio c\'è un tubetto più lungo e la punta del LED arriva alla superficie. Incassato: la punta resta 1 mm sotto. Misure tipiche dei LED: controlla i tuoi.' },
         { sec: 'LED', id: 'pannelloFin', label: 'Finestra del pannello LED', type: 'select', def: 'diffusore', options: [['diffusore', 'Diffusore (pelle da 0,6 mm)'], ['aperto', 'Aperta']],
           show: p => [p.mod1, p.mod2, p.mod3, p.mod4, p.mod5].some(k => /^ws/.test(k)),
@@ -7348,6 +7430,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Coperchio decorato', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
         { sec: 'Coperchio decorato', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 8, max: 80, step: 1, def: 30, unit: 'mm', show: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'rotDisegno', label: 'Rotazione disegno', type: 'int', min: 0, max: 345, step: 15, def: 0, unit: '°', wrap: true, show: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'posDisegno', label: 'Posizione disegno', type: 'pad', def: [0, 0], show: p => p.disegno === 'svg', help: 'Le frecce spostano il disegno sul coperchio; il centro lo rimette al suo posto. Dove tocca finestre, fori o il bordo viene tagliato.' },
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
         layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.2, show: p => p.stileCop !== 'traforata' }),
@@ -7378,7 +7461,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
     { id: 'natale', title: 'Natale', cat: 'Feste', desc: 'Palline (anche a spirale, intere senza supporti), palle piatte con disegni e nome, decorazioni con il nome, alberi, stelle puntale, lanterne e formine per biscotti. Fino a tre colori.', modes: ['pallina', 'spirale', 'palla', 'piatto', 'albero', 'stella', 'lanterna', 'formina'], thumb: 'pallina' },
     { id: 'gridfinity', title: 'Gridfinity', cat: 'Organizzazione', desc: 'Contenitori impilabili, cassettiere con cassetti e basi a griglia da 42 mm.', modes: ['bin', 'cab', 'base'], thumb: 'cab' },
     { id: 'rack', title: 'Rack telefoni', cat: 'Organizzazione', desc: 'Rack a fessure per riporre telefoni e tablet, anche di spessori diversi.', modes: ['rack'], thumb: 'rack' },
-    { id: 'cover', title: 'Cover telefono', cat: 'Accessori', desc: 'Cover per iPhone dal 12 al 17 con le misure dei disegni Apple, o per qualsiasi telefono con le tue misure. TPU o PLA/PETG a scatto, cornice per le lenti, cavalletto, scritta e il tuo SVG sul retro.', modes: ['cover'], thumb: 'cover' },
+    { id: 'cover', title: 'Cover telefono', cat: 'Accessori', desc: 'Cover per iPhone dal 12 al 17 con le misure dei disegni Apple, OnePlus Nord, o per qualsiasi telefono con le tue misure. TPU o PLA/PETG a scatto, cornice per le lenti, cavalletto, scritta e il tuo SVG sul retro.', modes: ['cover'], thumb: 'cover' },
     { id: 'vasi', title: 'Vasi', cat: 'Casa e giardino', desc: 'Vasi e fioriere per aromatiche, normali con sottovaso o autoirriganti.', modes: ['vaso'], thumb: 'vaso' },
     { id: 'supporti', title: 'Reggimensole e ganci', cat: 'Casa e giardino', desc: 'Squadre per mensole con rinforzo e viti, ganci a muro, appendiabiti, ganci sopra porta, per tubi e a S.', modes: ['mensola', 'gancio'], thumb: 'gancio' },
     { id: 'powerbank', title: 'Powerbank', cat: 'Elettronica', desc: 'Scatola per un powerbank fai-da-te: celle 18650 con contatti a molla come le pile, quattro schede di ricarica con le porte già al loro posto, coperchio a slitta o a viti nascoste.', modes: ['powerbank'], thumb: 'powerbank' },
@@ -7412,7 +7495,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
   // Larghezza minima di una riga: come il programma ingrossa i loghi (ugello × 1,05). A filo a colori il doppio abbondante (2,2 ×):
   // due passate del primo strato, sennò lo slicer non riempie le righe del colore della scritta.
   const LOGO_IDS = { sp: 'SP', viso: 'viso', visonatale: 'visoNatale' };
-  const minLine = (v) => { const noz = +v.ugello || 0.4, filo = ['stileCop', 'stileRetro', 'stileTesto', 'stile'].some(k => v[k] === 'filo'); return { w: noz * 1.05 * (filo ? 2.2 : 1), filo }; };
+  const minLine = (v) => { const noz = +v.ugello || 0.4; return { w: noz * 1.05, r: noz * 0.45, noz }; };
   function minSizeOf(p, v, cheap) {
     const n = minLine(v), m = /^altTesto(\d?)$/.exec(p.id);
     if (m) {
@@ -7424,7 +7507,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
     const artId = p.id === 'altDisegno' ? (v.disegno === 'svg' ? 'svg' : null) : (p.id === 'altezza' && v.forma && isArtId(v.forma) ? v.forma : null);
     if (!artId || (artId === 'svg' && !(v.svg && v.svg.text))) return null;
     if (cheap) return { kind: 'art' };
-    const h = G && G.artMin ? G.artMin(artId, v.svg, n.w / 2) : null;
+    const h = G && G.artMin ? G.artMin(artId, v.svg, n.r) : null;
     return h ? Object.assign({ val: h, kind: 'art' }, n) : null;
   }
   const fmtNum = (v, step) => { const d = step < 1 ? (String(step).split('.')[1] || '').length : 0; return Number(v).toFixed(d); };
@@ -7589,9 +7672,9 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
             if (!r) { msg.textContent = 'Non riesco a calcolarla'; return; }
             const st = step || 0.5, want = Math.ceil(r.val / st - 1e-9) * st;
             commit(want);
-            const got = values(state.mode)[p.id], wtxt = fmtNum(r.w, 0.01).replace('.', ',');
+            const got = values(state.mode)[p.id], wtxt = fmtNum(r.kind === 'art' ? 2 * r.r : r.w, 0.01).replace('.', ',');
             msg.textContent = (want > p.max + 1e-9 ? `servirebbero ${fmtNum(want, st).replace('.', ',')} mm, qui il massimo è ${fmtNum(p.max, st).replace('.', ',')}: ` : '')
-              + `${fmtNum(got, st).replace('.', ',')} mm, ${r.kind === 'logo' ? 'righe del logo larghe' : 'dettagli del disegno larghi'} almeno ${wtxt} mm${r.filo ? ' (a filo: due passate del primo strato)' : ''}`;
+              + `${fmtNum(got, st).replace('.', ',')} mm, ${r.kind === 'logo' ? 'righe del logo larghe' : 'dettagli del disegno larghi'} almeno ${wtxt} mm`;
           });
           row.appendChild(bar);
         }

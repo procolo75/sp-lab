@@ -408,11 +408,12 @@
           const cx = zcx, cy = zcy + (Sa + gap + tH) / 2;
           let artCS = null, txt = null; const slots = {};
           if (art) {
-            const g0 = DEC.artGeom(art, Sa, lw), acx = cx, acy = cy - Sa / 2;
+            const dP = Array.isArray(p.posDisegno) ? p.posDisegno : [0, 0], g0 = DEC.artGeom(art, Sa, lw), acx = cx + (+dP[0] || 0), acy = cy - Sa / 2 + (+dP[1] || 0);
             const place = (c) => (c ? (thA ? R2(R2(R2(MV(c, acx, acy).translate([-acx, -acy])).rotate(thA)).translate([acx, acy])) : MV(c, acx, acy)) : null);
             const sil = place(g0.sil);
             artCS = st === 'filo' ? sil : st === 'inciso' ? (g0.lines ? place(g0.lines) : sil) : (g0.lines ? place(CI(g0.lines, OFF(g0.sil, -1.3 * g0.k))) : sil);
-            if (st === 'filo') { const sl = DEC.artSlots(g0, F, OFF(g0.sil, 0.01), noz, notes); for (const k of [2, 3, 4]) if (sl[k]) slots[k] = place(sl[k]); }
+            if (st === 'filo') { const sl = DEC.artSlots(g0, F, OFF(g0.sil, 0.01), noz, notes, true); for (const k of [2, 3, 4]) if (sl[k]) slots[k] = place(sl[k]);
+              { const sA = g0.sil.area(), cA = [2, 3, 4].reduce((s, k) => s + (sl[k] ? sl[k].area() : 0), 0); if (sA > 1 && cA < 0.05 * sA) notes.push('Il disegno ha quasi solo il colore del coperchio (Colore 1), quindi a filo non si vede: dagli un colore diverso nei Colori 2–4, oppure cambia il Colore 1'); } }
           }
           if (hasT) {
             txt = DEC.fitLines ? DEC.fitLines(p, { x: cx, y: cy - Sa - gap - tH / 2, w: lw, h: Math.max(4, tH), hMax: lh }, [p.rotTesto, p.rotTesto2]) : DEC.fitText(p, { x: cx, y: cy - Sa - gap - tH / 2, w: lw, h: Math.max(4, tH) }, p.altTesto);

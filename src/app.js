@@ -56,6 +56,10 @@
     const k = v[key];
     const pal = k === 'svg' ? (v.svg && v.svg.pal) : EMO_BY[k] && EMO_BY[k].pal;
     if (!pal || !pal.length) return null;
+    // sui coperchi e sulle cover un disegno di un solo colore non cambia i colori scelti: va comunque su un colore diverso dal pezzo (vedi artSlots)
+    if (key === 'disegno' && pal.length === 1) return {};
+    // con più colori vanno sui colori 2–4: il colore 1 resta quello del pezzo (sennò il colore principale del disegno diventa il pezzo e sparisce)
+    if (key === 'disegno') { const o2 = {}; pal.slice(0, 3).forEach((c, i) => { o2['col' + (i + 2)] = c; }); return o2; }
     const out = {}; pal.slice(0, 4).forEach((c, i) => { out['col' + (i + 1)] = c; });
     return out;
   };
@@ -161,7 +165,8 @@
   // cover: i telefoni del database (src/telefoni.js), raggruppati per serie, più le misure scritte a mano
   const PHONES = window.SP_TELEFONI || [];
   const serie = (t) => (/Air/.test(t.nome) ? '17' : (t.nome.match(/iPhone (\d+)/) || [0, ''])[1]);
-  const PHONE_OPTS = [...PHONES.map(t => [t.id, t.nome, serie(t) === '17' ? 'iPhone 17 e Air' : 'iPhone ' + serie(t)]), ['misure', 'Misure mie', 'Altro']];
+  const gruppo = (t) => (t.marca ? t.marca : serie(t) === '17' ? 'iPhone 17 e Air' : 'iPhone ' + serie(t));
+  const PHONE_OPTS = [...PHONES.map(t => [t.id, t.nome, gruppo(t)]), ['misure', 'Misure mie', 'Altro']];
   const mine = (p) => p.modello === 'misure';
   const PHONE_FIELDS = [
     { id: 'larghezza', label: 'Larghezza', min: 40, max: 120, def: 71.63 },
@@ -278,7 +283,7 @@
       artKey: 'disegno',
       params: [
         { sec: 'Telefono', id: 'modello', label: 'Modello', type: 'select', menu: true, def: 'iphone-16', options: PHONE_OPTS, onSet: (k) => (k === 'misure' ? null : phoneFields(k)),
-          help: 'Misure prese dai disegni quotati che Apple pubblica per chi fa accessori. "Misure mie" parte dall\'ultimo modello scelto e lascia cambiare tutto.' },
+          help: 'iPhone: misure prese dai disegni quotati che Apple pubblica per chi fa accessori. OnePlus Nord: scheda tecnica e foto ufficiale in scala, alcune quote stimate. "Misure mie" parte dall\'ultimo modello scelto e lascia cambiare tutto.' },
         ...PHONE_FIELDS.map(f => Object.assign({ sec: 'Telefono', type: 'num', step: 0.01, unit: 'mm', show: mine }, f)),
         { sec: 'Telefono', id: 'tipo', label: 'Tipo', type: 'select', def: 'completa', options: [['completa', 'Cover completa'], ['cavalletto', 'Con cavalletto']] },
         { sec: 'Materiale e gioco', id: 'materiale', label: 'Materiale', type: 'select', def: 'tpu', options: [['tpu', 'TPU (flessibile)'], ['pla', 'PLA o PETG (rigido)']],
@@ -314,6 +319,7 @@
         { sec: 'Retro', id: 'svg', label: 'Il tuo disegno (SVG)', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
         { sec: 'Retro', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
         { sec: 'Retro', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 10, max: 120, step: 1, def: 45, unit: 'mm', show: p => p.disegno === 'svg' },
+        { sec: 'Retro', id: 'posDisegno', label: 'Posizione disegno', type: 'pad', def: [0, 0], show: p => p.disegno === 'svg', help: 'Le frecce spostano il disegno sul retro; il centro lo rimette al suo posto. Fuori dalla zona libera viene tagliato.' },
         { sec: 'Retro', id: 'stileRetro', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il retro è sul piatto, quindi niente rilievo. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Traforato: si vede il retro del telefono.' },
         layerP({ sec: 'Retro', id: 'profRetro', label: 'Spessore', min: 0.2, max: 2, def: 0.6, show: p => p.stileRetro !== 'traforata' }),
@@ -693,6 +699,7 @@
         { sec: 'Coperchio decorato', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
         { sec: 'Coperchio decorato', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 8, max: 80, step: 1, def: 30, unit: 'mm', show: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'rotDisegno', label: 'Rotazione disegno', type: 'int', min: 0, max: 345, step: 15, def: 0, unit: '°', wrap: true, show: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'posDisegno', label: 'Posizione disegno', type: 'pad', def: [0, 0], show: p => p.disegno === 'svg', help: 'Le frecce spostano il disegno sul coperchio; il centro lo rimette al suo posto. Dove tocca finestre, fori o il bordo viene tagliato.' },
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
         layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.2, show: p => p.stileCop !== 'traforata' }),
@@ -744,10 +751,13 @@
         { sec: 'Altra scheda', id: 'altH', label: 'Altezza componenti', type: 'num', min: 0.5, max: 20, step: 0.1, def: 4, unit: 'mm', show: schedeAltro, help: 'Dal circuito al punto più alto sopra (senza i piedini).' },
         { sec: 'Altra scheda', id: 'altPiedini', label: 'Piedini', type: 'select', def: 'lunghi', show: schedeAltro, options: [['lunghi', 'Due file sui lati lunghi'], ['corti', 'Una fila sul lato corto a sinistra'], ['nessuno', 'Nessuno']] },
         { sec: 'Altra scheda', id: 'altUsb', label: 'USB (se è il processore)', type: 'select', def: 'micro', show: schedeAltro, options: [['nessuna', 'Nessuna'], ['micro', 'micro-USB sul lato sinistro'], ['usbc', 'USB-C sul lato sinistro']] },
-        { sec: 'LED', id: 'ledN', label: 'LED sul coperchio', type: 'int', min: 0, max: 4, def: 1, help: 'Fori sulla fascia davanti del coperchio, con un anello che tiene il LED. Si collegano ai pin del processore con i dupont. I pannelli WS2812B sono un modulo a parte.' },
+        { sec: 'LED', id: 'ledN', label: 'LED', type: 'int', min: 0, max: 4, def: 1, help: 'LED singoli, sul coperchio o su una parete. Si collegano ai pin del processore con i dupont. I pannelli WS2812B sono un modulo a parte.' },
+        { sec: 'LED', id: 'ledLato', label: 'Dove', type: 'select', def: 'coperchio', show: p => p.ledN > 0, options: [['coperchio', 'Coperchio'], ['davanti', 'Davanti'], ['dietro', 'Dietro'], ['sinistra', 'Sinistra'], ['destra', 'Destra']],
+          help: 'Coperchio: sulla fascia davanti, con un anello che tiene il LED. Pareti: foro a goccia, il LED entra da dentro. Sulle pareti la scatola si allarga da quel lato, così dietro ai LED restano liberi gambe e dupont.' },
+        { sec: 'LED', id: 'ledPos', label: 'Posizione LED', type: 'pad', def: [0, 0], show: p => p.ledN > 0, help: 'Sul coperchio le frecce spostano i LED sul piano. Sulle pareti destra/sinistra li spostano lungo la parete e su/giù in altezza. Il centro li rimette al loro posto.' },
         { sec: 'LED', id: 'ledTipo', label: 'Tipo di LED', type: 'select', def: 'led5', show: p => p.ledN > 0, options: [['led3', 'LED 3 mm'], ['led5', 'LED 5 mm'], ['led8', 'LED 8 mm'], ['diffuso', 'Diffuso: la luce passa dal coperchio']],
           help: 'Diffuso: sopra al LED il coperchio resta spesso 0,6 mm e la luce passa (meglio con filamento chiaro): va bene anche per un WS2812B singolo.' },
-        { sec: 'LED', id: 'ledSporg', label: 'Il LED', type: 'select', def: 'sporgente', show: p => p.ledN > 0 && p.ledTipo !== 'diffuso', options: [['sporgente', 'Sporge'], ['filo', 'A filo'], ['incassato', 'Incassato']],
+        { sec: 'LED', id: 'ledSporg', label: 'Il LED', type: 'select', def: 'sporgente', show: p => p.ledN > 0 && p.ledTipo !== 'diffuso' && (p.ledLato || 'coperchio') === 'coperchio', options: [['sporgente', 'Sporge'], ['filo', 'A filo'], ['incassato', 'Incassato']],
           help: 'Sporge: il LED esce dal coperchio (5 mm: circa 4 mm). A filo: sotto il coperchio c\'è un tubetto più lungo e la punta del LED arriva alla superficie. Incassato: la punta resta 1 mm sotto. Misure tipiche dei LED: controlla i tuoi.' },
         { sec: 'LED', id: 'pannelloFin', label: 'Finestra del pannello LED', type: 'select', def: 'diffusore', options: [['diffusore', 'Diffusore (pelle da 0,6 mm)'], ['aperto', 'Aperta']],
           show: p => [p.mod1, p.mod2, p.mod3, p.mod4, p.mod5].some(k => /^ws/.test(k)),
@@ -779,6 +789,7 @@
         { sec: 'Coperchio decorato', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
         { sec: 'Coperchio decorato', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 8, max: 80, step: 1, def: 30, unit: 'mm', show: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'rotDisegno', label: 'Rotazione disegno', type: 'int', min: 0, max: 345, step: 15, def: 0, unit: '°', wrap: true, show: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'posDisegno', label: 'Posizione disegno', type: 'pad', def: [0, 0], show: p => p.disegno === 'svg', help: 'Le frecce spostano il disegno sul coperchio; il centro lo rimette al suo posto. Dove tocca finestre, fori o il bordo viene tagliato.' },
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
         layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.2, show: p => p.stileCop !== 'traforata' }),
@@ -809,7 +820,7 @@
     { id: 'natale', title: 'Natale', cat: 'Feste', desc: 'Palline (anche a spirale, intere senza supporti), palle piatte con disegni e nome, decorazioni con il nome, alberi, stelle puntale, lanterne e formine per biscotti. Fino a tre colori.', modes: ['pallina', 'spirale', 'palla', 'piatto', 'albero', 'stella', 'lanterna', 'formina'], thumb: 'pallina' },
     { id: 'gridfinity', title: 'Gridfinity', cat: 'Organizzazione', desc: 'Contenitori impilabili, cassettiere con cassetti e basi a griglia da 42 mm.', modes: ['bin', 'cab', 'base'], thumb: 'cab' },
     { id: 'rack', title: 'Rack telefoni', cat: 'Organizzazione', desc: 'Rack a fessure per riporre telefoni e tablet, anche di spessori diversi.', modes: ['rack'], thumb: 'rack' },
-    { id: 'cover', title: 'Cover telefono', cat: 'Accessori', desc: 'Cover per iPhone dal 12 al 17 con le misure dei disegni Apple, o per qualsiasi telefono con le tue misure. TPU o PLA/PETG a scatto, cornice per le lenti, cavalletto, scritta e il tuo SVG sul retro.', modes: ['cover'], thumb: 'cover' },
+    { id: 'cover', title: 'Cover telefono', cat: 'Accessori', desc: 'Cover per iPhone dal 12 al 17 con le misure dei disegni Apple, OnePlus Nord, o per qualsiasi telefono con le tue misure. TPU o PLA/PETG a scatto, cornice per le lenti, cavalletto, scritta e il tuo SVG sul retro.', modes: ['cover'], thumb: 'cover' },
     { id: 'vasi', title: 'Vasi', cat: 'Casa e giardino', desc: 'Vasi e fioriere per aromatiche, normali con sottovaso o autoirriganti.', modes: ['vaso'], thumb: 'vaso' },
     { id: 'supporti', title: 'Reggimensole e ganci', cat: 'Casa e giardino', desc: 'Squadre per mensole con rinforzo e viti, ganci a muro, appendiabiti, ganci sopra porta, per tubi e a S.', modes: ['mensola', 'gancio'], thumb: 'gancio' },
     { id: 'powerbank', title: 'Powerbank', cat: 'Elettronica', desc: 'Scatola per un powerbank fai-da-te: celle 18650 con contatti a molla come le pile, quattro schede di ricarica con le porte già al loro posto, coperchio a slitta o a viti nascoste.', modes: ['powerbank'], thumb: 'powerbank' },
@@ -843,7 +854,7 @@
   // Larghezza minima di una riga: come il programma ingrossa i loghi (ugello × 1,05). A filo a colori il doppio abbondante (2,2 ×):
   // due passate del primo strato, sennò lo slicer non riempie le righe del colore della scritta.
   const LOGO_IDS = { sp: 'SP', viso: 'viso', visonatale: 'visoNatale' };
-  const minLine = (v) => { const noz = +v.ugello || 0.4, filo = ['stileCop', 'stileRetro', 'stileTesto', 'stile'].some(k => v[k] === 'filo'); return { w: noz * 1.05 * (filo ? 2.2 : 1), filo }; };
+  const minLine = (v) => { const noz = +v.ugello || 0.4; return { w: noz * 1.05, r: noz * 0.45, noz }; };
   function minSizeOf(p, v, cheap) {
     const n = minLine(v), m = /^altTesto(\d?)$/.exec(p.id);
     if (m) {
@@ -855,7 +866,7 @@
     const artId = p.id === 'altDisegno' ? (v.disegno === 'svg' ? 'svg' : null) : (p.id === 'altezza' && v.forma && isArtId(v.forma) ? v.forma : null);
     if (!artId || (artId === 'svg' && !(v.svg && v.svg.text))) return null;
     if (cheap) return { kind: 'art' };
-    const h = G && G.artMin ? G.artMin(artId, v.svg, n.w / 2) : null;
+    const h = G && G.artMin ? G.artMin(artId, v.svg, n.r) : null;
     return h ? Object.assign({ val: h, kind: 'art' }, n) : null;
   }
   const fmtNum = (v, step) => { const d = step < 1 ? (String(step).split('.')[1] || '').length : 0; return Number(v).toFixed(d); };
@@ -1020,9 +1031,9 @@
             if (!r) { msg.textContent = 'Non riesco a calcolarla'; return; }
             const st = step || 0.5, want = Math.ceil(r.val / st - 1e-9) * st;
             commit(want);
-            const got = values(state.mode)[p.id], wtxt = fmtNum(r.w, 0.01).replace('.', ',');
+            const got = values(state.mode)[p.id], wtxt = fmtNum(r.kind === 'art' ? 2 * r.r : r.w, 0.01).replace('.', ',');
             msg.textContent = (want > p.max + 1e-9 ? `servirebbero ${fmtNum(want, st).replace('.', ',')} mm, qui il massimo è ${fmtNum(p.max, st).replace('.', ',')}: ` : '')
-              + `${fmtNum(got, st).replace('.', ',')} mm, ${r.kind === 'logo' ? 'righe del logo larghe' : 'dettagli del disegno larghi'} almeno ${wtxt} mm${r.filo ? ' (a filo: due passate del primo strato)' : ''}`;
+              + `${fmtNum(got, st).replace('.', ',')} mm, ${r.kind === 'logo' ? 'righe del logo larghe' : 'dettagli del disegno larghi'} almeno ${wtxt} mm`;
           });
           row.appendChild(bar);
         }

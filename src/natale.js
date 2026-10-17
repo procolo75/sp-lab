@@ -260,9 +260,12 @@
       for (let i = 0; i < 14; i++) { const m = (lo + hi) / 2; if (loss(m) <= 0.01) lo = m; else hi = m; }
       return lo > 0 ? r * H0 / lo : null;
     }
-    function artSlots(g, F, clip, noz, notes) {
-      const by = { 2: [], 3: [], 4: [] };
-      for (const [hex, cs] of Object.entries(g.regions)) { const k = SVGL ? SVGL.nearest(hex, F) + 1 : 2; if (k > 1) by[k].push(cs); }
+    // onTop: il disegno sta sopra un pezzo (coperchio): se ha un solo colore va sul filamento 2–4 che si stacca di più dal pezzo
+    // (come la scritta con "Auto"), mai sul colore del pezzo, sennò non si vede
+    function artSlots(g, F, clip, noz, notes, onTop) {
+      const by = { 2: [], 3: [], 4: [] }, one = onTop && Object.keys(g.regions).length === 1;
+      const far = SVGL ? [2, 3, 4].sort((a, b) => SVGL.dist(F[b - 1], F[0]) - SVGL.dist(F[a - 1], F[0]))[0] : 2;
+      for (const [hex, cs] of Object.entries(g.regions)) { const k = !SVGL ? 2 : one ? far : SVGL.nearest(hex, F) + 1; if (k > 1) by[k].push(cs); }
       const out = {}; let lost = 0, tot = 0;
       for (const k of [2, 3, 4]) {
         let c = I(U(by[k]), clip);
