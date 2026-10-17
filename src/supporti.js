@@ -174,6 +174,13 @@
       let L = (n - 1) * ia + W, prof = null, plate = null, ghostM = null;
       const hooks = [];       // profili dei ganci, estrusi a ogni posizione
       let holes = [], extraNote = null;
+      // larghezza della piastra (a muro) o del ponte (sopra porta) scelta da chi stampa; 0 = automatica.
+      // Non scende sotto quella che serve per i ganci (e per viti o magneti): i ganci restano centrati
+      const plateW = (Lmin) => {
+        const want = +p.larghPiastra || 0;
+        if (want > 0 && want < Lmin - 0.01) notes.push(`~Piastra portata a ${fmt(Lmin)} mm: più stretta non ci stanno ${tipo === 'muro' && p.fissaggio !== 'biadesivo' ? 'ganci e ' + (p.fissaggio === 'magneti' ? 'magneti' : 'viti') : 'i ganci'}`);
+        return Math.max(Lmin, want);
+      };
       if (tipo === 'muro') {
         const T = p.spessoreP, y0 = s / 2;
         const g = Math.min(p.sporgenza * 0.35, s * 1.6);
@@ -188,6 +195,7 @@
         if (p.fissaggio === 'viti') L = Math.max(L + 6, nv * (dk + 6));
         else if (p.fissaggio === 'magneti') L = Math.max(L + 6, (p.numMag | 0) * (p.magnete + 4) + 4);
         else L = Math.max(L + 6, 20);
+        L = plateW(L);
         plate = EXTX(soft(RECT(0, 0, Hp, L), Math.min(4, Hp / 4, L / 4)), 0, T);
         if (p.fissaggio === 'viti') {
           const yv = (Math.max(j.top, s) + Hp) / 2;
@@ -202,6 +210,7 @@
         ghostM = box(-4, -15, -15, 0, Hp + 15, L + 15);
       } else if (tipo === 'porta') {
         const T = s, gap = p.porta + p.tolleranza, br = p.ponte;
+        L = plateW(L);
         const clip = U([RECT(-T, -p.esterno, 0, br), RECT(-T, 0, gap + T, br), RECT(gap, -p.interno, gap + T, br)]);
         plate = EXTZ(soft(clip, Math.min(1, br * 0.3)), 0, L);
         const j = jHook(gap + T - 0.5, -p.interno + s / 2, p.sporgenza, p.raggio, p.punta, p.inclinazione, s, p.pomello);

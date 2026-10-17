@@ -317,7 +317,7 @@
         { sec: 'Retro', id: 'stileRetro', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il retro è sul piatto, quindi niente rilievo. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Traforato: si vede il retro del telefono.' },
         layerP({ sec: 'Retro', id: 'profRetro', label: 'Spessore', min: 0.2, max: 2, def: 0.6, show: p => p.stileRetro !== 'traforata' }),
-        ...linesP('Scritta', '', '', 8, null, 30, 'Se la scritta non ci sta viene ridotta da sola.'),
+        ...linesP('Scritta', '', '', 8, null, 60, 'Se la scritta non ci sta viene ridotta da sola.'),
         { sec: 'Scritta', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta'), { show: p => hasLogo(p) || isArtId(p.disegno) }),
         ...colorsP(['Colore 1 · cover', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
@@ -341,7 +341,7 @@
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
         layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.2, show: p => p.stileCop !== 'traforata' }),
-        ...linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.'),
+        ...linesP('Scritta sul coperchio', '', '', 8, null, 60, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.'),
         { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
         ...colorsP(['Colore 1 · coperchio', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
@@ -579,6 +579,8 @@
         { sec: 'Gancio', id: 'numero', label: 'Numero di ganci', type: 'int', min: 1, max: 10, def: 1, show: p => p.tipo === 'muro' || p.tipo === 'porta' },
         { sec: 'Gancio', id: 'interasse', label: 'Distanza tra i ganci', type: 'num', min: 15, max: 200, step: 1, def: 60, unit: 'mm', show: p => (p.tipo === 'muro' || p.tipo === 'porta') && p.numero > 1 },
         { sec: 'Gancio', id: 'larghezza', label: 'Larghezza gancio', type: 'num', min: 6, max: 60, step: 1, def: 15, unit: 'mm' },
+        { sec: 'Gancio', id: 'larghPiastra', label: 'Larghezza piastra', type: 'num', min: 0, max: 400, step: 1, def: 0, unit: 'mm', show: p => p.tipo === 'muro' || p.tipo === 'porta',
+          help: 'A muro: la piastra contro il muro. Sopra porta: il ponte che si appoggia sulla porta. 0 = automatica (quanto serve per i ganci e per viti o magneti). I ganci restano centrati.' },
         { sec: 'Gancio', id: 'spessoreG', label: 'Spessore gancio', type: 'num', min: 2.5, max: 15, step: 0.5, def: 6, unit: 'mm' },
         { sec: 'Gancio', id: 'sporgenza', label: 'Sporgenza', type: 'num', min: 8, max: 150, step: 1, def: 40, unit: 'mm', show: p => p.tipo !== 'esse', help: 'Quanto esce il gancio prima di curvare.' },
         { sec: 'Gancio', id: 'raggio', label: 'Raggio curva', type: 'num', min: 3, max: 40, step: 0.5, def: 10, unit: 'mm', show: p => p.tipo !== 'esse' },
@@ -694,7 +696,7 @@
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
         layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.2, show: p => p.stileCop !== 'traforata' }),
-        ...withRot(linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
+        ...withRot(linesP('Scritta sul coperchio', '', '', 8, null, 60, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
         { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
         ...colorsP(['Colore 1 · coperchio', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
@@ -766,8 +768,6 @@
         { sec: 'Supporto', id: 'sfera', label: 'Diametro della sfera', type: 'num', min: 10, max: 20, step: 1, def: 14, unit: 'mm', show: p => p.supporto && p.supporto !== 'nessuno', help: 'Più grande è, più tiene (e più pesa lo snodo). 14 mm va bene per scatole leggere.' },
         { sec: 'Supporto', id: 'magnete', label: 'Magnete', type: 'select', def: '10x2', options: [['10x2', '10 × 2 mm'], ['8x2', '8 × 2 mm']], show: p => p.supporto === 'magnete', help: 'Disco al neodimio da incollare nella sede dello snodo.' },
         { sec: 'Supporto', id: 'spPos', label: 'Posizione della sfera', type: 'pad', def: [0, 0], show: p => p.supporto && p.supporto !== 'nessuno', help: 'Parte dal centro del fondo. Destra e su guardando dall\'alto con il davanti in basso. Spostala se cade sotto i dupont (il riquadro misure avvisa).' },
-        { sec: 'Coperchio', id: 'chiusura', label: 'Chiusura', type: 'select', def: 'coperchio', options: [['coperchio', 'Coperchio avvitato'], ['campana', 'Base + campana']],
-          help: 'Base + campana: la base è il fondo piatto con le culle e i 4 fori; pareti e coperchio sono un pezzo solo (la campana) che si appoggia sopra e si avvita da sotto la base. Monti e colleghi le schede con tutto aperto. Sulla parete della USB la campana ha una tacca aperta in basso, chiusa da un dentino della base.' },
         { sec: 'Coperchio', id: 'vite', label: 'Viti', type: 'select', def: 'M3', show: p => p.viteTipo !== 'stampata', options: [['M3', 'M3'], ['M2.5', 'M2,5']], help: 'Quattro viti a testa svasata in colonnine agli angoli, pre-foro per viti autofilettanti. Con il coperchio avvitato entrano dall\'alto; con base + campana entrano da sotto la base.' },
         { sec: 'Coperchio', id: 'viteTipo', label: 'Tipo di viti', type: 'select', def: 'metallica', options: [['metallica', 'Metalliche (le compri)'], ['stampata', 'Stampate (le stampi)']],
           help: 'Stampate: le viti del coperchio (e quelle della sfera, se c\'è) escono come pezzi da stampare, con il filetto ISO del generatore Viti e bulloni. Si avvitano dal basso nel coperchio, che ha boccole filettate.' },
@@ -782,7 +782,7 @@
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
         layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.2, show: p => p.stileCop !== 'traforata' }),
-        ...withRot(linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
+        ...withRot(linesP('Scritta sul coperchio', '', '', 8, null, 60, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
         { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
         ...colorsP(['Colore 1 · coperchio', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
@@ -839,6 +839,25 @@
   // ================= UI CONTROLLI =================
   const $ = (s) => document.querySelector(s);
   const panel = $('#params');
+  // ---- "Minima stampabile": la misura più piccola in cui le righe dei loghi (o i dettagli del disegno) restano larghe abbastanza ----
+  // Larghezza minima di una riga: come il programma ingrossa i loghi (ugello × 1,05). A filo a colori il doppio abbondante (2,2 ×):
+  // due passate del primo strato, sennò lo slicer non riempie le righe del colore della scritta.
+  const LOGO_IDS = { sp: 'SP', viso: 'viso', visonatale: 'visoNatale' };
+  const minLine = (v) => { const noz = +v.ugello || 0.4, filo = ['stileCop', 'stileRetro', 'stileTesto', 'stile'].some(k => v[k] === 'filo'); return { w: noz * 1.05 * (filo ? 2.2 : 1), filo }; };
+  function minSizeOf(p, v, cheap) {
+    const n = minLine(v), m = /^altTesto(\d?)$/.exec(p.id);
+    if (m) {
+      const i = m[1] || '1', tp = MODES[state.mode].params.find(q => q.type === 'text' && q.logos && (q.id === (i === '1' ? 'scritta' : 'scritta' + i) || q.id === 'testo' + i));
+      const ids = [...String(tp ? v[tp.id] || '' : '').matchAll(/\{(sp|visonatale|viso)\}/gi)].map(x => LOGO_IDS[x[1].toLowerCase()]);
+      const L = window.SPRECOLO_LOGOS || {}, ws = ids.map(id => L[id] && L[id].wmin).filter(Boolean);
+      return ws.length ? Object.assign({ val: n.w / Math.min(...ws) / 1.35, kind: 'logo' }, n) : null;   // i loghi sono alti 1,35 volte la riga
+    }
+    const artId = p.id === 'altDisegno' ? (v.disegno === 'svg' ? 'svg' : null) : (p.id === 'altezza' && v.forma && isArtId(v.forma) ? v.forma : null);
+    if (!artId || (artId === 'svg' && !(v.svg && v.svg.text))) return null;
+    if (cheap) return { kind: 'art' };
+    const h = G && G.artMin ? G.artMin(artId, v.svg, n.w / 2) : null;
+    return h ? Object.assign({ val: h, kind: 'art' }, n) : null;
+  }
   const fmtNum = (v, step) => { const d = step < 1 ? (String(step).split('.')[1] || '').length : 0; return Number(v).toFixed(d); };
 
   function renderParams() {
@@ -992,6 +1011,21 @@
         inp.addEventListener('input', () => { const n = parseFloat(inp.value); if (isFinite(n) && n >= p.min && n <= p.max) set(p, p.type === 'int' ? Math.round(n) : n, true); });
         row.querySelector('.dec').addEventListener('click', () => commit(near(-1)));
         row.querySelector('.inc').addEventListener('click', () => commit(near(1)));
+        if (/^altTesto\d?$/.test(p.id) || p.id === 'altDisegno' || (p.id === 'altezza' && MODES[mode].params.some(q => q.id === 'forma'))) {
+          const bar = document.createElement('div');
+          bar.className = 'logo-ins min-ins';
+          bar.innerHTML = '<button type="button" class="chip minbtn">Minima stampabile</button><span class="minmsg"></span>';
+          bar.querySelector('button').addEventListener('click', () => {
+            const r = minSizeOf(p, values(state.mode)), msg = bar.querySelector('.minmsg');
+            if (!r) { msg.textContent = 'Non riesco a calcolarla'; return; }
+            const st = step || 0.5, want = Math.ceil(r.val / st - 1e-9) * st;
+            commit(want);
+            const got = values(state.mode)[p.id], wtxt = fmtNum(r.w, 0.01).replace('.', ',');
+            msg.textContent = (want > p.max + 1e-9 ? `servirebbero ${fmtNum(want, st).replace('.', ',')} mm, qui il massimo è ${fmtNum(p.max, st).replace('.', ',')}: ` : '')
+              + `${fmtNum(got, st).replace('.', ',')} mm, ${r.kind === 'logo' ? 'righe del logo larghe' : 'dettagli del disegno larghi'} almeno ${wtxt} mm${r.filo ? ' (a filo: due passate del primo strato)' : ''}`;
+          });
+          row.appendChild(bar);
+        }
       }
       if (p.help) { const h = document.createElement('p'); h.className = 'help'; h.textContent = p.help; row.appendChild(h); }
       sections.get(p.sec).appendChild(row);
@@ -1006,6 +1040,12 @@
     for (const p of MODES[state.mode].params) {
       const row = panel.querySelector(`.row[data-id="${p.id}"]`);
       if (row) row.hidden = p.show ? !p.show(v) : false;
+      const mb = row && row.querySelector('.min-ins');
+      if (mb) {
+        const r = minSizeOf(p, v, true);
+        mb.hidden = !r;
+        if (r && r.kind === 'logo') mb.querySelector('button').textContent = `Minima stampabile: ${fmtNum(Math.ceil(r.val * 2 - 1e-9) / 2, 0.5).replace('.', ',')} mm`;
+      }
     }
     // nasconde le sezioni senza parametri visibili
     panel.querySelectorAll('details.sec').forEach(d => { d.hidden = ![...d.querySelectorAll('.row')].some(r => !r.hidden); });

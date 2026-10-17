@@ -247,6 +247,19 @@
       return F;
     }
     // parti del disegno per filamento (2, 3, 4), ripulite dai dettagli più stretti dell'ugello
+    // altezza minima del disegno perché i dettagli più stretti di 2r non si perdano: stesso criterio di artSlots (meno dell'1% dei colori tolto).
+    // Si misura a 100 mm e si scala: a un'altezza doppia i dettagli sono larghi il doppio
+    function artMinH(art, r) {
+      if (!art) return null;
+      const H0 = 100, g = artGeom(art, H0), regs = Object.values(g.regions).filter(c => !empty(c));
+      if (!regs.length) return null;
+      const A = regs.reduce((s, c) => s + c.area(), 0);
+      const loss = (rr) => regs.reduce((s, c) => { const o = OFF(OFF(c, -rr), rr); return s + Math.max(0, c.area() - (empty(o) ? 0 : o.area())); }, 0) / A;
+      let lo = 0, hi = 5;
+      if (loss(hi) <= 0.01) return r * H0 / hi;
+      for (let i = 0; i < 14; i++) { const m = (lo + hi) / 2; if (loss(m) <= 0.01) lo = m; else hi = m; }
+      return lo > 0 ? r * H0 / lo : null;
+    }
     function artSlots(g, F, clip, noz, notes) {
       const by = { 2: [], 3: [], 4: [] };
       for (const [hex, cs] of Object.entries(g.regions)) { const k = SVGL ? SVGL.nearest(hex, F) + 1 : 2; if (k > 1) by[k].push(cs); }
@@ -1382,7 +1395,7 @@
     function palla(p) { return Object.assign(piatto(Object.assign({}, p, { forma: 'palla', altezza: p.diametro, decorazioni: true })), { view: [0, -0.7, 1] }); }
 
     // scritte e disegni a disposizione degli altri generatori (la cover li usa sul retro)
-    H.decor = { textCS, fitText, fitLines, logoNotes, artOf, artGeom, artSlots, filaments, isArt, stencil, perforate, NOTES, EMO_BY };
+    H.decor = { textCS, fitText, fitLines, logoNotes, artOf, artGeom, artSlots, artMinH, filaments, isArt, stencil, perforate, NOTES, EMO_BY };
 
     // ogni generatore riporta in fondo gli avvisi sui loghi
     const withNotes = (fn) => (p) => { NOTES.clear(); const r = fn(p); for (const n of NOTES) r.info.push(['Nota', n]); NOTES.clear(); return r; };

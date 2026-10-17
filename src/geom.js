@@ -955,7 +955,9 @@
       } finally { cleanup(); }
     }
 
-    return { build, GF, headStd: (p, testa) => headStd(threadSpec(p), testa) };
+    // altezza minima stampabile di un disegno (SVG o Fluent), per il pulsante "Minima stampabile"
+    const artMin = (id, svg, r) => { try { const D = H.decor; return D ? D.artMinH(D.artOf(id, svg), r) : null; } catch (e) { return null; } finally { cleanup(); } };
+    return { build, GF, headStd: (p, testa) => headStd(threadSpec(p), testa), artMin };
   }
 
   if (typeof module !== 'undefined' && module.exports) module.exports = { createGeom };

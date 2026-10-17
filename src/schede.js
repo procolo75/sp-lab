@@ -718,7 +718,7 @@
         const ax0 = 1.5, ax1 = Xo - 1.5, ay0 = 1.5, ay1 = Yo - 1.5;
         // misura e punto di partenza: il rettangolo libero più grande (poi le frecce la spostano ovunque nella zona)
         let best = null;
-        { const bb = (c) => c.bounds(), xs = new Set([ax0, ax1]), ys = new Set([ay0, ay1]);
+        { const bb = (c) => c.bounds(), xs = new Set([ax0, ax1, ax0 + Rb, ax1 - Rb]), ys = new Set([ay0, ay1, ay0 + Rb, ay1 - Rb]);   // anche i bordi rientrati degli angoli arrotondati: senza, con niente sul coperchio non trovava spazio
           for (const b of busy) { const q = bb(b); xs.add(Math.min(ax1, Math.max(ax0, q.min[0]))); xs.add(Math.min(ax1, Math.max(ax0, q.max[0]))); ys.add(Math.min(ay1, Math.max(ay0, q.min[1]))); ys.add(Math.min(ay1, Math.max(ay0, q.max[1]))); }
           const X_ = [...xs].sort((a, b) => a - b), Y_ = [...ys].sort((a, b) => a - b);
           for (let i = 0; i < X_.length; i++) for (let j = i + 1; j < X_.length; j++) for (let k = 0; k < Y_.length; k++) for (let l = k + 1; l < Y_.length; l++) {
@@ -833,9 +833,13 @@
           const za = Math.min(Zw - 5, Math.max(f + 4, zt0 + 5));
           slot(by0 + it0.W / 2, 3.3, za, za - 3.3 - cl);
         }
-        // viti da sotto la base: svasatura sotto, rialzo sulla base se la testa è più alta del fondo, colonnina della campana sopra
+        // viti da sotto la base: svasatura sotto (a 45°, uguale a quella del coperchio normale), rialzo sulla base se la testa è più alta del fondo, colonnina della campana sopra
+        const csk = true;
         const rH = vm ? (vm.D + 0.8) / 2 : dv / 2 + 0.25, r0 = vm ? vm.D + 0.5 : dv + 0.2;
-        const padH = Math.max(0, (r0 - rH) + 0.6 - f), z0p = f + padH;
+        // svasatura a 55° invece di 45°: a 45° esatti alcune facce del cono superano il limite dello slicer, che ci mette dei supporti minuscoli.
+        // La testa (90°) tocca il bordo del foro alla stessa quota di prima, quindi resta a filo
+        const hcs = (r0 - rH) * Math.tan(55 * Math.PI / 180);
+        const padH = csk ? Math.max(0, hcs + 0.6 - f) : 0, z0p = f + padH;
         const hoodPosts = postXY.map(([x, y]) => cylZ(x, y, z0p, Zw + 0.03, pr, pr, 40));
         let hood = U([sub(wallsN, U(notches)), lid, ...hoodPosts]);
         hood = sub(hood, U(postXY.map(([x, y]) => (vm ? reg(VT.hole(p.viteM, bossLen, vg, true).translate([x, y, z0p])) : cylZ(x, y, z0p - 0.01, z0p + Math.min(12, Zw - z0p - 1), dv === 3 ? 1.3 : 1.05, dv === 3 ? 1.3 : 1.05, 24)))));
@@ -848,7 +852,7 @@
         // le culle non devono toccare le colonnine della campana (nella scatola normale si fondevano)
         const cradB = sub(X(U(addsClean), inner), U(postXY.map(([x, y]) => cylZ(x, y, z0p - 0.01, Htot, pr + cl, pr + cl, 40))));
         let base = U([floorB, lipB, cradB, ...tabs, ...pads, ...bossAdds]);
-        base = sub(base, U([...postXY.flatMap(([x, y]) => [cylZ(x, y, -1, z0p + 0.01, rH, rH, 32), cylZ(x, y, -0.01, r0 - rH, r0, rH, 40)]), ...bossCuts]));
+        base = sub(base, U([...postXY.flatMap(([x, y]) => [cylZ(x, y, -1, z0p + 0.01, rH, rH, 32), csk ? cylZ(x, y, -0.01, hcs, r0, rH, 40) : null]), ...bossCuts]));
         baseM = base; hoodM = hood;
         const colored = Object.keys(lidCol).length > 0, atH = p.__closed ? undefined : [0, 0, Hin + 12];
         parts.unshift({ name: 'Base', m: center(base), role: 'body' });
@@ -865,8 +869,8 @@
           parts.push({ name: `Viti ${(p.viteM || 'M6')}×${fmt(sc.L)} (4 pezzi)`, m: center(campScrews), role: 'pin', print: U([0, 1, 2, 3].map(k => reg(sc.print.translate([(k - 1.5) * step, 0, 0])))), at: p.__closed ? undefined : [Xo + 24, 0, 0] });
           info.push(['Viti stampate', `${p.viteM} (passo ${fmt(vm.P)} mm), testa svasata Ø ${fmt(2 * vm.D)} mm con taglio, lunghe ${fmt(sc.L)} mm, 4 pezzi. Gioco del filetto ${fmt(vg)} mm. In piedi con la testa sul piatto, strati sottili, almeno 4 perimetri, PETG`]);
           scTxt = `4 viti ${p.viteM} stampate`;
-        } else scTxt = `4 viti ${p.vite} a testa svasata lunghe ${fmt(Math.ceil(z0p + 8))}–${fmt(Math.ceil(z0p + 12))} mm (autofilettanti, nel pre-foro da ${dv === 3 ? '2,6' : '2,1'} mm)`;
-        info.push(['Base + campana', `base piatta con le culle e i 4 fori svasati; campana con pareti, coperchio e colonnine in un pezzo. Monti e colleghi le schede sulla base aperta, abbassi la campana (${notches.length ? 'la tacca scende sopra ' + (it0.usb ? 'la USB' : 'il connettore') + ' e il dentino della base la richiude' : 'si centra sul bordino della base'}) e la fissi con ${scTxt} da sotto la base. Stampa: base com'è, campana capovolta con il coperchio sul piatto, senza supporti`]);
+        } else scTxt = `4 viti ${p.vite} ${csk ? 'a testa svasata' : 'a testa tonda o svasata'} lunghe ${fmt(Math.ceil(z0p + 8))}–${fmt(Math.ceil(z0p + 12))} mm (autofilettanti, nel pre-foro da ${dv === 3 ? '2,6' : '2,1'} mm)`;
+        info.push(['Base + campana', `base piatta con le culle e i 4 fori ${csk ? 'svasati' : 'dritti (le teste delle viti sporgono sotto: incolla 4 piedini in gomma alti almeno 3 mm)'}; campana con pareti, coperchio e colonnine in un pezzo. Monti e colleghi le schede sulla base aperta, abbassi la campana (${notches.length ? 'la tacca scende sopra ' + (it0.usb ? 'la USB' : 'il connettore') + ' e il dentino della base la richiude' : 'si centra sul bordino della base'}) e la fissi con ${scTxt} da sotto la base. Stampa: base com'è, campana capovolta con il coperchio sul piatto, senza supporti`]);
         if (padH > 0.01) notes.push(`~Base + campana: sotto le viti la base ha dei rialzi da ${fmt(padH)} mm, perché la testa svasata è più alta del fondo`);
       }
       if (ballScrewAsm) parts.push({ name: `Viti sfera ${(p.viteM || 'M6')}×${fmt(ballScrewL)} (2 pezzi)`, m: center(ballScrewAsm), role: 'pin', print: ballScrewP, at: p.__closed ? undefined : [Xo + 24, 0, 0] });

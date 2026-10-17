@@ -79,6 +79,11 @@ header .face-top svg { display: block; width: 100%; height: 100%; }
 .logo-ins { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--muted); }
 .logo-ins .chip { font: 500 12px var(--f-ui); padding: 3px 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--field); color: var(--ink); cursor: pointer; }
 .logo-ins .chip:hover { border-color: var(--accent); color: var(--accent); }
+.min-ins { flex-wrap: wrap; }
+.min-ins .chip { white-space: nowrap; }
+.min-ins[hidden] { display: none; }
+.min-ins .minmsg { flex: 1 1 100%; }
+.min-ins .minmsg:empty { display: none; }
 .pad-box { display: flex; align-items: center; gap: 12px; }
 .pad { display: grid; grid-template-columns: repeat(3, 30px); grid-template-rows: repeat(3, 30px); gap: 3px; }
 .pad button { border: 1px solid var(--line); background: var(--field); color: var(--ink); border-radius: 6px; cursor: pointer; font-size: 11px; line-height: 1; padding: 0; }
@@ -2879,7 +2884,9 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       } finally { cleanup(); }
     }
 
-    return { build, GF, headStd: (p, testa) => headStd(threadSpec(p), testa) };
+    // altezza minima stampabile di un disegno (SVG o Fluent), per il pulsante "Minima stampabile"
+    const artMin = (id, svg, r) => { try { const D = H.decor; return D ? D.artMinH(D.artOf(id, svg), r) : null; } catch (e) { return null; } finally { cleanup(); } };
+    return { build, GF, headStd: (p, testa) => headStd(threadSpec(p), testa), artMin };
   }
 
   if (typeof module !== 'undefined' && module.exports) module.exports = { createGeom };
@@ -3137,6 +3144,19 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       return F;
     }
     // parti del disegno per filamento (2, 3, 4), ripulite dai dettagli più stretti dell'ugello
+    // altezza minima del disegno perché i dettagli più stretti di 2r non si perdano: stesso criterio di artSlots (meno dell'1% dei colori tolto).
+    // Si misura a 100 mm e si scala: a un'altezza doppia i dettagli sono larghi il doppio
+    function artMinH(art, r) {
+      if (!art) return null;
+      const H0 = 100, g = artGeom(art, H0), regs = Object.values(g.regions).filter(c => !empty(c));
+      if (!regs.length) return null;
+      const A = regs.reduce((s, c) => s + c.area(), 0);
+      const loss = (rr) => regs.reduce((s, c) => { const o = OFF(OFF(c, -rr), rr); return s + Math.max(0, c.area() - (empty(o) ? 0 : o.area())); }, 0) / A;
+      let lo = 0, hi = 5;
+      if (loss(hi) <= 0.01) return r * H0 / hi;
+      for (let i = 0; i < 14; i++) { const m = (lo + hi) / 2; if (loss(m) <= 0.01) lo = m; else hi = m; }
+      return lo > 0 ? r * H0 / lo : null;
+    }
     function artSlots(g, F, clip, noz, notes) {
       const by = { 2: [], 3: [], 4: [] };
       for (const [hex, cs] of Object.entries(g.regions)) { const k = SVGL ? SVGL.nearest(hex, F) + 1 : 2; if (k > 1) by[k].push(cs); }
@@ -4272,7 +4292,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
     function palla(p) { return Object.assign(piatto(Object.assign({}, p, { forma: 'palla', altezza: p.diametro, decorazioni: true })), { view: [0, -0.7, 1] }); }
 
     // scritte e disegni a disposizione degli altri generatori (la cover li usa sul retro)
-    H.decor = { textCS, fitText, fitLines, logoNotes, artOf, artGeom, artSlots, filaments, isArt, stencil, perforate, NOTES, EMO_BY };
+    H.decor = { textCS, fitText, fitLines, logoNotes, artOf, artGeom, artSlots, artMinH, filaments, isArt, stencil, perforate, NOTES, EMO_BY };
 
     // ogni generatore riporta in fondo gli avvisi sui loghi
     const withNotes = (fn) => (p) => { NOTES.clear(); const r = fn(p); for (const n of NOTES) r.info.push(['Nota', n]); NOTES.clear(); return r; };
@@ -4458,6 +4478,13 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       let L = (n - 1) * ia + W, prof = null, plate = null, ghostM = null;
       const hooks = [];       // profili dei ganci, estrusi a ogni posizione
       let holes = [], extraNote = null;
+      // larghezza della piastra (a muro) o del ponte (sopra porta) scelta da chi stampa; 0 = automatica.
+      // Non scende sotto quella che serve per i ganci (e per viti o magneti): i ganci restano centrati
+      const plateW = (Lmin) => {
+        const want = +p.larghPiastra || 0;
+        if (want > 0 && want < Lmin - 0.01) notes.push(`~Piastra portata a ${fmt(Lmin)} mm: più stretta non ci stanno ${tipo === 'muro' && p.fissaggio !== 'biadesivo' ? 'ganci e ' + (p.fissaggio === 'magneti' ? 'magneti' : 'viti') : 'i ganci'}`);
+        return Math.max(Lmin, want);
+      };
       if (tipo === 'muro') {
         const T = p.spessoreP, y0 = s / 2;
         const g = Math.min(p.sporgenza * 0.35, s * 1.6);
@@ -4472,6 +4499,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         if (p.fissaggio === 'viti') L = Math.max(L + 6, nv * (dk + 6));
         else if (p.fissaggio === 'magneti') L = Math.max(L + 6, (p.numMag | 0) * (p.magnete + 4) + 4);
         else L = Math.max(L + 6, 20);
+        L = plateW(L);
         plate = EXTX(soft(RECT(0, 0, Hp, L), Math.min(4, Hp / 4, L / 4)), 0, T);
         if (p.fissaggio === 'viti') {
           const yv = (Math.max(j.top, s) + Hp) / 2;
@@ -4486,6 +4514,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         ghostM = box(-4, -15, -15, 0, Hp + 15, L + 15);
       } else if (tipo === 'porta') {
         const T = s, gap = p.porta + p.tolleranza, br = p.ponte;
+        L = plateW(L);
         const clip = U([RECT(-T, -p.esterno, 0, br), RECT(-T, 0, gap + T, br), RECT(gap, -p.interno, gap + T, br)]);
         plate = EXTZ(soft(clip, Math.min(1, br * 0.3)), 0, L);
         const j = jHook(gap + T - 0.5, -p.interno + s / 2, p.sporgenza, p.raggio, p.punta, p.inclinazione, s, p.pomello);
@@ -6246,7 +6275,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         const ax0 = 1.5, ax1 = Xo - 1.5, ay0 = 1.5, ay1 = Yo - 1.5;
         // misura e punto di partenza: il rettangolo libero più grande (poi le frecce la spostano ovunque nella zona)
         let best = null;
-        { const bb = (c) => c.bounds(), xs = new Set([ax0, ax1]), ys = new Set([ay0, ay1]);
+        { const bb = (c) => c.bounds(), xs = new Set([ax0, ax1, ax0 + Rb, ax1 - Rb]), ys = new Set([ay0, ay1, ay0 + Rb, ay1 - Rb]);   // anche i bordi rientrati degli angoli arrotondati: senza, con niente sul coperchio non trovava spazio
           for (const b of busy) { const q = bb(b); xs.add(Math.min(ax1, Math.max(ax0, q.min[0]))); xs.add(Math.min(ax1, Math.max(ax0, q.max[0]))); ys.add(Math.min(ay1, Math.max(ay0, q.min[1]))); ys.add(Math.min(ay1, Math.max(ay0, q.max[1]))); }
           const X_ = [...xs].sort((a, b) => a - b), Y_ = [...ys].sort((a, b) => a - b);
           for (let i = 0; i < X_.length; i++) for (let j = i + 1; j < X_.length; j++) for (let k = 0; k < Y_.length; k++) for (let l = k + 1; l < Y_.length; l++) {
@@ -6361,9 +6390,13 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           const za = Math.min(Zw - 5, Math.max(f + 4, zt0 + 5));
           slot(by0 + it0.W / 2, 3.3, za, za - 3.3 - cl);
         }
-        // viti da sotto la base: svasatura sotto, rialzo sulla base se la testa è più alta del fondo, colonnina della campana sopra
+        // viti da sotto la base: svasatura sotto (a 45°, uguale a quella del coperchio normale), rialzo sulla base se la testa è più alta del fondo, colonnina della campana sopra
+        const csk = true;
         const rH = vm ? (vm.D + 0.8) / 2 : dv / 2 + 0.25, r0 = vm ? vm.D + 0.5 : dv + 0.2;
-        const padH = Math.max(0, (r0 - rH) + 0.6 - f), z0p = f + padH;
+        // svasatura a 55° invece di 45°: a 45° esatti alcune facce del cono superano il limite dello slicer, che ci mette dei supporti minuscoli.
+        // La testa (90°) tocca il bordo del foro alla stessa quota di prima, quindi resta a filo
+        const hcs = (r0 - rH) * Math.tan(55 * Math.PI / 180);
+        const padH = csk ? Math.max(0, hcs + 0.6 - f) : 0, z0p = f + padH;
         const hoodPosts = postXY.map(([x, y]) => cylZ(x, y, z0p, Zw + 0.03, pr, pr, 40));
         let hood = U([sub(wallsN, U(notches)), lid, ...hoodPosts]);
         hood = sub(hood, U(postXY.map(([x, y]) => (vm ? reg(VT.hole(p.viteM, bossLen, vg, true).translate([x, y, z0p])) : cylZ(x, y, z0p - 0.01, z0p + Math.min(12, Zw - z0p - 1), dv === 3 ? 1.3 : 1.05, dv === 3 ? 1.3 : 1.05, 24)))));
@@ -6376,7 +6409,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         // le culle non devono toccare le colonnine della campana (nella scatola normale si fondevano)
         const cradB = sub(X(U(addsClean), inner), U(postXY.map(([x, y]) => cylZ(x, y, z0p - 0.01, Htot, pr + cl, pr + cl, 40))));
         let base = U([floorB, lipB, cradB, ...tabs, ...pads, ...bossAdds]);
-        base = sub(base, U([...postXY.flatMap(([x, y]) => [cylZ(x, y, -1, z0p + 0.01, rH, rH, 32), cylZ(x, y, -0.01, r0 - rH, r0, rH, 40)]), ...bossCuts]));
+        base = sub(base, U([...postXY.flatMap(([x, y]) => [cylZ(x, y, -1, z0p + 0.01, rH, rH, 32), csk ? cylZ(x, y, -0.01, hcs, r0, rH, 40) : null]), ...bossCuts]));
         baseM = base; hoodM = hood;
         const colored = Object.keys(lidCol).length > 0, atH = p.__closed ? undefined : [0, 0, Hin + 12];
         parts.unshift({ name: 'Base', m: center(base), role: 'body' });
@@ -6393,8 +6426,8 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           parts.push({ name: `Viti ${(p.viteM || 'M6')}×${fmt(sc.L)} (4 pezzi)`, m: center(campScrews), role: 'pin', print: U([0, 1, 2, 3].map(k => reg(sc.print.translate([(k - 1.5) * step, 0, 0])))), at: p.__closed ? undefined : [Xo + 24, 0, 0] });
           info.push(['Viti stampate', `${p.viteM} (passo ${fmt(vm.P)} mm), testa svasata Ø ${fmt(2 * vm.D)} mm con taglio, lunghe ${fmt(sc.L)} mm, 4 pezzi. Gioco del filetto ${fmt(vg)} mm. In piedi con la testa sul piatto, strati sottili, almeno 4 perimetri, PETG`]);
           scTxt = `4 viti ${p.viteM} stampate`;
-        } else scTxt = `4 viti ${p.vite} a testa svasata lunghe ${fmt(Math.ceil(z0p + 8))}–${fmt(Math.ceil(z0p + 12))} mm (autofilettanti, nel pre-foro da ${dv === 3 ? '2,6' : '2,1'} mm)`;
-        info.push(['Base + campana', `base piatta con le culle e i 4 fori svasati; campana con pareti, coperchio e colonnine in un pezzo. Monti e colleghi le schede sulla base aperta, abbassi la campana (${notches.length ? 'la tacca scende sopra ' + (it0.usb ? 'la USB' : 'il connettore') + ' e il dentino della base la richiude' : 'si centra sul bordino della base'}) e la fissi con ${scTxt} da sotto la base. Stampa: base com'è, campana capovolta con il coperchio sul piatto, senza supporti`]);
+        } else scTxt = `4 viti ${p.vite} ${csk ? 'a testa svasata' : 'a testa tonda o svasata'} lunghe ${fmt(Math.ceil(z0p + 8))}–${fmt(Math.ceil(z0p + 12))} mm (autofilettanti, nel pre-foro da ${dv === 3 ? '2,6' : '2,1'} mm)`;
+        info.push(['Base + campana', `base piatta con le culle e i 4 fori ${csk ? 'svasati' : 'dritti (le teste delle viti sporgono sotto: incolla 4 piedini in gomma alti almeno 3 mm)'}; campana con pareti, coperchio e colonnine in un pezzo. Monti e colleghi le schede sulla base aperta, abbassi la campana (${notches.length ? 'la tacca scende sopra ' + (it0.usb ? 'la USB' : 'il connettore') + ' e il dentino della base la richiude' : 'si centra sul bordino della base'}) e la fissi con ${scTxt} da sotto la base. Stampa: base com'è, campana capovolta con il coperchio sul piatto, senza supporti`]);
         if (padH > 0.01) notes.push(`~Base + campana: sotto le viti la base ha dei rialzi da ${fmt(padH)} mm, perché la testa svasata è più alta del fondo`);
       }
       if (ballScrewAsm) parts.push({ name: `Viti sfera ${(p.viteM || 'M6')}×${fmt(ballScrewL)} (2 pezzi)`, m: center(ballScrewAsm), role: 'pin', print: ballScrewP, at: p.__closed ? undefined : [Xo + 24, 0, 0] });
@@ -6853,7 +6886,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Retro', id: 'stileRetro', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il retro è sul piatto, quindi niente rilievo. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Traforato: si vede il retro del telefono.' },
         layerP({ sec: 'Retro', id: 'profRetro', label: 'Spessore', min: 0.2, max: 2, def: 0.6, show: p => p.stileRetro !== 'traforata' }),
-        ...linesP('Scritta', '', '', 8, null, 30, 'Se la scritta non ci sta viene ridotta da sola.'),
+        ...linesP('Scritta', '', '', 8, null, 60, 'Se la scritta non ci sta viene ridotta da sola.'),
         { sec: 'Scritta', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta'), { show: p => hasLogo(p) || isArtId(p.disegno) }),
         ...colorsP(['Colore 1 · cover', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
@@ -6877,7 +6910,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
         layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.2, show: p => p.stileCop !== 'traforata' }),
-        ...linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.'),
+        ...linesP('Scritta sul coperchio', '', '', 8, null, 60, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.'),
         { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
         ...colorsP(['Colore 1 · coperchio', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
@@ -7115,6 +7148,8 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Gancio', id: 'numero', label: 'Numero di ganci', type: 'int', min: 1, max: 10, def: 1, show: p => p.tipo === 'muro' || p.tipo === 'porta' },
         { sec: 'Gancio', id: 'interasse', label: 'Distanza tra i ganci', type: 'num', min: 15, max: 200, step: 1, def: 60, unit: 'mm', show: p => (p.tipo === 'muro' || p.tipo === 'porta') && p.numero > 1 },
         { sec: 'Gancio', id: 'larghezza', label: 'Larghezza gancio', type: 'num', min: 6, max: 60, step: 1, def: 15, unit: 'mm' },
+        { sec: 'Gancio', id: 'larghPiastra', label: 'Larghezza piastra', type: 'num', min: 0, max: 400, step: 1, def: 0, unit: 'mm', show: p => p.tipo === 'muro' || p.tipo === 'porta',
+          help: 'A muro: la piastra contro il muro. Sopra porta: il ponte che si appoggia sulla porta. 0 = automatica (quanto serve per i ganci e per viti o magneti). I ganci restano centrati.' },
         { sec: 'Gancio', id: 'spessoreG', label: 'Spessore gancio', type: 'num', min: 2.5, max: 15, step: 0.5, def: 6, unit: 'mm' },
         { sec: 'Gancio', id: 'sporgenza', label: 'Sporgenza', type: 'num', min: 8, max: 150, step: 1, def: 40, unit: 'mm', show: p => p.tipo !== 'esse', help: 'Quanto esce il gancio prima di curvare.' },
         { sec: 'Gancio', id: 'raggio', label: 'Raggio curva', type: 'num', min: 3, max: 40, step: 0.5, def: 10, unit: 'mm', show: p => p.tipo !== 'esse' },
@@ -7230,7 +7265,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
         layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.2, show: p => p.stileCop !== 'traforata' }),
-        ...withRot(linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
+        ...withRot(linesP('Scritta sul coperchio', '', '', 8, null, 60, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
         { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
         ...colorsP(['Colore 1 · coperchio', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
@@ -7302,8 +7337,6 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Supporto', id: 'sfera', label: 'Diametro della sfera', type: 'num', min: 10, max: 20, step: 1, def: 14, unit: 'mm', show: p => p.supporto && p.supporto !== 'nessuno', help: 'Più grande è, più tiene (e più pesa lo snodo). 14 mm va bene per scatole leggere.' },
         { sec: 'Supporto', id: 'magnete', label: 'Magnete', type: 'select', def: '10x2', options: [['10x2', '10 × 2 mm'], ['8x2', '8 × 2 mm']], show: p => p.supporto === 'magnete', help: 'Disco al neodimio da incollare nella sede dello snodo.' },
         { sec: 'Supporto', id: 'spPos', label: 'Posizione della sfera', type: 'pad', def: [0, 0], show: p => p.supporto && p.supporto !== 'nessuno', help: 'Parte dal centro del fondo. Destra e su guardando dall\'alto con il davanti in basso. Spostala se cade sotto i dupont (il riquadro misure avvisa).' },
-        { sec: 'Coperchio', id: 'chiusura', label: 'Chiusura', type: 'select', def: 'coperchio', options: [['coperchio', 'Coperchio avvitato'], ['campana', 'Base + campana']],
-          help: 'Base + campana: la base è il fondo piatto con le culle e i 4 fori; pareti e coperchio sono un pezzo solo (la campana) che si appoggia sopra e si avvita da sotto la base. Monti e colleghi le schede con tutto aperto. Sulla parete della USB la campana ha una tacca aperta in basso, chiusa da un dentino della base.' },
         { sec: 'Coperchio', id: 'vite', label: 'Viti', type: 'select', def: 'M3', show: p => p.viteTipo !== 'stampata', options: [['M3', 'M3'], ['M2.5', 'M2,5']], help: 'Quattro viti a testa svasata in colonnine agli angoli, pre-foro per viti autofilettanti. Con il coperchio avvitato entrano dall\'alto; con base + campana entrano da sotto la base.' },
         { sec: 'Coperchio', id: 'viteTipo', label: 'Tipo di viti', type: 'select', def: 'metallica', options: [['metallica', 'Metalliche (le compri)'], ['stampata', 'Stampate (le stampi)']],
           help: 'Stampate: le viti del coperchio (e quelle della sfera, se c\'è) escono come pezzi da stampare, con il filetto ISO del generatore Viti e bulloni. Si avvitano dal basso nel coperchio, che ha boccole filettate.' },
@@ -7318,7 +7351,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
         layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.2, show: p => p.stileCop !== 'traforata' }),
-        ...withRot(linesP('Scritta sul coperchio', '', '', 8, null, 30, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
+        ...withRot(linesP('Scritta sul coperchio', '', '', 8, null, 60, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
         { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
         ...colorsP(['Colore 1 · coperchio', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
@@ -7375,6 +7408,25 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
   // ================= UI CONTROLLI =================
   const $ = (s) => document.querySelector(s);
   const panel = $('#params');
+  // ---- "Minima stampabile": la misura più piccola in cui le righe dei loghi (o i dettagli del disegno) restano larghe abbastanza ----
+  // Larghezza minima di una riga: come il programma ingrossa i loghi (ugello × 1,05). A filo a colori il doppio abbondante (2,2 ×):
+  // due passate del primo strato, sennò lo slicer non riempie le righe del colore della scritta.
+  const LOGO_IDS = { sp: 'SP', viso: 'viso', visonatale: 'visoNatale' };
+  const minLine = (v) => { const noz = +v.ugello || 0.4, filo = ['stileCop', 'stileRetro', 'stileTesto', 'stile'].some(k => v[k] === 'filo'); return { w: noz * 1.05 * (filo ? 2.2 : 1), filo }; };
+  function minSizeOf(p, v, cheap) {
+    const n = minLine(v), m = /^altTesto(\d?)$/.exec(p.id);
+    if (m) {
+      const i = m[1] || '1', tp = MODES[state.mode].params.find(q => q.type === 'text' && q.logos && (q.id === (i === '1' ? 'scritta' : 'scritta' + i) || q.id === 'testo' + i));
+      const ids = [...String(tp ? v[tp.id] || '' : '').matchAll(/\{(sp|visonatale|viso)\}/gi)].map(x => LOGO_IDS[x[1].toLowerCase()]);
+      const L = window.SPRECOLO_LOGOS || {}, ws = ids.map(id => L[id] && L[id].wmin).filter(Boolean);
+      return ws.length ? Object.assign({ val: n.w / Math.min(...ws) / 1.35, kind: 'logo' }, n) : null;   // i loghi sono alti 1,35 volte la riga
+    }
+    const artId = p.id === 'altDisegno' ? (v.disegno === 'svg' ? 'svg' : null) : (p.id === 'altezza' && v.forma && isArtId(v.forma) ? v.forma : null);
+    if (!artId || (artId === 'svg' && !(v.svg && v.svg.text))) return null;
+    if (cheap) return { kind: 'art' };
+    const h = G && G.artMin ? G.artMin(artId, v.svg, n.w / 2) : null;
+    return h ? Object.assign({ val: h, kind: 'art' }, n) : null;
+  }
   const fmtNum = (v, step) => { const d = step < 1 ? (String(step).split('.')[1] || '').length : 0; return Number(v).toFixed(d); };
 
   function renderParams() {
@@ -7528,6 +7580,21 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         inp.addEventListener('input', () => { const n = parseFloat(inp.value); if (isFinite(n) && n >= p.min && n <= p.max) set(p, p.type === 'int' ? Math.round(n) : n, true); });
         row.querySelector('.dec').addEventListener('click', () => commit(near(-1)));
         row.querySelector('.inc').addEventListener('click', () => commit(near(1)));
+        if (/^altTesto\d?$/.test(p.id) || p.id === 'altDisegno' || (p.id === 'altezza' && MODES[mode].params.some(q => q.id === 'forma'))) {
+          const bar = document.createElement('div');
+          bar.className = 'logo-ins min-ins';
+          bar.innerHTML = '<button type="button" class="chip minbtn">Minima stampabile</button><span class="minmsg"></span>';
+          bar.querySelector('button').addEventListener('click', () => {
+            const r = minSizeOf(p, values(state.mode)), msg = bar.querySelector('.minmsg');
+            if (!r) { msg.textContent = 'Non riesco a calcolarla'; return; }
+            const st = step || 0.5, want = Math.ceil(r.val / st - 1e-9) * st;
+            commit(want);
+            const got = values(state.mode)[p.id], wtxt = fmtNum(r.w, 0.01).replace('.', ',');
+            msg.textContent = (want > p.max + 1e-9 ? `servirebbero ${fmtNum(want, st).replace('.', ',')} mm, qui il massimo è ${fmtNum(p.max, st).replace('.', ',')}: ` : '')
+              + `${fmtNum(got, st).replace('.', ',')} mm, ${r.kind === 'logo' ? 'righe del logo larghe' : 'dettagli del disegno larghi'} almeno ${wtxt} mm${r.filo ? ' (a filo: due passate del primo strato)' : ''}`;
+          });
+          row.appendChild(bar);
+        }
       }
       if (p.help) { const h = document.createElement('p'); h.className = 'help'; h.textContent = p.help; row.appendChild(h); }
       sections.get(p.sec).appendChild(row);
@@ -7542,6 +7609,12 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
     for (const p of MODES[state.mode].params) {
       const row = panel.querySelector(`.row[data-id="${p.id}"]`);
       if (row) row.hidden = p.show ? !p.show(v) : false;
+      const mb = row && row.querySelector('.min-ins');
+      if (mb) {
+        const r = minSizeOf(p, v, true);
+        mb.hidden = !r;
+        if (r && r.kind === 'logo') mb.querySelector('button').textContent = `Minima stampabile: ${fmtNum(Math.ceil(r.val * 2 - 1e-9) / 2, 0.5).replace('.', ',')} mm`;
+      }
     }
     // nasconde le sezioni senza parametri visibili
     panel.querySelectorAll('details.sec').forEach(d => { d.hidden = ![...d.querySelectorAll('.row')].some(r => !r.hidden); });
