@@ -37,7 +37,11 @@
   // fotocamere ricorrenti
   const CAM16 = { r: [1.09, 1.25, 26.16, 43.72, 12.53], h: 1.85, v: 3.48, fori: [[30.01, 22.48, 6.28]] };
   const CAM16P = { r: [1.04, 1.04, 45.22, 46.54, 13], h: 2.05, v: 4.28 };          // raggio: scala
-  const CAM17P = { r: [0, 0, 0, 48.75, 0], tutto: true, h: 2.55, v: 4.43 };        // rialzo e finestra: scala
+  // rialzo largo quanto il telefono, con i bordi arrotondati. Forma presa dagli originali Anycubic (cover stampata e provata):
+  // b0 = rettangolo di riferimento [rientro dalla cima, fine dalla cima, raggio], largo quanto il telefono;
+  // tasca = [profondità dal retro del telefono, rientro da b0] della tasca della copertura (gioco di 0,6 mm compreso)
+  const CAM17P = { r: [0, 0, 0, 48.75, 0], tutto: true, h: 2.55, v: 4.43,
+    b0: [0.21, 47.97, 14.85], tasca: [[0, 2.3], [0.5, 2.95], [1.2, 3.86], [2.0, 4.46], [2.4, 4.65]] };
 
   const T = [
     { id: 'iphone-17-pro-max', nome: 'iPhone 17 Pro Max', fonte: '2025-09-09', W: 77.98, L: 163.43, T: 8.75, a: A17P,
