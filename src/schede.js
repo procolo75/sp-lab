@@ -768,6 +768,9 @@
             const rc = RECT(X_[i], Y_[k], X_[j], Y_[l]), out = CD(rc, area);
             if (emptyC(out) || out.area() < 0.5) best = { a, r: [X_[i], Y_[k], X_[j], Y_[l]] };
           } }
+        let artCS = null, txt = null;
+        let ts = Math.min(4, Math.max(2, +p.colTesto || 3));
+        if (p.colTesto === 'auto' && root.SPLAB_SVG) ts = [2, 3, 4].sort((a, b) => root.SPLAB_SVG.dist(F[b - 1], F[0]) - root.SPLAB_SVG.dist(F[a - 1], F[0]))[0];
         if ((art || hasT) && best && best.r[2] - best.r[0] > 12 && best.r[3] - best.r[1] > 8) {
           // parte al centro del rettangolo libero più grande, ma può essere grande quanto tutto il coperchio: dove tocca finestre, fori o il bordo viene tagliata (c'è l'avviso)
           const zcx = (best.r[0] + best.r[2]) / 2, zcy = (best.r[1] + best.r[3]) / 2, lw = ax1 - ax0, lh = ay1 - ay0;
@@ -778,7 +781,7 @@
           const tH = hasT ? 1.5 * ((has1 ? p.altTesto : 0) + (has2 ? +p.altTesto2 || p.altTesto : 0)) : 0, gap = art && hasT ? 3 : 0;
           const Sa = art ? Math.max(6, Math.min(p.altDisegno, by1 - by0 - tH - gap, bx1 - bx0)) : 0;
           const cx = (bx0 + bx1) / 2, cy = (by0 + by1) / 2 + (Sa + gap + tH) / 2;
-          let artCS = null, txt = null; const slots = {};
+          const slots = {};
           if (art) {
             const dP = Array.isArray(p.posDisegno) ? p.posDisegno : [0, 0], g0 = DEC.artGeom(art, Sa, bx1 - bx0), acx = cx + (+dP[0] || 0), acy = cy - Sa / 2 + (+dP[1] || 0);
             const ROT = (c) => (!c || !thA ? c : R2(R2(R2(c.translate([-acx, -acy])).rotate(thA)).translate([acx, acy])));
@@ -794,8 +797,6 @@
             if (txt && txt.reduced) notes.push(`~Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
             if (txt) { const kc = CI(txt.cs, area); if (emptyC(kc) || kc.area() < txt.cs.area() * 0.98) notes.push('La scritta tocca una finestra, un foro o il bordo del coperchio: lì viene tagliata. Spostala con le frecce, girala o rimpiccioliscila'); }
           }
-          let ts = Math.min(4, Math.max(2, +p.colTesto || 3));
-          if (p.colTesto === 'auto' && root.SPLAB_SVG) ts = [2, 3, 4].sort((a, b) => root.SPLAB_SVG.dist(F[b - 1], F[0]) - root.SPLAB_SVG.dist(F[a - 1], F[0]))[0];
           const keep = (c) => CI(c, area);
           if (st === 'filo') {
             const tcs = txt ? keep(txt.cs) : null;
@@ -816,6 +817,13 @@
           if (txt && txt.cap < 4) notes.push('Lettere sotto i 4 mm: vengono poco leggibili. Ingrandisci la scritta o accorcia il testo');
           if (p.ariaTipo && p.ariaTipo !== 'nessuna' && p.ariaCop && p.ariaCop !== 'no') notes.push('Coperchio decorato con le prese d\'aria sul coperchio: dove si incrociano la decorazione resta bucata. Metti le prese solo sopra le schede, sulle pareti, o toglile dal coperchio');
         } else if (art || hasT) notes.push('Sul coperchio non c\'è spazio libero per la decorazione (tra viti, LED e finestre): togli la scritta o il disegno, oppure rimpiccioliscili');
+        // marchio SP nell'angolo in basso del coperchio (visto da sopra), lontano da viti, LED, finestre, scritta e disegno; stesso stile della scritta
+        const mk = DEC.placeMark(area, p, notes, CU([txt ? txt.cs : null, artCS]), 0.5);
+        if (mk) {
+          if (st === 'filo') { const kM = DEC.markCol(p, ts), sol = EZ(mk, Htot - depth, Htot + 0.01); if (sol) lidCol[kM] = reg(union([lidCol[kM], sol.intersect(lid)].filter(Boolean))); }
+          else lid = sub(lid, st === 'traforata' ? EZ(DEC.stencil(mk, 5), Zw - 1, Htot + 1) : EZ(mk, Htot - depth, Htot + 1));
+          if (!decoInfo) decoInfo = st === 'filo' ? `a filo, negli ultimi ${fmt(depth)} mm del coperchio` : st === 'traforata' ? 'traforato' : `inciso ${fmt(depth)} mm`;
+        }
         if (hasT) DEC.logoNotes(noz);
         for (const k of [2, 3, 4]) if (lidCol[k]) lid = sub(lid, lidCol[k]);
       }

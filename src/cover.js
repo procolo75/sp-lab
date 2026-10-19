@@ -185,7 +185,7 @@
       // copertura a parte: chiude la finestra lasciando aperti solo lenti, flash e sensori, e sporge oltre le lenti.
       // Ha una flangia che sta in un incavo dentro la cover, sotto il telefono: la tiene ferma il telefono, senza colla.
       // Senza le posizioni delle lenti (misure scritte a mano) è solo un anello attorno alla fotocamera.
-      let insert = null, ringOut = 0, FLinfo = 0;
+      let insert = null, ringOut = 0, FLinfo = 0, capFace = null, capZ = 0;   // capFace: parte piatta della faccia esterna della copertura (a z = capZ)
       if (ring) {
         // si infila da dentro la cover prima del telefono: passa nella finestra e il suo bordo largo (flangia) resta
         // in un incavo scavato nel retro, dalla parte del telefono. Fuori non esce perché la finestra è più stretta,
@@ -251,7 +251,8 @@
             if (fl > 0.05) flares.push(loft([[C2(X, Y, r + fl, 64), zR - 0.01], [C2(X, Y, r, 64), zR + fl]]));
           }
           if (flares.length) m = sub(m, U3(flares));
-        } else m = sub(solid, U3([EXTZ(inner, zR - 1, zTop + 1), loft([[OFF(inner, ch), zR - 0.01], [inner, zR + ch]])]));
+          capFace = D(W0, OFF(holes2, fl0 + 0.3)); capZ = zR;
+        } else { m = sub(solid, U3([EXTZ(inner, zR - 1, zTop + 1), loft([[OFF(inner, ch), zR - 0.01], [inner, zR + ch]])])); capFace = D(W0, OFF(inner, ch + 0.3)); capZ = zR; }
         insert = m;
       }
 
@@ -339,6 +340,7 @@
       // ---- retro: scritta e disegno, visti da fuori (quindi a specchio guardando dentro la cover) ----
       const F = DEC ? DEC.filaments(p, p.disegno === 'svg' ? DEC.artOf('svg', p.svg) : null) : [p.col1, p.col2, p.col3, p.col4];
       const deco = { 2: [], 3: [], 4: [] }, depth = Math.min(p.profRetro, tb - 0.4), st = p.stileRetro;
+      let capMark = null, capCol = 2;   // logo SP a filo sulla copertura delle lenti e il suo colore (quello della scritta)
       let decoInfo = null;
       if (DEC) {
         const noz = +p.ugello || 0.4, hasT = [p.scritta, p.scritta2].some(x => x && String(x).trim());
@@ -348,13 +350,21 @@
         const ax0 = -t.W / 2 + 6, ax1 = t.W / 2 - 6, ay1 = winY0 - 5;
         // con il cavalletto in verticale la decorazione sta sopra la guida: sotto la copre la gamba
         const ay0 = stand && vert && ay1 - (ys + wd / 2 + 3) >= 22 ? ys + wd / 2 + 3 : -t.L / 2 + 10;
-        const area = I(OFF(base, -5), RECT(ax0, ay0, ax1, ay1));
+        const area = I(OFF(base, -5), RECT(ax0, ay0, ax1, ay1));   // dove parte la scritta (poi le frecce la portano in tutta la zona libera)
+        const mir = (c) => (empty(c) ? null : R2(c.mirror([1, 0])));
+        // zona libera: tutta la parte piatta del retro (dove finisce l'arrotondamento dello spigolo) meno 1,5 mm, senza la finestra
+        // della fotocamera, la guida del cavalletto e il MagSafe scavato fuori. Vista da fuori, quindi a specchio
+        const flatOut = p.profilo === 'dritto' || rb < 0.1 ? out : OFF(out, -(p.profilo === 'smussato' ? rb : 0.586 * rb));
+        const zone = mir(D(OFF(flatOut, -1.5), U([OFF(winOut, 2), slotCS, magCS && p.magsafe === 'fuori' ? OFF(magCS, 0.6) : null])));
+        let artCS = null, txt = null;
+        // colore della scritta (e del marchio SP): scelto, oppure quello che stacca di più dalla cover
+        let ts = Math.min(4, Math.max(2, +p.colTesto || 3));
+        if (p.colTesto === 'auto' && root.SPLAB_SVG) ts = [2, 3, 4].sort((a, b) => root.SPLAB_SVG.dist(F[b - 1], F[0]) - root.SPLAB_SVG.dist(F[a - 1], F[0]))[0];
         if ((art || hasT) && area && ay1 - ay0 > 15) {
           const has2 = p.scritta2 && String(p.scritta2).trim(), has1 = p.scritta && String(p.scritta).trim();
           const tH = hasT ? 1.5 * ((has1 ? p.altTesto : 0) + (has2 ? +p.altTesto2 || p.altTesto : 0)) : 0, gap = art && hasT ? 5 : 0;
           const Sa = art ? Math.max(8, Math.min(p.altDisegno, ay1 - ay0 - tH - gap, ax1 - ax0)) : 0;
           const tot = Sa + gap + tH, cy = (ay0 + ay1) / 2 + tot / 2;
-          let artCS = null, txt = null;
           const slots = {};
           if (art) {
             const dP = Array.isArray(p.posDisegno) ? p.posDisegno : [0, 0], g0 = DEC.artGeom(art, Sa, ax1 - ax0), ay = cy - Sa / 2 + (+dP[1] || 0), place = (c) => (c ? MV(c, +dP[0] || 0, ay) : null);
@@ -371,12 +381,8 @@
             txt = DEC.fitText(p, { x: 0, y: cy - Sa - gap - tH / 2, w: ax1 - ax0, h: Math.max(4, tH) }, p.altTesto);
             if (txt && txt.reduced) notes.push(`~Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
           }
-          // colore della scritta: scelto, oppure quello che stacca di più dalla cover
-          let ts = Math.min(4, Math.max(2, +p.colTesto || 3));
-          if (p.colTesto === 'auto' && root.SPLAB_SVG) ts = [2, 3, 4].sort((a, b) => root.SPLAB_SVG.dist(F[b - 1], F[0]) - root.SPLAB_SVG.dist(F[a - 1], F[0]))[0];
-          const mir = (c) => (empty(c) ? null : R2(c.mirror([1, 0])));
-          const keep = (c) => D(D(I(c, area), slotCS), p.magsafe === 'fuori' ? OFF(magCS, 0.6) : null);
-          if (txt && txt.moved) { const kc = keep(txt.cs); if (empty(kc) || kc.area() < txt.cs.area() * 0.98) notes.push('La scritta spostata esce dalla zona libera del retro (sotto la fotocamera, a 5 mm dai bordi): la parte fuori viene tagliata: riportala dentro con le frecce'); }
+          const keep = (c) => I(c, zone);
+          if (txt) { const kc = keep(txt.cs); if (empty(kc) || kc.area() < txt.cs.area() * 0.98) notes.push('La scritta esce dalla parte piatta del retro o tocca fotocamera, guida o MagSafe: lì viene tagliata. Spostala con le frecce o rimpiccioliscila'); }
           if (st === 'filo') {
             const tcs = txt ? keep(txt.cs) : null;
             for (const k of [2, 3, 4]) {
@@ -394,6 +400,25 @@
           if (txt && txt.cap < 4) notes.push('Lettere sotto i 4 mm: vengono poco leggibili. Ingrandisci la scritta o accorcia il testo');
           if (stand) notes.push('~La guida del cavalletto passa sul retro: la decorazione le lascia spazio');
         } else if (art || hasT) notes.push('Sul retro non c\'è spazio per la decorazione: togli la scritta o il disegno, oppure rimpiccioliscili');
+        // marchio SP: nell'angolo in basso della parte piatta del retro (visto da fuori), lontano da scritta e disegno; stesso stile della scritta.
+        // Oppure sulla faccia esterna della copertura delle lenti, tra i fori
+        const onCap = p.doveMarchio === 'lenti';
+        if (p.marchio && onCap && !capFace) notes.push('Logo SP sulla copertura delle lenti: c\'è solo con "Copertura a parte" e lenti che sporgono dal retro. L\'ho messo sul retro');
+        if (p.marchio && onCap && capFace) {
+          const mk = DEC.placeMark(mir(OFF(capFace, -0.5)), p, notes, null, 0.3), dC = Math.min(depth, 0.6);
+          if (mk) {
+            const sol = EXTZ(mir(mk), capZ - 0.01, capZ + dC);
+            capMark = st === 'filo' ? sol : null; capCol = DEC.markCol(p, ts);
+            insert = sub(insert, sol);
+            info.push(['Logo SP', `sulla copertura delle lenti, ${st === 'filo' ? `a filo nei primi ${fmt(dC)} mm` : `inciso ${fmt(dC)} mm`}`]);
+          }
+        }
+        const mk = onCap && capFace ? null : DEC.placeMark(zone, p, notes, U([txt ? txt.cs : null, artCS]), 0);
+        if (mk) {
+          if (st === 'filo') deco[DEC.markCol(p, ts)].push(EXTZ(mir(mk), 0, depth));
+          else cuts.push(st === 'traforata' ? EXTZ(mir(DEC.stencil(mk, 5)), -1, tb + 0.05) : EXTZ(mir(mk), -1, depth));
+          if (!decoInfo) decoInfo = st === 'filo' ? `a filo, nei primi ${fmt(depth)} mm del retro` : st === 'traforata' ? 'traforato' : `inciso ${fmt(depth)} mm`;
+        }
         DEC.logoNotes(noz);
       }
 
@@ -442,6 +467,8 @@
       if (insert && p.prova !== 'fondo') {
         const k = Math.min(4, Math.max(1, +p.colCornice || 1));
         parts.push({ name: 'Copertura fotocamera', m: flip(insert, zr), print: insert, role: 'body', color: F[k - 1], group: 'Copertura fotocamera' });
+        if (capMark) parts.push({ name: 'Copertura fotocamera · logo', m: flip(capMark, zr), print: capMark, role: 'body', color: F[capCol - 1], group: 'Copertura fotocamera' });
+        if (capMark && capCol === k) notes.push('Il logo sulla copertura ha lo stesso colore della copertura: a filo non si vede. Cambia il colore della scritta o della copertura');
       }
       // il telefono, per vedere come ci sta
       const ghostM = U3([phoneSolid(t, base, 0, 0, tb), cam.bump(tb)]);

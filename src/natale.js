@@ -60,7 +60,11 @@
       }
     }
     // loghi dentro le scritte: {SP}, {viso} e {visoNatale}. Il logo è alto LOGO_K volte le maiuscole e centrato sulla riga.
-    // Se le linee del logo vengono più sottili dell'ugello, vengono ingrossate fino alla larghezza dell'ugello.
+    // Le linee dei loghi devono essere larghe almeno due passate dell'ugello: con una sola molti slicer (Anycubic, Orca e Bambu
+    // con le pareti classiche, compensazione del primo strato) le saltano e ci lasciano il colore sotto. Gli spazi tra le linee
+    // almeno una passata, se no le linee si impastano. Le linee si ingrossano verso le due passate finché gli spazi lo permettono
+    // (larghezze tipiche wl e wg in logos.js); sotto l'altezza minima gli spazi più stretti di una passata si chiudono.
+    const logoMinH = (L, noz) => { const w1 = noz * 1.05; return Math.max(3 * w1 / (L.wl + L.wg), w1 / L.wg); };
     const LOGOS = root.SPRECOLO_LOGOS || {};
     const LOGO_K = 1.35, LOGO_RE = /\{(SP|visoNatale|viso)\}/gi;
     const logoKey = (t) => Object.keys(LOGOS).find(k => k.toLowerCase() === t.toLowerCase());
@@ -99,7 +103,8 @@
         while ((m = LOGO_RE.exec(line))) {
           const k = logoKey(m[1]);
           if (m.index > last) out.push({ t: line.slice(last, m.index) });
-          if (k) out.push({ logo: k }); else out.push({ t: m[0] });
+          // {SP} nelle scritte non c'è più: il logo SP è il marchio a parte (placeMark); nei file vecchi viene tolto
+          if (k === 'SP') { /* niente */ } else if (k) out.push({ logo: k }); else out.push({ t: m[0] });
           last = m.index + m[0].length;
         }
         if (last < line.length) out.push({ t: line.slice(last) });
@@ -117,10 +122,12 @@
             if (i > 0) x += gap;
             const y0 = y + capH / 2 - LH / 2;
             let c = P2s(L.polys.map(q => q.map(([u, v]) => [x + u * LH, y0 + v * LH])));
-            const lw = L.wmin * LH, d = Math.max(0, (noz * 1.05 - lw) / 2);
+            const w1 = noz * 1.05, lineW = L.wl * LH, gapW = L.wg * LH, hmin = logoMinH(L, noz), small = LH < hmin - 1e-6;
+            const d = Math.max(0, Math.min((2 * w1 - lineW) / 2, (gapW - w1) / 2));
             if (d > 0.005) c = OFF(c, d);
+            if (small) { const r = w1 / 2 * 1.08; c = OFF(OFF(c, r), -r); }   // 8% di margine: un foro largo proprio una passata viene male
             logoCS.push(c);
-            lastLogos.push({ id: pc.logo, h: LH, lw, d, hmin: noz * 1.05 / L.wmin });
+            lastLogos.push({ id: pc.logo, h: LH, small, thin: lineW + 2 * d < 2 * w1 - 0.01, hmin });
             x += L.w * LH + (i < pcs.length - 1 ? gap : 0);
           } else {
             for (const ch of pc.t) { const g = F.g[ch] || F.g['?']; if (g[1]) glyphPolys(g[1], s, x, y, polys); x += g[0] * s; }
@@ -142,7 +149,7 @@
     function logoNotes(noz) {
       for (const q of lastLogos) {
         const nm = q.id === 'SP' ? 'Logo SP' : q.id === 'visoNatale' ? 'Viso di Natale' : 'Viso';
-        if (q.d > 0.005) NOTES.add(`${nm} alto ${fmt(q.h)} mm: linee ingrossate a ${fmt2(q.lw + 2 * q.d)} mm per l'ugello da ${fmt2(noz)}. Per avere tutti i dettagli fallo alto almeno ${Math.ceil(q.hmin)} mm (lettere da ${Math.ceil(q.hmin / LOGO_K)} mm)`);
+        if (q.small) NOTES.add(`${nm} alto ${fmt(q.h)} mm: troppo piccolo per l'ugello da ${fmt2(noz)}. ${q.thin ? 'Alcune linee restano più sottili di due passate e lo slicer potrebbe saltarle; gli' : 'Gli'} spazi più stretti di una passata sono stati chiusi. Per averlo pulito fallo alto almeno ${Math.ceil(q.hmin)} mm (lettere da ${Math.ceil(q.hmin / LOGO_K)} mm)`);
       }
     }
     const fmt2 = (v) => (Math.round(v * 100) / 100).toString().replace('.', ',');
@@ -161,6 +168,68 @@
       const k = f < 1 ? Math.min(1, bx.w / lastBox.w, bx.h / lastBox.h) : 1;
       return { cs: MV(c, bx.x, bx.y), cap: capWanted * f, reduced: f < 0.97, moved, box: { w: lastBox.w * k, h: lastBox.h * k } };
     }
+
+    // ---------- marchio SP ----------
+    // "SP" nel carattere Tondo, alla misura più piccola che l'ugello stampa pulita: linee di almeno due passate, spazi di almeno una.
+    // La misura dipende solo dall'ugello (con 0,4 circa 7,3 × 4,8 mm); centrato in (0,0)
+    const markCache = new Map();
+    function markCS(noz) {
+      noz = +noz || 0.4;
+      if (!markCache.has(noz)) {
+        const keep = [lastLogos, lastBox];   // textCS li azzera: non devo perdere gli avvisi della scritta vera
+        const c = textCS(['SP'], 'tondo', 10, 0.0001), A = c.area();
+        [lastLogos, lastBox] = keep;
+        // larghezza delle linee e degli spazi più sottili (oltre l'1% dell'area), come per i loghi
+        const width = (loss) => { let lo = 0.001, hi = 5; for (let k = 0; k < 30; k++) { const m = (lo + hi) / 2; if (loss(m) > 0.01) hi = m; else lo = m; } return 2 * lo; };
+        const wl = width(r => (A - OFF(OFF(c, -r), r).area()) / A), wg = width(r => (OFF(OFF(c, r), -r).area() - A) / A);
+        const w1 = noz * 1.05, k = Math.max(2 * w1 / wl, w1 / wg);
+        markCache.set(noz, c.scale([k, k]));   // non registrato: deve sopravvivere alla pulizia di fine generazione
+      }
+      return markCache.get(noz);
+    }
+    // marchio in una faccia piatta (sezione 2D vista da chi guarda, y in alto): nell'angolo in basso a destra o a sinistra
+    // (p.latoMarchio), a 2 mm dal bordo, nel punto più vicino all'angolo dove ci sta tutto senza toccare avoid; poi spostato
+    // dalle frecce (p.posMarchio). Se non c'è un punto dove sta tutto, va dove ne sta di più e viene tagliato dove tocca fori,
+    // scritte e bordi (lo dice la nota): poi lo si sistema con le frecce. Restituisce la sezione del marchio o null
+    function placeMark(face, p, notes, avoid, margin = 2, start = null) {
+      if (!p.marchio || empty(face)) return null;
+      const m = markCS(p.ugello), mb = bounds(m), hw = mb.w / 2, hh = mb.h / 2;
+      const room = D(OFF(face, -margin), avoid ? OFF(avoid, 1.5) : null), free = D(face, avoid ? OFF(avoid, 1.5) : null);
+      // centri possibili: dove il rettangolo del marchio sta tutto nella zona libera (erosione con i punti del suo bordo)
+      let feas = room;
+      if (!empty(feas)) for (const [dx, dy] of [[-1, -1], [1, -1], [1, 1], [-1, 1], [0, -1], [1, 0], [0, 1], [-1, 0], [-0.5, -1], [0.5, -1], [0.5, 1], [-0.5, 1]]) { feas = I(feas, MV(room, -dx * hw, -dy * hh)); if (empty(feas)) break; }
+      const fb = bounds(face), sx = p.latoMarchio === 'sx', target = start || [sx ? fb.x0 + margin + hw : fb.x1 - margin - hw, fb.y0 + margin + hh];
+      let at = target;
+      if (!feas || feas.isEmpty()) {
+        // nessun punto dove sta tutto: cerco quello dove ne sta di più (a parità, il più vicino all'angolo)
+        if (empty(free)) { notes.push('Logo SP: sul pezzo non c\'è spazio libero (scritta, disegni o pezzo troppo piccolo): non l\'ho messo'); return null; }
+        const st = Math.max(0.4, Math.min(hw, hh) / 4), A0 = m.area();
+        let best = -1, bd = Infinity;
+        for (let x = fb.x0 + hw * 0.5; x <= fb.x1 - hw * 0.5 + 1e-6; x += st) for (let y = fb.y0 + hh * 0.5; y <= fb.y1 - hh * 0.5 + 1e-6; y += st) {
+          const k = I(MV(m, x, y), free), a = k ? k.area() : 0, d = Math.hypot(x - target[0], y - target[1]);
+          if (a > best + 0.02 * A0 || (a > best - 0.02 * A0 && d < bd)) { if (a > best) best = a; bd = d; at = [x, y]; }
+        }
+        if (best < 0.25 * A0) { notes.push('Logo SP: sul pezzo non c\'è abbastanza spazio libero (scritta, disegni o pezzo troppo piccolo): non l\'ho messo'); return null; }
+        notes.push('~Logo SP: non c\'è un punto dove sta tutto. L\'ho messo dove ce n\'è di più, tagliato dove tocca fori, scritte o il bordo: sistemalo con le frecce');
+      } else if (empty(OFF(I(feas, C2(target[0], target[1], 0.05, 8)), 1))) {
+        // il punto della zona libera più vicino all'angolo
+        let best = null, bd = Infinity;
+        for (const q of feas.toPolygons()) for (let i = 0; i < q.length; i++) {
+          const [ax, ay] = q[i], [bx, by] = q[(i + 1) % q.length], ex = bx - ax, ey = by - ay, L2 = ex * ex + ey * ey || 1e-12;
+          const t = Math.max(0, Math.min(1, ((target[0] - ax) * ex + (target[1] - ay) * ey) / L2)), px = ax + t * ex, py = ay + t * ey, d = Math.hypot(px - target[0], py - target[1]);
+          if (d < bd) { bd = d; best = [px, py]; }
+        }
+        if (best) at = best;
+      }
+      const o = Array.isArray(p.posMarchio) ? p.posMarchio : [0, 0];
+      const cs = MV(m, at[0] + (+o[0] || 0), at[1] + (+o[1] || 0)), kept = I(cs, free);
+      if (empty(kept)) { notes.push('Logo SP fuori dal pezzo o sopra la scritta: riportalo dentro con le frecce'); return null; }
+      if (feas && !feas.isEmpty() && kept.area() < cs.area() * 0.98) notes.push('Il logo SP esce dal pezzo o tocca fori o scritte e viene tagliato: spostalo con le frecce');
+      return kept;
+    }
+
+    // filamento del marchio SP: quello scelto (2–4) oppure quello della scritta (ts)
+    const markCol = (p, ts) => (p.colMarchio && p.colMarchio !== 'scritta' ? Math.max(2, Math.min(4, +p.colMarchio || 2)) : ts);
 
     // due righe impaginate una sotto l'altra, ognuna con la sua rotazione (attorno al proprio centro) e il suo spostamento:
     // le frecce spostano sempre nel verso del pezzo, anche con la riga girata. bx = { x, y, w, h, hMax }; rots = [gradi riga 1, gradi riga 2]
@@ -584,7 +653,8 @@
       if (p.forma === 'nome') {
         const { sh, txt } = nameShape(p);
         if (!(p.scritta || p.scritta2)) notes.push('Scrivi il nome nella Riga 1');
-        return { sh, base: sh.base, txt, notes };
+        const mark = forStamp ? null : placeMark(OFF(sh.base, -0.8), p, notes, txt && txt.cs, 0.5);
+        return { sh, base: sh.base, txt, mark, notes };
       }
       const S = p.altezza;
       const sh = isArt(p.forma) ? artShape(p, notes, forStamp) : SHAPES[p.forma] ? SHAPES[p.forma](S, p) : SHAPES.stella(S, p);
@@ -602,7 +672,9 @@
         } else notes.push(`Il motivo "${SHAPE_NAMES[p.forma]}" non ha spazio per una scritta: scegli un'altra forma o togli la scritta`);
       }
       if (txt && txt.cap < 4.5) notes.push('Lettere sotto i 4,5 mm: vengono poco leggibili. Ingrandisci la scritta o accorcia il testo');
-      return { sh, base, txt, notes };
+      // marchio SP nell'angolo in basso, lontano dalla scritta e dai fori (nella formina va sul timbro, lo mette formina)
+      const mark = forStamp ? null : placeMark(D(OFF(base, -(p.bordo ? p.bordoL + 0.4 : 0.8)), sh.holes ? OFF(sh.holes, 1) : null), p, notes, txt && txt.cs, 0.5);
+      return { sh, base, txt, mark, notes };
     }
 
     // disegni traforati: buchi solo all'interno (resta una cornice di 1,2 mm lungo il contorno)
@@ -623,7 +695,7 @@
       return { holes, bridges };
     }
     function piatto(p) {
-      const { sh, txt, notes } = flatDesign(p);
+      const { sh, txt, mark, notes } = flatDesign(p);
       let base = sh.base;
       const t = p.spessore, hR = p.rilievo, hT = Math.max(p.rilievo, p.rilievoTesto);
       const f2 = (v) => (Math.round(v * 100) / 100).toString().replace('.', ',');
@@ -636,7 +708,8 @@
         base = D(base, C2(sh.hang[0], sh.hang[1] - 4.5, 1.8, 24));
       }
       if (sh.holes) base = D(base, sh.holes);
-      const zone = txt && txt.cs ? OFF(txt.cs, sh.clear || 0.9) : null;
+      const tcs = U([txt ? txt.cs : null, mark]);   // scritta e marchio SP: stesso stile e stesso colore
+      const zone = tcs ? OFF(tcs, sh.clear || 0.9) : null;
       const border = p.bordo ? D(base, OFF(base, -p.bordoL)) : null;
       const st = p.stile || 'rilievo';
       // filamenti: 1 = il pezzo, 2-3-4 = disegni; la scritta va sul filamento scelto
@@ -653,7 +726,6 @@
       if (sh.holes) fixed = D(fixed, OFF(sh.holes, 0.6));
       fixed = D(fixed, zone);
       if (empty(fixed)) fixed = null;
-      const tcs = txt ? txt.cs : null;
       const dT = Math.min(t, p.profTesto), through = dT >= t - 0.01;   // spessore della scritta a filo / incisa
       let body = EXT(base, 0, t);
       const c = { 2: [], 3: [], 4: [] };   // solidi per filamento
@@ -662,10 +734,12 @@
       const ginfo = [];
       // --- scritta ---
       if (!empty(tcs)) {
-        if (st === 'filo') { body = sub(body, EXT(tcs, through ? -1 : t - dT, t + 1)); c[ts].push(EXT(tcs, through ? 0 : t - dT, t)); filo = true; }
+        // scritta e marchio SP: ognuno sul suo filamento
+        const kM = markCol(p, ts), byK = kM === ts ? [[ts, tcs]] : [[ts, txt ? txt.cs : null], [kM, mark]];
+        if (st === 'filo') { body = sub(body, EXT(tcs, through ? -1 : t - dT, t + 1)); for (const [k, q] of byK) if (!empty(q)) c[k].push(EXT(q, through ? 0 : t - dT, t)); filo = true; }
         else if (st === 'inciso') body = sub(body, EXT(tcs, t - Math.min(dT, t - 0.6), t + 1));
-        else if (st === 'traforata') body = sub(body, EXT(stencil(tcs, txt.cap), -1, t + 1));
-        else { c[ts].push(EXT(tcs, t, t + hT)); up.push({ k: ts, h: hT }); }
+        else if (st === 'traforata') body = sub(body, EXT(stencil(tcs, txt ? txt.cap : 5), -1, t + 1));
+        else for (const [k, q] of byK) if (!empty(q)) { c[k].push(EXT(q, t, t + hT)); up.push({ k, h: hT }); }
       }
       // --- disegni, gruppo per gruppo ---
       for (const g of groups) {
@@ -752,8 +826,14 @@
       const { sh, txt, notes } = flatDesign(q, true);
       const out = soft(fillHoles(sh.base), 1);
       const Hc = p.profondita, lama = p.lama;
-      const cutter = union(ok([EXT(D(OFF(out, lama), out), 0, Hc), EXT(D(OFF(out, lama + 1.2), out), 0, Math.max(3, Hc * 0.5)), EXT(D(OFF(out, lama + p.flangia), out), 0, 2.4)]));
+      let markF = null, cutter = union(ok([EXT(D(OFF(out, lama), out), 0, Hc), EXT(D(OFF(out, lama + 1.2), out), 0, Math.max(3, Hc * 0.5)), EXT(D(OFF(out, lama + p.flangia), out), 0, 2.4)]));
+      // marchio SP: senza timbro in rilievo sul bordo dove si preme (se è abbastanza largo); con il timbro va sul suo dorso
+      if (!p.timbro) {
+        const mk = placeMark(D(OFF(out, lama + p.flangia), OFF(out, lama + 1.4)), p, notes, null, 0.3);
+        if (mk) markF = EXT(mk, 2.4, 3);
+      }
       const parts = [part('Formina', cutter, p.col1, 'Formina')];
+      if (markF) parts.push(part('Formina · logo SP', markF, p['col' + markCol(p, 2)], 'Formina'));
       const b = bounds(OFF(out, lama + p.flangia));
       const info = [['Formina', `${fmt(b.w)} × ${fmt(b.h)} × ${fmt(Hc)} mm`], ['Lama', `${fmt(lama)} mm, la bordatura larga va sul piatto`]];
       if (p.timbro) {
@@ -764,7 +844,10 @@
         const art = p.decorazioni ? (sh.lines ? sh.lines : sh.slots ? U(Object.values(sh.slots)) : sh.decor) : null;
         const rel = U([ring, art ? D(I(art, plate), zt) : null, txt ? txt.cs : null]);
         const mir = (c) => (c ? R2(c.scale([-1, 1])) : null);   // il timbro si preme capovolto: disegno a specchio
-        const stamp = union(ok([EXT(mir(plate), 0, 3), EXT(mir(I(rel, plate)), 3, 5)]));
+        let stamp = union(ok([EXT(mir(plate), 0, 3), EXT(mir(I(rel, plate)), 3, 5)]));
+        // marchio SP inciso sul dorso del timbro (la faccia sul piatto): si legge quando lo tieni in mano per premere
+        const mk = placeMark(OFF(plate, -1.6), p, notes, null, 0.5);
+        if (mk) stamp = sub(stamp, EXT(mir(mk), -1, 0.6));
         parts.push(part('Timbro', stamp, p.col2, 'Timbro', { at: [b.w + 10, 0, 0] }));
         info.push(['Timbro', 'entra nella formina; disegno e scritta sono a specchio']);
         if (txt) info.push(['Lettere', `${fmt(txt.cap)} mm`]);
@@ -1242,7 +1325,8 @@
       const Ht = p.altezza, R = p.diametro / 2, n = Math.max(3, Math.min(12, p.punte | 0)), parts = [], info = [], notes = [];
       if (p.stile === 'incastro') return alberoIncastro(p);
       const G = 'Albero';
-      let zb = 0, plinth = null, textM = null;
+      if (p.marchio && !p.base) notes.push('Il logo SP va sulla base: accendi la base');
+      let zb = 0, plinth = null, textM = null, markM = null;
       if (p.base) {
         const hb = Math.max(Ht * 0.08, p.scritta || p.scritta2 ? Math.max(p.scritta ? p.altTesto : 0, p.scritta2 ? +p.altTesto2 || p.altTesto : 0) * 1.6 + 4 : 0, 6), rb = R * 1.08 + 2;
         plinth = roundCylZ(rb, 0, hb);
@@ -1251,6 +1335,12 @@
           textM = reg(prismY(tf.cs, 0, -rb * 2).intersect(sub(cylZ(rb + p.rilievoTesto, 0, hb, 0, 0, 96), cylZ(rb - 0.01, -1, hb + 1, 0, 0, 96))));
           info.push(['Lettere', `${fmt(tf.cap)} mm, sul bordo della base`]);
           if (tf.reduced) notes.push('~Scritta ridotta per stare sulla base');
+        }
+        // marchio SP in rilievo sulla faccia di sopra della base (piatta: il fianco è curvo), dietro l'albero, tra due punte
+        if (p.marchio) {
+          const top = D(C2(0, 0, rb - Math.min(1.2, hb / 4) - 0.3, 96), OFF(soft(starCS(n, R, R * 0.6), Math.min(1.5, R * 0.04)), 1));
+          const mk = placeMark(top, p, notes, null, 0.3, [0, rb]);
+          if (mk) { markM = EXT(mk, hb - 0.01, hb + p.rilievoTesto); info.push(['Logo SP', 'sulla base, dietro l\'albero, in rilievo']); }
         }
         zb = hb;
       }
@@ -1284,6 +1374,7 @@
       if (plinth) {
         parts.push(part('Base', plinth, p.col3, G));
         if (textM) parts.push(part('Scritta', textM, p.col2, G));
+        if (markM) parts.push(part('Logo SP', markM, p['col' + markCol(p, 2)], G));
       }
       info.unshift(['Misure', `Ø ${fmt(plinth ? 2 * (R * 1.08 + 2) : 2 * R)} × ${fmt(p.stella ? zTop + Math.max(8, R * 0.32) * 1.55 : zTop)} mm`]);
       info.push(['Colori', `${parts.length > 1 ? parts.length + ' parti' : '1'}, stampa in piedi`]);
@@ -1297,18 +1388,22 @@
       const g = artGeom(EMO_BY['christmas-tree'], S), main = EMO_BY['christmas-tree'].pal[0];
       const sh = { base: OFF(OFF(OFF(g.sil, 0.8), 0.4), -0.4), decor: U(Object.entries(g.regions).filter(([hex]) => hex !== main).map(([, cs]) => cs)) };
       const slotA = RECT(-sl / 2, 0, sl / 2, S), slotB = RECT(-sl / 2, -S, sl / 2, 0);
-      const parts = [];
+      const parts = [], notes = [];
       const make = (slot, name, rotZ) => {
-        const bs = D(sh.base, slot), ds = p.decorazioni ? D(I(sh.decor, sh.base), OFF(slot, 1)) : null;
-        const b = EXT(bs, -tk / 2, tk / 2), d = EXT(ds, tk / 2, tk / 2 + p.rilievo);
+        const bs = D(sh.base, slot);
+        const ds = p.decorazioni ? D(I(sh.decor, sh.base), OFF(slot, 1)) : null;
+        // marchio SP in rilievo come le decorazioni, nell'angolo in basso del pezzo A, del suo colore
+        const mk = rotZ === 0 ? placeMark(D(bs, OFF(slot, 2)), p, notes, ds, 0.5) : null;
+        const b = EXT(bs, -tk / 2, tk / 2), d = EXT(ds, tk / 2, tk / 2 + p.rilievo), dm = EXT(mk, tk / 2, tk / 2 + p.rilievo);
         const place = (m) => (m ? reg(reg(reg(m.rotate([90, 0, 0])).rotate([0, 0, rotZ])).translate([0, 0, S / 2])) : null);
         const flat = (m) => (m ? reg(m.translate([0, 0, tk / 2])) : null);
         parts.push(part(`${name} · albero`, place(b), p.col1, name, { print: flat(b) }));
         if (d) parts.push(part(`${name} · decorazioni`, place(d), p.col2, name, { print: flat(d) }));
+        if (dm) parts.push(part(`${name} · logo SP`, place(dm), p['col' + markCol(p, 2)], name, { print: flat(dm) }));
       };
       make(slotA, 'Pezzo A', 0);
       make(slotB, 'Pezzo B', 90);
-      return { parts: ok(parts), info: [['Misure', `${fmt(S)} mm di altezza, 2 pezzi piatti da ${fmt(tk)} mm`], ['Montaggio', 'infila il pezzo A (fessura in alto) sul pezzo B (fessura in basso)'], ['Stampante a un colore', `cambio filamento a ${fmt(tk)} mm → colore 2`]] };
+      return { parts: ok(parts), info: [['Misure', `${fmt(S)} mm di altezza, 2 pezzi piatti da ${fmt(tk)} mm`], ['Montaggio', 'infila il pezzo A (fessura in alto) sul pezzo B (fessura in basso)'], ['Stampante a un colore', `cambio filamento a ${fmt(tk)} mm → colore 2`], ...notes.map(n => ['Nota', n])] };
     }
 
     // ============ STELLA 3D ============
@@ -1353,7 +1448,7 @@
       body = sub(body, cylZ(8, -1, fondo + 1, 0, 0, 48));
       // fascia bassa con scritta
       const lines = [p.scritta, p.scritta2].filter(x => x && x.trim());
-      let band = 10, textM = null;
+      let band = 10, textM = null, markM = null;
       if (lines.length) {
         const bw = hex ? Dl / Math.sqrt(3) * 0.92 : Dl * 0.8;
         const tf = fitText(p, { x: 0, y: 0, w: bw, h: Math.max(8, 1.2 * (p.altTesto + (p.scritta2 && p.scritta2.trim() ? +p.altTesto2 || p.altTesto : p.altTesto))) }, p.altTesto);
@@ -1366,6 +1461,31 @@
           else textM = reg(prismY(c, 0, -2 * Dl).intersect(sh2));
           info.push(['Lettere', `${fmt(tf.cap)} mm`]);
           if (tf.reduced) notes.push('~Scritta ridotta per stare sulla fascia');
+        }
+      }
+      // marchio SP solo su una faccia piatta: nell'esagonale sulla fascia bassa della faccia dietro (stesso stile della scritta),
+      // nella tonda sotto il fondo, a filo nel colore della scritta (il fianco è curvo)
+      if (p.marchio && hex) {
+        const half = R / 2 - 1.5, face = RECT(-half, 1, half, band - 1);   // la faccia dietro, vista da dietro, senza gli spigoli
+        const mk = placeMark(face, p, notes, null, 0, [0, band / 2]);
+        if (mk) {
+          const turn = (m) => reg(m.rotate([0, 0, 180]));
+          if (p.stileTesto === 'traforata') body = sub(body, turn(prismY(stencil(mk, 5), 0, -2 * Dl)));
+          else {
+            const sh2 = sub(prism(R + p.rilievoTesto / Math.cos(Math.PI / 6), 0, Hl), prism(R, -1, Hl + 1));
+            markM = turn(reg(prismY(mk, 0, -2 * Dl).intersect(sh2)));
+          }
+          info.push(['Logo SP', 'sulla faccia dietro, in basso']);
+        }
+      } else if (p.marchio) {
+        // sotto: visto da sotto è a specchio. Tra il foro per spingere fuori il lumino e il bordo, dalla parte di dietro
+        const mirX = (c) => (c ? R2(c.scale([-1, 1])) : null);
+        const face = D(C2(0, 0, R - 1.5, 96), C2(0, 0, 8 + 1.5, 48));
+        const mk = placeMark(face, p, notes, null, 0, [0, (R + 8) / 2]);
+        if (mk) {
+          markM = EXT(mirX(mk), -0.01, 0.6);
+          body = sub(body, markM);
+          info.push(['Logo SP', 'sotto il fondo, a filo nei primi 0,6 mm: con un solo colore cambia filamento a 0,6 mm']);
         }
       }
       // motivi traforati
@@ -1386,6 +1506,7 @@
       if (holes.length) body = sub(body, union(holes));
       parts.push(part('Lanterna', body, p.col1, 'Lanterna'));
       if (textM) parts.push(part('Lanterna · scritta', textM, p.col2, 'Lanterna'));
+      if (markM) parts.push(part('Lanterna · logo SP', markM, p['col' + markCol(p, 2)], 'Lanterna'));
       info.unshift(['Misure', `${hex ? 'esagonale ' : 'Ø '}${fmt(Dl)} × ${fmt(Hl)} mm`]);
       info.push(['Lumino', `sede Ø ${fmt(2 * rt)} mm per lumini LED da 38 mm`]);
       info.push(['Motivi', `${rows * per} da ${fmt(size)} mm`]);
@@ -1398,7 +1519,7 @@
     function palla(p) { return Object.assign(piatto(Object.assign({}, p, { forma: 'palla', altezza: p.diametro, decorazioni: true })), { view: [0, -0.7, 1] }); }
 
     // scritte e disegni a disposizione degli altri generatori (la cover li usa sul retro)
-    H.decor = { textCS, fitText, fitLines, logoNotes, artOf, artGeom, artSlots, artMinH, filaments, isArt, stencil, perforate, NOTES, EMO_BY };
+    H.decor = { textCS, fitText, fitLines, logoNotes, markCS, placeMark, markCol, artOf, artGeom, artSlots, artMinH, filaments, isArt, stencil, perforate, NOTES, EMO_BY };
 
     // ogni generatore riporta in fondo gli avvisi sui loghi
     const withNotes = (fn) => (p) => { NOTES.clear(); const r = fn(p); for (const n of NOTES) r.info.push(['Nota', n]); NOTES.clear(); return r; };

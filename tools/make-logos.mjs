@@ -29,16 +29,18 @@ for (const [id, file] of Object.entries(LOGOS)) {
   }
   let cs = CrossSection.union(tris.map(t => new CrossSection([t], 'Positive'))).offset(0.01, 'Miter').offset(-0.01, 'Miter').simplify(0.005);
   if (FIX[id]) cs = FIX[id](cs).simplify(0.005);
-  const b = cs.bounds(), H = b.max[1] - b.min[1], W = b.max[0] - b.min[0], A0 = cs.area();
-  // spessore minimo delle linee: la più piccola erosione che fa sparire più del 3% dell'area
-  let wmin = 0;
-  for (let r = 0.02; r < 3; r += 0.01) {
-    const e = cs.offset(-r, 'Round').offset(r, 'Round');
-    if (e.area() < A0 * 0.97) { wmin = 2 * r; break; }
-  }
+  const b = cs.bounds(), H = b.max[1] - b.min[1], W = b.max[0] - b.min[0];
   // poligoni normalizzati: altezza 1, origine in basso a sinistra
   const polys = cs.toPolygons().map(q => q.map(([x, y]) => [+((x - b.min[0]) / H).toFixed(4), +((y - b.min[1]) / H).toFixed(4)]));
-  out[id] = { w: +(W / H).toFixed(4), h0: +H.toFixed(2), wmin: +(wmin / H).toFixed(5), polys };
-  console.log(id, 'altezza', H.toFixed(1), 'mm, larghezza', W.toFixed(1), 'mm, linea minima', wmin.toFixed(2), 'mm');
+  // larghezza delle linee (wl) e degli spazi tra le linee (wg), in frazione dell'altezza: la più piccola larghezza
+  // più sottile della quale c'è più dell'1% dell'area del logo (le punte e gli spigoli restano sotto l'1%).
+  // natale.js ingrossa le linee fino a due passate dell'ugello finché gli spazi restano larghi almeno una passata
+  const c100 = new CrossSection(polys.map(q => q.map(([u, v]) => [u * 100, v * 100])), 'NonZero'), A = c100.area();
+  const lineLoss = (r) => (A - c100.offset(-r, 'Round').offset(r, 'Round').area()) / A;
+  const gapLoss = (r) => (c100.offset(r, 'Round').offset(-r, 'Round').area() - A) / A;
+  const width = (loss) => { let lo = 0.001, hi = 10; for (let k = 0; k < 40; k++) { const m = (lo + hi) / 2; if (loss(m) > 0.01) hi = m; else lo = m; } return 2 * lo / 100; };
+  const wl = width(lineLoss), wg = width(gapLoss);
+  out[id] = { w: +(W / H).toFixed(4), h0: +H.toFixed(2), wl: +wl.toFixed(6), wg: +wg.toFixed(6), polys };
+  console.log(id, 'altezza', H.toFixed(1), 'mm, larghezza', W.toFixed(1), 'mm, linee', (wl * H).toFixed(2), 'mm, spazi', (wg * H).toFixed(2), 'mm');
 }
-fs.writeFileSync(new URL('../src/logos.js', import.meta.url), '// Generato da tools/make-logos.mjs: contorni dei loghi (altezza 1) e spessore minimo delle linee (in frazione dell\'altezza).\n(function (root) { root.SPRECOLO_LOGOS = ' + JSON.stringify(out) + '; })(typeof globalThis !== \'undefined\' ? globalThis : this);\n');
+fs.writeFileSync(new URL('../src/logos.js', import.meta.url), '// Generato da tools/make-logos.mjs: contorni dei loghi (altezza 1), larghezza delle linee e degli spazi (in frazione dell\'altezza).\n(function (root) { root.SPRECOLO_LOGOS = ' + JSON.stringify(out) + '; })(typeof globalThis !== \'undefined\' ? globalThis : this);\n');

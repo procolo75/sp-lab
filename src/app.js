@@ -76,8 +76,9 @@
   // spessori allineati agli strati: multipli di 0,2 e di 0,28 (primo strato a 0,28)
   const LAYER_STOPS = (() => { const v = new Set(); for (const h of [0.2, 0.28]) for (let k = 1; k * h <= 12.01; k++) v.add(+(k * h).toFixed(2)); return [...v].sort((a, b) => a - b); })();
   const layerP = (o) => Object.assign({ type: 'num', stops: LAYER_STOPS.filter(x => x >= o.min - 1e-6 && x <= o.max + 1e-6), step: 0.01, unit: 'mm' }, o);
-  // loghi dentro le scritte: {SP}, {viso} e {visoNatale}. L'ugello decide quanto si ingrossano le linee quando il logo è piccolo
-  const hasLogo = (p) => ['scritta', 'scritta2', 'scritta3', 'scritta4', 'testo1', 'testo2', 'testo3', 'testo4'].some(k => /\{(sp|visonatale|viso)\}/i.test(String(p[k] || '')));
+  // loghi dentro le scritte: {viso} e {visoNatale}; il logo SP è il marchio a parte (markP). L'ugello decide quanto si ingrossano
+  // le linee quando il logo è piccolo, e la misura del marchio
+  const hasLogo = (p) => !!p.marchio || ['scritta', 'scritta2', 'scritta3', 'scritta4', 'testo1', 'testo2', 'testo3', 'testo4'].some(k => /\{(visonatale|viso)\}/i.test(String(p[k] || '')));
   const nozzleP = (sec, show) => ({ sec, id: 'ugello', label: 'Ugello', type: 'select', def: '0.4', options: [['0.2', '0,2'], ['0.4', '0,4'], ['0.6', '0,6'], ['0.8', '0,8']], unit: 'mm',
     show: p => (!show || show(p)) && (hasLogo(p) || isArtId(p.forma) || (p.figura && p.figura !== 'nessuna')), help: 'Diametro dell\'ugello della stampante. Se il logo è piccolo le sue linee vengono ingrossate fino a questa larghezza, così si stampano.' });
   const FONT_OPTS = [['tondo', 'Tondo'], ['corsivo', 'Corsivo'], ['natalizio', 'Natalizio']];
@@ -106,6 +107,25 @@
       help: 'A filo: le lettere sono di un altro colore ma non sporgono, non si consumano e non si staccano.' },
     { sec: 'Scritta', id: 'rilievoTesto', label: 'Spessore scritta', type: 'num', min: 0.4, max: 1.2, step: 0.2, def: 0.6, unit: 'mm', show: p => String(p.scritta || '').trim() !== '' || (isArtId(p.forma) && p.coloriDisegno !== false), help: 'In rilievo: quanto sporge. A filo o incisa: quanto è profonda. Vale anche per i colori del disegno.' },
   ];
+  // marchio SP: piccolo, alla misura più piccola che l'ugello stampa pulita; stesso stile e colore della scritta.
+  // corner: pezzi con una faccia piatta, dove si sceglie l'angolo in basso; negli altri sta dietro, in basso
+  const markP = (corner, show, extra = []) => {
+    const on = (p) => (!show || show(p)) && p.marchio;
+    return [
+      { sec: 'Logo SP', id: 'marchio', label: 'Aggiungi logo SP', type: 'bool', def: false, show,
+        help: `Il marchio SP piccolo ${corner ? 'nell\'angolo in basso' : 'dietro'}, alla misura più piccola che l'ugello stampa pulita (linee di due passate), solo su una superficie piatta. Stesso stile e colore della scritta.` },
+      ...extra.map(q => Object.assign({ sec: 'Logo SP' }, q, { show: (p) => on(p) && (!q.show || q.show(p)) })),
+      { sec: 'Logo SP', id: 'colMarchio', label: 'Colore', type: 'select', def: 'scritta', options: [['scritta', 'Come la scritta'], ['2', '2'], ['3', '3'], ['4', '4']], show: on,
+        help: 'Il filamento del logo (vale a filo e in rilievo; inciso o traforato non ha colore). Il colore 1 è il pezzo: lì il logo non si vedrebbe.' },
+      ...(corner ? [{ sec: 'Logo SP', id: 'latoMarchio', label: 'Angolo', type: 'select', def: 'dx', options: [['dx', 'In basso a destra'], ['sx', 'In basso a sinistra']], show: on }] : []),
+      { sec: 'Logo SP', id: 'posMarchio', label: 'Posizione', type: 'pad', def: [0, 0], show: on,
+        text: (v) => { const [x, y] = v.posMarchio || [0, 0], f = (n) => String(+Math.abs(n).toFixed(1)).replace('.', ','), t = [];
+          if (Math.abs(x) > 0.01) t.push(`${x > 0 ? 'destra' : 'sinistra'} ${f(x)}`); if (Math.abs(y) > 0.01) t.push(`${y > 0 ? 'su' : 'giù'} ${f(y)}`);
+          return t.length ? t.join(' · ') + ' mm' : (corner ? 'nell\'angolo' : 'al suo posto'); } },
+    ];
+  };
+  // colori che il pezzo non ha (fino al 4) ma che servono al logo SP se glieli dai: compaiono solo allora
+  const markColorsP = (have) => [3, 4].filter(k => k > have).map(k => ({ sec: 'Colori', id: 'col' + k, label: `Colore ${k} · logo SP`, type: 'color', def: PALETTES.rossoro['col' + k], show: p => p.marchio && p.colMarchio === String(k) }));
   const textP = (d1, d2, font, cap, show) => [
     ...linesP('Scritta', d1, d2, cap, show),
     { sec: 'Scritta', id: 'carattere', label: 'Carattere', type: 'select', def: font, options: FONT_OPTS, show },
@@ -150,7 +170,7 @@
   ];
   // colori degli antivibrazione: il 3 e il 4 servono solo ai colori del disegno
   const dampColorsP = (show) => colorsP(['Colore 1 · antivibrazione', 'Colore 2 · scritta', 'Colore 3 · disegno', 'Colore 4 · disegno'], false, true)
-    .map(q => (q.id === 'col3' || q.id === 'col4' ? Object.assign(q, { show: p => show(p) && isArtId(p.forma) && p.coloriDisegno !== false }) : q));
+    .map(q => (q.id === 'col3' || q.id === 'col4' ? Object.assign(q, { show: p => (show(p) && isArtId(p.forma) && p.coloriDisegno !== false) || (p.marchio && p.colMarchio === q.id.slice(3)) }) : q));
   // disegni della palla piatta
   const PALLA_OPTS = [
     ['fiocchi', 'Fiocchi di neve', 'Sfondi'], ['stelle', 'Stelle', 'Sfondi'], ['cuori', 'Cuori', 'Sfondi'], ['pois', 'Pois', 'Sfondi'],
@@ -356,6 +376,8 @@
         ...linesP('Scritta', '', '', 8, null, 60, 'Se la scritta non ci sta viene ridotta da sola.'),
         { sec: 'Scritta', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta'), { show: p => hasLogo(p) || isArtId(p.disegno) }),
+        ...markP(true, null, [{ id: 'doveMarchio', label: 'Dove', type: 'select', def: 'retro', options: [['retro', 'Retro della cover'], ['lenti', 'Copertura delle lenti']], show: p => p.protezione === 'cornice',
+          help: 'Sulla copertura delle lenti va tra i fori, sulla faccia esterna. Stesso stile della scritta del retro (a filo o inciso).' }]),
         ...colorsP(['Colore 1 · cover', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
         { sec: 'Colori', id: 'colTesto', label: 'Colore della scritta', type: 'select', def: 'auto', options: [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4']] },
         { sec: 'Stampa', id: 'prova', label: 'Striscia di prova', type: 'select', def: 'nessuna', options: [['nessuna', 'No, la cover intera'], ['cima', 'Solo la cima (22 mm)'], ['fondo', 'Solo il fondo (22 mm)']],
@@ -475,6 +497,7 @@
         layerP({ sec: 'Forma', id: 'rilievo', label: 'Spessore decorazioni', min: 0.2, max: 8, def: 0.8, show: p => !(p.stileDec === 'traforata' || (p.stileDec === 'uguale' || !p.stileDec) && p.stile === 'traforata') || p.bordo,
           help: 'In rilievo: quanto sporgono. A filo e incisi: quanto entrano nel pezzo (a filo, se è pari allo spessore, passano da parte a parte).' }),
         ...textP('Giulia', '', 'corsivo', 9),
+        ...markP(true),
         { sec: 'Scritta', id: 'posNome', label: 'Posizione', type: 'select', def: 'sotto', options: [['sotto', 'Targhetta sotto'], ['sopra', 'Targhetta sopra'], ['centro', 'Sul disegno']], show: p => isArtId(p.forma),
           help: 'Con la targhetta il nome sta su una striscia attaccata al disegno; sul disegno copre una parte dei colori.' },
         { sec: 'Scritta', id: 'stile', label: 'Stile', type: 'select', def: 'rilievo', options: [['rilievo', 'In rilievo'], ['filo', 'A filo'], ['inciso', 'Incisa'], ['traforata', 'Traforata']],
@@ -509,6 +532,7 @@
           help: 'Un disegno grande sopra il nome, a colori: pinguino, renna, Babbo Natale… o il tuo SVG. Lo sfondo gli lascia spazio attorno.' },
         ...decoStyleP('Figura', 'stileFigura', 'spFigura', p => p.figura !== 'nessuna'),
         ...textP('Giulia', '', 'corsivo', 12),
+        ...markP(true),
         { sec: 'Scritta', id: 'stile', label: 'Stile', type: 'select', def: 'rilievo', options: [['rilievo', 'In rilievo'], ['filo', 'A filo'], ['inciso', 'Incisa'], ['traforata', 'Traforata']],
           help: 'In rilievo va bene anche con una stampante a un colore. A filo la superficie resta piana (serve una multicolore).' },
         layerP({ sec: 'Scritta', id: 'profTesto', label: 'Spessore scritta', min: 0.2, max: 8, def: 0.84, show: p => p.stile === 'filo' || p.stile === 'inciso',
@@ -538,7 +562,9 @@
         { sec: 'Extra', id: 'stella', label: 'Stella in cima', type: 'bool', def: true, show: p => p.stile !== 'incastro' },
         { sec: 'Extra', id: 'base', label: 'Base con scritta', type: 'bool', def: true, show: p => p.stile !== 'incastro' },
         ...textP('Buon Natale', '', 'corsivo', 7, p => p.stile !== 'incastro' && p.base),
+        ...markP(false),
         ...colorsP(['Colore 1 · albero', 'Colore 2 · stella, palline, scritta', 'Colore 3 · base']),
+        ...markColorsP(3),
       ],
     },
     stella: {
@@ -567,9 +593,11 @@
         { sec: 'Motivi', id: 'righe', label: 'Righe', type: 'int', min: 1, max: 8, def: 3 },
         { sec: 'Motivi', id: 'perRiga', label: 'Per riga', type: 'int', min: 3, max: 24, def: 7, help: 'Nella esagonale si arrotonda a uno per faccia.' },
         ...textP('Buone Feste', '', 'natalizio', 8),
+        ...markP(false),
         { sec: 'Scritta', id: 'stileTesto', label: 'Stile', type: 'select', def: 'rilievo', options: [['rilievo', 'In rilievo'], ['traforata', 'Traforata']], help: 'Traforata: la luce del lumino passa attraverso le lettere.' },
         { sec: 'Lumino', id: 'tolleranza', label: 'Gioco lumino', type: 'num', min: 0, max: 2, step: 0.1, def: 0.6, unit: 'mm', help: 'Per lumini LED da 38 mm.' },
         ...colorsP(['Colore 1 · lanterna', 'Colore 2 · scritta']),
+        ...markColorsP(2),
       ],
     },
     formina: {
@@ -582,8 +610,10 @@
         { sec: 'Timbro', id: 'timbro', label: 'Timbro per decorare', type: 'bool', def: true, help: 'Una piastrina che entra nella formina e stampa disegni e scritta sul biscotto.' },
         { sec: 'Timbro', id: 'decorazioni', label: 'Disegni sul timbro', type: 'bool', def: true, show: p => p.timbro },
         ...textP('', '', 'tondo', 8, p => p.timbro || p.forma === 'nome').filter(q => q.id !== 'rilievoTesto'),
+        ...markP(true),
         { sec: 'Timbro', id: 'tolleranza', label: 'Gioco timbro', type: 'num', min: 0, max: 1.5, step: 0.1, def: 0.4, unit: 'mm', show: p => p.timbro },
         ...colorsP(['Colore 1 · formina', 'Colore 2 · timbro']),
+        ...markColorsP(2),
       ],
     },
     mensola: {
@@ -736,6 +766,7 @@
         ...withRot(linesP('Scritta sul coperchio', '', '', 8, null, 60, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
         { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
+        ...markP(true),
         ...colorsP(['Colore 1 · coperchio', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
         { sec: 'Colori', id: 'colTesto', label: 'Colore della scritta', type: 'select', def: 'auto', options: [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4']], help: 'Solo con lo stile a filo. Auto: il colore che si legge meglio sul coperchio.' },
         { sec: 'Forma', id: 'raggio', label: 'Raggio angoli', type: 'num', min: 1, max: 12, step: 0.5, def: 6, unit: 'mm' },
@@ -826,6 +857,7 @@
         ...withRot(linesP('Scritta sul coperchio', '', '', 8, null, 60, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
         { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
+        ...markP(true),
         ...colorsP(['Colore 1 · coperchio', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
         { sec: 'Colori', id: 'colTesto', label: 'Colore della scritta', type: 'select', def: 'auto', options: [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4']], help: 'Solo con lo stile a filo. Auto: il colore che si legge meglio sul coperchio.' },
         { sec: 'Coperchio', id: 'margineFin', label: 'Margine delle finestre', type: 'num', min: 0, max: 4, step: 0.5, def: 1.5, unit: 'mm', help: 'Quanto le finestre dei display e dei sensori sono più grandi dell\'area attiva. La posizione sul modulo è presa in scala dalle foto: stampa prima il coperchio per controllarla.' },
@@ -861,6 +893,7 @@
         { sec: 'Corde', id: 'calibro', label: 'Calibro corda', type: 'num', min: 1.1, max: 1.45, step: 0.05, def: 1.25, unit: 'mm', help: 'È sulla confezione delle corde: 15L = 1,35, 16 = 1,30, 16L = 1,25, 17 = 1,20.' },
         { sec: 'Corde', id: 'presa', label: 'Presa', type: 'num', min: 0, max: 0.3, step: 0.05, def: 0.15, unit: 'mm', help: 'Quanto i canali sono più stretti della corda. Se scivola via aumentala, se non entra diminuiscila.' },
         ...oneTextP('ACE', 4, [['rilievo', 'In rilievo'], ['filo', 'A filo, colorata'], ['incisa', 'Incisa']]),
+        ...markP(true),
         ...dampColorsP(p => p.modello === 'bottone'),
       ],
     },
@@ -877,6 +910,7 @@
         { sec: 'Misure', id: 'gambo', label: 'Lunghezza gambo', type: 'num', min: 6, max: 20, step: 0.5, def: 10, unit: 'mm', show: p => p.tipo === 'tappo' },
         { sec: 'Misure', id: 'spRacchetta', label: 'Spessore racchetta', type: 'num', min: 30, max: 40, step: 0.5, def: 38, unit: 'mm', show: p => p.tipo === 'passante', help: 'Quasi tutte sono da 38 mm; alcune leggere o da ragazzi da 36 o meno.' },
         ...oneTextP('SP', 4, [['filo', 'A filo, colorata'], ['incisa', 'Incisa']]),
+        ...markP(true),
         { sec: 'Stampa', id: 'copie', label: 'Quanti', type: 'int', min: 1, max: 8, def: 2, help: 'Di solito si mettono a coppie, uno per faccia.' },
         ...dampColorsP(p => p.tipo === 'tappo'),
       ],
@@ -928,9 +962,10 @@
     const n = minLine(v), m = /^altTesto(\d?)$/.exec(p.id);
     if (m) {
       const i = m[1] || '1', tp = MODES[state.mode].params.find(q => q.type === 'text' && q.logos && (q.id === (i === '1' ? 'scritta' : 'scritta' + i) || q.id === 'testo' + i));
-      const ids = [...String(tp ? v[tp.id] || '' : '').matchAll(/\{(sp|visonatale|viso)\}/gi)].map(x => LOGO_IDS[x[1].toLowerCase()]);
-      const L = window.SPRECOLO_LOGOS || {}, ws = ids.map(id => L[id] && L[id].wmin).filter(Boolean);
-      return ws.length ? Object.assign({ val: n.w / Math.min(...ws) / 1.35, kind: 'logo' }, n) : null;   // i loghi sono alti 1,35 volte la riga
+      const ids = [...String(tp ? v[tp.id] || '' : '').matchAll(/\{(visonatale|viso)\}/gi)].map(x => LOGO_IDS[x[1].toLowerCase()]);
+      // come logoMinH in natale.js: linee + spazi almeno tre passate, spazi almeno una; i loghi sono alti 1,35 volte la riga
+      const L = window.SPRECOLO_LOGOS || {}, hs = ids.map(id => L[id] && L[id].wl && Math.max(3 * n.w / (L[id].wl + L[id].wg), n.w / L[id].wg)).filter(Boolean);
+      return hs.length ? Object.assign({ val: Math.max(...hs) / 1.35, kind: 'logo' }, n) : null;
     }
     const artId = p.id === 'altDisegno' ? (v.disegno === 'svg' ? 'svg' : null) : (p.id === 'altezza' && v.forma && isArtId(v.forma) ? v.forma : null);
     if (!artId || (artId === 'svg' && !(v.svg && v.svg.text))) return null;
@@ -972,7 +1007,7 @@
           // pulsanti per inserire i loghi dove c'è il cursore
           const bar = document.createElement('div');
           bar.className = 'logo-ins';
-          bar.innerHTML = `<span>Inserisci</span><button type="button" class="chip" data-t="{SP}">Logo SP</button><button type="button" class="chip" data-t="{viso}">Viso</button><button type="button" class="chip" data-t="{visoNatale}">Viso di Natale</button>`;
+          bar.innerHTML = `<span>Inserisci</span><button type="button" class="chip" data-t="{viso}">Viso</button><button type="button" class="chip" data-t="{visoNatale}">Viso di Natale</button>`;
           bar.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
             const a = ti.selectionStart ?? ti.value.length, z = ti.selectionEnd ?? a, t = b.dataset.t;
             ti.value = ti.value.slice(0, a) + t + ti.value.slice(z);
@@ -1102,7 +1137,7 @@
             commit(want);
             const got = values(state.mode)[p.id], wtxt = fmtNum(r.kind === 'art' ? 2 * r.r : r.w, 0.01).replace('.', ',');
             msg.textContent = (want > p.max + 1e-9 ? `servirebbero ${fmtNum(want, st).replace('.', ',')} mm, qui il massimo è ${fmtNum(p.max, st).replace('.', ',')}: ` : '')
-              + `${fmtNum(got, st).replace('.', ',')} mm, ${r.kind === 'logo' ? 'righe del logo larghe' : 'dettagli del disegno larghi'} almeno ${wtxt} mm`;
+              + `${fmtNum(got, st).replace('.', ',')} mm, ${r.kind === 'logo' ? `linee del logo larghe almeno ${fmtNum(2 * r.w, 0.01).replace('.', ',')} mm (due passate) e spazi almeno ${wtxt} mm` : `dettagli del disegno larghi almeno ${wtxt} mm`}`;
           });
           row.appendChild(bar);
         }
@@ -1738,5 +1773,5 @@ ${build}</build>
     wasm.setup(); G = window.createGeom(wasm); window.__G = G;
     if (inHome) renderThumbs(); else regen();
   }).catch((e) => { console.error(e); setStatus('Il motore 3D non si è avviato in questo browser', 'err'); });
-  window.__app = { build3MF, buildSTL, get current() { return current; }, state };
+  window.__app = { build3MF, buildSTL, get current() { return current; }, state, MODES, values };
 })();

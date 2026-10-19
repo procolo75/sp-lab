@@ -398,6 +398,9 @@
         const m = viti ? 9.5 : 5;
         const ax0 = zr0[0] + m, ax1 = Math.min(zr0[2] - m, viti ? Infinity : Xo - 12), ay0 = zr0[1] + (side ? m : 2), ay1 = zr0[3] - m + 1;
         const area = RECT(ax0, ay0, ax1, ay1);
+        let artCS = null, txt = null;
+        let ts = Math.min(4, Math.max(2, +p.colTesto || 3));
+        if (p.colTesto === 'auto' && root.SPLAB_SVG) ts = [2, 3, 4].sort((a, b) => root.SPLAB_SVG.dist(F[b - 1], F[0]) - root.SPLAB_SVG.dist(F[a - 1], F[0]))[0];
         if ((art || hasT) && ax1 - ax0 > 15 && ay1 - ay0 > 12) {
           // il disegno si gira con "Rotazione disegno" attorno al suo centro; le righe di testo hanno ognuna la sua rotazione
           const thA = (((+p.rotDisegno || 0) % 360) + 360) % 360;
@@ -406,7 +409,7 @@
           const tH = hasT ? 1.5 * ((has1 ? p.altTesto : 0) + (has2 ? +p.altTesto2 || p.altTesto : 0)) : 0, gap = art && hasT ? 4 : 0;
           const Sa = art ? Math.max(8, Math.min(p.altDisegno, lh - tH - gap, lw)) : 0;
           const cx = zcx, cy = zcy + (Sa + gap + tH) / 2;
-          let artCS = null, txt = null; const slots = {};
+          const slots = {};
           if (art) {
             const dP = Array.isArray(p.posDisegno) ? p.posDisegno : [0, 0], g0 = DEC.artGeom(art, Sa, lw), acx = cx + (+dP[0] || 0), acy = cy - Sa / 2 + (+dP[1] || 0);
             const place = (c) => (c ? (thA ? R2(R2(R2(MV(c, acx, acy).translate([-acx, -acy])).rotate(thA)).translate([acx, acy])) : MV(c, acx, acy)) : null);
@@ -420,8 +423,6 @@
             if (txt && txt.reduced) notes.push(`~Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
             if (txt && txt.moved) { const kc = CI(txt.cs, area); if (emptyC(kc) || kc.area() < txt.cs.area() * 0.98) notes.push('La scritta spostata esce dalla zona libera del coperchio: la parte fuori viene tagliata: riportala dentro con le frecce'); }
           }
-          let ts = Math.min(4, Math.max(2, +p.colTesto || 3));
-          if (p.colTesto === 'auto' && root.SPLAB_SVG) ts = [2, 3, 4].sort((a, b) => root.SPLAB_SVG.dist(F[b - 1], F[0]) - root.SPLAB_SVG.dist(F[a - 1], F[0]))[0];
           const keep = (c) => CI(c, area);
           if (st === 'filo') {
             const tcs = txt ? keep(txt.cs) : null;
@@ -440,6 +441,13 @@
           }
           if (txt && txt.cap < 4) notes.push('Lettere sotto i 4 mm: vengono poco leggibili. Ingrandisci la scritta o accorcia il testo');
         } else if (art || hasT) notes.push('Sul coperchio non c\'è spazio per la decorazione: togli la scritta o il disegno, oppure rimpiccioliscili');
+        // marchio SP nell'angolo in basso del coperchio (visto da sopra), lontano da scritta e disegno; stesso stile della scritta
+        const mk = DEC.placeMark(area, p, notes, CU([txt ? txt.cs : null, artCS]), 0);
+        if (mk) {
+          if (st === 'filo') { const kM = DEC.markCol(p, ts), sol = EZ(mk, Htot - depth, Htot + 0.01); if (sol) lidCol[kM] = reg(union([lidCol[kM], sol.intersect(lid)].filter(Boolean))); }
+          else lid = sub(lid, st === 'traforata' ? EZ(DEC.stencil(mk, 5), Zw - 1, Htot + 1) : EZ(mk, Htot - depth, Htot + 1));
+          if (!decoInfo) decoInfo = st === 'filo' ? `a filo, negli ultimi ${fmt(depth)} mm del coperchio` : st === 'traforata' ? 'traforato' : `inciso ${fmt(depth)} mm`;
+        }
         if (hasT) DEC.logoNotes(noz);
         for (const k of [2, 3, 4]) if (lidCol[k]) lid = sub(lid, lidCol[k]);
       }

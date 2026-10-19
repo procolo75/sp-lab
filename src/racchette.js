@@ -131,7 +131,7 @@
       const S = p.schema === 'misura' ? +p.interasse : SCHEMI[p.schema] || 12.5;
       const g = +p.calibro, dc = Math.max(0.6, g - (+p.presa || 0));   // canale più stretto della corda: la tiene ferma
       const parts = [], info = [], notes = [], G = 'Antivibrazione';
-      let body, text = null, drawn = [];
+      let body, text = null, markM = null, drawn = [];
       if (p.modello === 'verme') {
         const Lw = +p.lunghezza, hh = +p.altVerme, T = +p.spessore;
         const dn = Math.min(4, hh * 0.42), n = Math.max(2, Math.floor((Lw - hh) / S) + 1);
@@ -147,16 +147,15 @@
         info.push(['Misure', `${fmt(Lw)} × ${fmt(hh)} mm, spessore ${fmt(T)} mm`]);
         info.push(['Tacche', `${n}, ogni ${fmt(S)} mm, larghe ${fmt2(dc)} mm e profonde ${fmt(dn)} mm`]);
         const tf = oneLine(p, { x: 0, y: dn + (hh - dn) / 2, w: Lw - hh, h: hh - dn - 1.6 }, notes);
-        if (tf) {
-          // la faccia davanti è y = -T/2: "fuori" è verso -y
-          const face = I(tf.cs, OFF(D(prof, RECT(-Lw, -1, Lw, dn + 0.6)), -0.6));
-          const r = applyText(body, face, (c, a, b) => prismY(c, -T / 2 - a, -T / 2 - b), p);
-          body = r.body; text = r.text;
-          info.push(['Lettere', `${fmt(tf.cap)} mm, ${styleName(p)}, sul fianco`]);
-        }
+        // la faccia davanti è y = -T/2: "fuori" è verso -y. Il marchio SP nell'angolo in basso, stesso stile della scritta
+        const faceV = OFF(D(prof, RECT(-Lw, -1, Lw, dn + 0.6)), -0.6), mk = H.decor.placeMark(faceV, p, notes, tf && tf.cs, 0.3);
+        const extV = (c, a, b) => prismY(c, -T / 2 - a, -T / 2 - b);
+        if (tf) { const r = applyText(body, I(tf.cs, faceV), extV, p); body = r.body; text = r.text; info.push(['Lettere', `${fmt(tf.cap)} mm, ${styleName(p)}, sul fianco`]); }
+        if (mk) { const r = applyText(body, mk, extV, p); body = r.body; markM = r.text; info.push(['Logo SP', `${styleName(p)}, sul fianco`]); }
         const flat = (m) => (m ? reg(m.rotate([-90, 0, 0])) : null);
         parts.push(part('Verme', body, p.col1, G, { print: flat(body) }));
         if (text) parts.push(part('Verme · scritta', text, p.col2, G, { print: flat(text) }));
+        if (markM) parts.push(part('Verme · logo SP', markM, p['col' + H.decor.markCol(p, 2)], G, { print: flat(markM) }));
         info.push(['Montaggio', 'sotto l\'ultima corda orizzontale, infilando una tacca su ogni corda verticale']);
         info.push(['Stampa', 'sdraiato, scritta in alto']);
       } else {
@@ -187,21 +186,20 @@
         info.push(['Misure', `${fmt(bb.max[0] - bb.min[0])} × ${fmt(bb.max[1] - bb.min[1])} mm, spessore ${fmt(Ht)} mm`]);
         info.push(['Corde', `canali a ${fmt(S)} mm, Ø ${fmt2(dc)} mm per corda da ${fmt2(g)} mm, sporgono ${fmt(zc + dc / 2)} mm sotto`]);
         const tf = oneLine(p, sh.box, notes), faceC = OFF(cs, -rT - 0.4), ext = (c, a, b) => EXT(c, Ht + a, Ht + b);
-        const dr = drawFace(p, sh, faceC, tf && tf.cs, ext, body, notes);
+        const mk = H.decor.placeMark(faceC, p, notes, tf && tf.cs, 0), tcs = U([tf ? I(tf.cs, faceC) : null, mk]);   // marchio SP: stesso stile della scritta, colore suo
+        const dr = drawFace(p, sh, faceC, tcs, ext, body, notes);
         body = dr.body; drawn = dr.parts;
-        if (tf) {
-          const r = applyText(body, I(tf.cs, faceC), ext, p);
-          body = r.body; text = r.text;
-          info.push(['Lettere', `${fmt(tf.cap)} mm, ${styleName(p)}`]);
-        }
+        if (tf) { const r = applyText(body, I(tf.cs, faceC), ext, p); body = r.body; text = r.text; info.push(['Lettere', `${fmt(tf.cap)} mm, ${styleName(p)}`]); }
+        if (mk) { const r = applyText(body, mk, ext, p); body = r.body; markM = r.text; info.push(['Logo SP', `${styleName(p)}, sulla faccia`]); }
         parts.push(part('Bottone', body, p.col1, G));
         if (text) parts.push(part('Bottone · scritta', text, p.col2, G));
+        if (markM) parts.push(part('Bottone · logo SP', markM, p['col' + H.decor.markCol(p, 2)], G));
         for (const [k, m] of drawn) parts.push(part(`Bottone · disegno colore ${k}`, m, p['col' + k], G));
         info.push(['Montaggio', 'tra le due corde verticali centrali, sotto l\'ultima orizzontale: premi finché le corde scattano nei canali']);
         info.push(['Stampa', 'canali sul piatto, scritta in alto, senza supporti']);
       }
-      info.splice(1, 0, ['Peso', `circa ${fmt(grams([body, text, ...drawn.map(d => d[1])]))} g in TPU`]);
-      const cols = new Set([...(text ? [2] : []), ...drawn.map(d => d[0])]), Ht0 = p.modello === 'verme' ? +p.spessore : +p.altezza;   // in stampa: faccia con la scritta in alto
+      info.splice(1, 0, ['Peso', `circa ${fmt(grams([body, text, markM, ...drawn.map(d => d[1])]))} g in TPU`]);
+      const cols = new Set([...(text ? [2] : []), ...(markM ? [H.decor.markCol(p, 2)] : []), ...drawn.map(d => d[0])]), Ht0 = p.modello === 'verme' ? +p.spessore : +p.altezza;   // in stampa: faccia con la scritta in alto
       if (cols.size > 1) info.push(['Colori', `${cols.size + 1} filamenti: serve una stampante multicolore (AMS, MMU)`]);
       else if (cols.size) info.push(['Stampante a un colore', `cambia filamento a ${fmt(p.stileTesto === 'rilievo' && text ? Ht0 : Ht0 - Math.max(0.4, +p.rilievoTesto || 0.6))} mm`]);
       info.push(['Materiale', 'TPU morbido (85A–95A) o TPE; più morbido smorza di più. Riempimento gyroid 30–50%, 3 pareti, 20 mm/s, brim']);
@@ -241,27 +239,27 @@
       }
       const pt = Object.assign({}, p, { rilievoTesto: Math.min(+p.rilievoTesto || 0.6, headT - 0.4) });   // lettere e disegno non bucano la testa
       const tf = oneLine(p, sh.box, notes), faceC = OFF(sh.cs, -0.8), ext = (c, a, b) => EXT(c, top + a, top + b);
-      const dr = drawFace(pt, sh, faceC, tf && tf.cs, ext, body, notes);
+      const mk = H.decor.placeMark(faceC, p, notes, tf && tf.cs, 0), tcs = U([tf ? I(tf.cs, faceC) : null, mk]);   // marchio SP: stesso stile della scritta, colore suo
+      const dr = drawFace(pt, sh, faceC, tcs, ext, body, notes);
       body = dr.body;
-      if (tf) {
-        const r = applyText(body, I(tf.cs, faceC), ext, pt);
-        body = r.body; text = r.text;
-        info.push(['Lettere', `${fmt(tf.cap)} mm, ${styleName(p)}`]);
-      }
+      let markM = null;
+      if (tf) { const r = applyText(body, I(tf.cs, faceC), ext, pt); body = r.body; text = r.text; info.push(['Lettere', `${fmt(tf.cap)} mm, ${styleName(p)}`]); }
+      if (mk) { const r = applyText(body, mk, ext, pt); body = r.body; markM = r.text; info.push(['Logo SP', `${styleName(p)}, sulla testa`]); }
       // la testa va sul piatto: in stampa il pezzo è capovolto
       const flip = (m) => (m ? reg(m.rotate([0, 180, 0])) : null), gap = headD + 6;
       for (let i = 0; i < n; i++) {
         const G = n > 1 ? `Antivibrazione ${i + 1}` : 'Antivibrazione', at = [(i - (n - 1) / 2) * gap, 0, 0];
         parts.push(part(G, body, p.col1, G, { print: flip(body), at }));
         if (text) parts.push(part(`${G} · scritta`, text, p.col2, G, { print: flip(text), at }));
+        if (markM) parts.push(part(`${G} · logo SP`, markM, p['col' + H.decor.markCol(p, 2)], G, { print: flip(markM), at }));
         for (const [k, m] of dr.parts) parts.push(part(`${G} · disegno colore ${k}`, m, p['col' + k], G, { print: flip(m), at }));
       }
-      info.splice(1, 0, ['Peso', `circa ${fmt(grams([body, text, ...dr.parts.map(d => d[1])]))} g l'uno in TPU`]);
+      info.splice(1, 0, ['Peso', `circa ${fmt(grams([body, text, markM, ...dr.parts.map(d => d[1])]))} g l'uno in TPU`]);
       info.push(['Pezzi', `${n}, con la testa sul piatto`]);
       info.push(['Dove', 'a coppie, uno per faccia nello stesso punto: in alto più potenza, verso il manico più controllo']);
-      const cols = new Set([...(text ? [2] : []), ...dr.parts.map(d => d[0])]);
+      const cols = new Set([...(text ? [2] : []), ...(markM ? [H.decor.markCol(p, 2)] : []), ...dr.parts.map(d => d[0])]);
       if (cols.size > 1) info.push(['Colori', `${cols.size + 1} filamenti: serve una stampante multicolore (AMS, MMU)`]);
-      else if (cols.size) info.push(['Stampante a un colore', `${dr.parts.length ? 'scritta e disegno sono' : 'la scritta sono'} i primi ${fmt(pt.rilievoTesto)} mm: inizia col colore ${text ? 2 : dr.parts[0][0]} e cambia filamento dopo`]);
+      else if (cols.size) info.push(['Stampante a un colore', `i colori sono nei primi ${fmt(pt.rilievoTesto)} mm: inizia col colore ${[...cols][0]} e cambia filamento dopo`]);
       info.push(['Materiale', 'TPU morbido (85A–95A) o TPE, riempimento 30–50%, 20 mm/s. Prova prima un pezzo: se è lento aumenta la presa']);
       for (const x of notes) info.push(['Nota', x]);
       return { parts, info, view: [-0.4, -0.9, 0.7] };
