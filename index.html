@@ -4737,13 +4737,17 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       const camW = ring && C.tutto ? cam.plat : cam.win;
       let W0 = ring ? I(OFF(camW, cw + RW), OFF(base, g - tolR)) : null;   // la copertura fuori dalla cover: mai dentro le pareti
       // rialzo largo quanto il telefono: in alto la copertura segue gli angoli del telefono, in basso il rialzo finisce dritto.
-      // Arrotondo anche gli angoli in basso (raggio 9 mm): la copertura scende quanto basta perché il rialzo ci stia ancora dentro
+      // Arrotondo anche gli angoli in basso, col raggio più grande che lascia attorno al rialzo una parete di almeno RW
+      // (prima il raggio era fisso a 9 mm: la copertura scendeva di 4 mm e negli angoli la parete restava quasi a zero, con un buco).
+      // La copertura resta la più piccola possibile: scende sotto il rialzo solo se nessun raggio da 2 mm in su ci sta
       if (ring && C.tutto) {
-        const R = 9, keep = OFF(cam.plat, cw), cav = OFF(base, g - tolR);
-        for (let ext = 0; ext <= 14; ext += 0.5) {
+        const keep = OFF(cam.plat, cw), cav = OFF(base, g - tolR), wall = I(OFF(keep, RW - 0.05), cav);
+        search: for (let ext = 0; ext <= 6; ext += 0.5) {
           const s2 = I(R2(CrossSection.hull([W0, MV(W0, 0, -ext)])), cav), y0 = bounds(s2).y0;
-          const r = U([OFF(OFF(s2, -R), R), I(s2, RECT(-t.W, y0 + R, t.W, t.L))]);
-          if (empty(D(keep, r))) { W0 = r; break; }
+          for (let R = 9; R >= 2; R -= 0.25) {
+            const r = U([OFF(OFF(s2, -R), R), I(s2, RECT(-t.W, y0 + R, t.W, t.L))]);
+            if (empty(D(wall, r))) { W0 = r; break search; }
+          }
         }
       }
       const winOut = ring ? OFF(W0, tolR) : OFF(cam.win, cw + chamf);
@@ -4765,18 +4769,56 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         const zR = tb - C.v - up;                                // faccia esterna della copertura, fuori dal retro
         ringOut = -zR; FLinfo = FL;
         cuts.push(EXTZ(OFF(W0, tolR), -0.01, ta + 0.01), loft([[OFF(W0, tolR), ta], [OFF(flange, tolR), ta + hf]]), EXTZ(OFF(flange, tolR), ta + hf - 0.01, zTop + 0.01));
-        const ch = Math.min(RW - 0.5, 0.6);
+        const WMIN = 0.9;                                          // parete più sottile che si stampa bene (due passate da 0,4 mm)
+        const ch = Math.max(0, Math.min(RW - WMIN, 0.6));
         const solid = U3([EXTZ(W0, zR, ta + 0.01), loft([[W0, ta], [flange, ta + hf]]), EXTZ(flange, ta + hf - 0.01, zTop)]);
         let m;
         if (t.lenti) {
-          // tasca per il rialzo (se non è già quello il piano d'appoggio) e un foro svasato a 45° per ogni lente e sensore
-          const holes = [EXTZ(OFF(cam.plat, cw), zTop - C.h - 0.2, zTop + 1)];
-          const fl = Math.min(1.2, 0.6 * (zTop - C.h - zR));
-          for (const [x, y, d] of t.lenti) {
-            const X = t.W / 2 - x, Y = t.L / 2 - y, r = d / 2 + 0.4;
-            holes.push(EXTZ(C2(X, Y, r, 64), zR - 1, zTop + 1), loft([[C2(X, Y, r + fl, 64), zR - 0.01], [C2(X, Y, r, 64), zR + fl]]));
+          // tasca per il rialzo e un foro svasato a 45° per ogni lente e sensore.
+          // La copertura si costruisce a fette orizzontali, dal piatto in su, e ogni fetta è "aperta": le parti più strette di
+          // WMIN (tra tasca e bordo quando la fotocamera è vicina al bordo del telefono, punte tra tasca e fori) spariscono,
+          // invece di diventare pareti di pochi decimi che lo slicer salta lasciando dei buchi. Lì la tasca arriva alla parete
+          // della cover. Ogni fetta sta sopra quella sotto (o sporge al massimo di un gradino della flangia): niente sbalzi
+          const zp = Math.max(zR + 0.4, zTop - C.h - 0.2);           // da qui in su c'è la tasca per il rialzo
+          // fori: 0,4 mm di gioco attorno al vetro, meno se due fori sono così vicini che il setto resterebbe sotto WMIN
+          const lens = t.lenti.map(([x, y, d], i) => {
+            let c = 0.4;
+            t.lenti.forEach(([x2, y2, d2], j) => { if (j !== i) c = Math.min(c, (Math.hypot(x2 - x, y2 - y) - d / 2 - d2 / 2 - WMIN) / 2); });
+            return [t.W / 2 - x, t.L / 2 - y, d / 2 + Math.max(0.1, c)];
+          });
+          const holes2 = U(lens.map(([X, Y, r]) => C2(X, Y, r, 64))), P = U([OFF(cam.plat, cw), holes2]);
+          const OPEN = (c) => (empty(c) ? null : R2(R2(c.offset(-WMIN / 2, 'Round', 2, 48)).offset(WMIN / 2, 'Round', 2, 48)));
+          // contorno esterno all'altezza z: W0 fino a ta, poi la flangia si allarga a gradini (stanno dentro l'incavo della cover)
+          // nella parte che si allarga ogni gradino sta dentro la flangia smussata sia sotto sia sopra: quindi anche nell'incavo
+          const NS = 3, flLoft = loft([[W0, ta], [flange, ta + hf]]);
+          const outerOf = (z0, z1) => (z1 <= ta + 1e-4 ? W0 : z0 >= ta + hf - 1e-4 ? flange : I(R2(flLoft.slice(Math.max(z0, ta) + 1e-3)), R2(flLoft.slice(Math.min(z1, ta + hf) - 1e-3))));
+          const cuts2 = [zR, zp, ta, ...Array.from({ length: NS }, (_, k) => ta + hf * (k + 1) / NS), zTop].filter((z, i, a) => z >= zR && z <= zTop);
+          const zz = [...new Set(cuts2.map(z => +z.toFixed(4)))].sort((u, v) => u - v);
+          const slabs = [];
+          let prev = null;
+          for (let i = 0; i < zz.length - 1; i++) {
+            const z0 = zz[i], z1 = zz[i + 1];
+            if (z1 - z0 < 0.02) continue;
+            const grow = z0 >= ta - 1e-4 && z0 < ta + hf - 1e-4 || Math.abs(z0 - ta - hf) < 1e-3;
+            let sec = OPEN(D(outerOf(z0, z1), z0 >= zp - 1e-4 ? P : holes2));
+            if (prev && sec) sec = OPEN(I(sec, grow ? OFF(prev, FL / NS + 0.01) : prev));   // non sporge oltre la fetta sotto
+            if (empty(sec)) break;
+            slabs.push(EXTZ(sec, z0 - (i ? 0.005 : 0), z1));
+            prev = sec;
           }
-          m = sub(solid, U3(holes));
+          m = U3(slabs);
+          // svasature sulla faccia esterna: non mangiano il setto tra due fori vicini (ne restano almeno 1,2 mm sul piatto)
+          // né il bordo della copertura (resta almeno WMIN)
+          const fl0 = Math.min(1.2, 0.6 * (zp - zR));
+          const flares = [];
+          for (const [X, Y, r] of lens) {
+            let fl = fl0;
+            for (const [X2, Y2, r2] of lens) if (X2 !== X || Y2 !== Y) fl = Math.min(fl, (Math.hypot(X2 - X, Y2 - Y) - r - r2 - 1.2) / 2);
+            let lo = 0, hi = r + fl0 + WMIN;                       // raggio del cerchio più grande attorno al foro che sta nella copertura
+            if (!empty(D(C2(X, Y, hi, 64), W0))) { for (let q = 0; q < 14; q++) { const mid = (lo + hi) / 2; if (empty(D(C2(X, Y, mid, 64), W0))) lo = mid; else hi = mid; } fl = Math.min(fl, lo - r - WMIN); }
+            if (fl > 0.05) flares.push(loft([[C2(X, Y, r + fl, 64), zR - 0.01], [C2(X, Y, r, 64), zR + fl]]));
+          }
+          if (flares.length) m = sub(m, U3(flares));
         } else m = sub(solid, U3([EXTZ(inner, zR - 1, zTop + 1), loft([[OFF(inner, ch), zR - 0.01], [inner, zR + ch]])]));
         insert = m;
       }
