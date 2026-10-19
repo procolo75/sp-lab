@@ -12,7 +12,7 @@ SP Lab è un generatore parametrico di oggetti da stampare in 3D che funziona in
 
 ## Cosa puoi generare
 
-La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la categoria scritta sopra il titolo. Alcuni riquadri raccolgono più generatori, che trovi come schede in alto: Natale (pallina, pallina a spirale, palla piatta, decorazione, albero, stella, lanterna, formina), Gridfinity (contenitore, cassettiera, base), Reggimensole e ganci (reggimensola, gancio) e Viti e bulloni (vite, bullone, perno).
+La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la categoria scritta sopra il titolo. Alcuni riquadri raccolgono più generatori, che trovi come schede in alto: Natale (pallina, pallina a spirale, palla piatta, decorazione, albero, stella, lanterna, formina), Gridfinity (contenitore, cassettiera, base), Reggimensole e ganci (reggimensola, gancio), Antivibrazione (tennis, padel) e Viti e bulloni (vite, bullone, perno).
 
 | Generatore | Cos'è | Parti nel file |
 |---|---|---|
@@ -34,6 +34,8 @@ La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la 
 | **Gancio** | Gancio a muro o appendiabiti con più ganci, sopra porta o anta, per tubo o bastone, a S; fissaggio a viti, biadesivo o magneti | 1 |
 | **Powerbank** | Scatola per un powerbank fai-da-te: portapile già pronto (o contatti a molla), cinque schede di ricarica con le porte già al loro posto, coperchio a slitta o a viti nascoste con scritta, loghi e il tuo SVG | scatola e coperchio (anche a colori) |
 | **Box schede ESP** | Scatola per un processore ESP (NodeMCU, D1 mini, ESP32, ESP32-CAM, ESP32-C3 con OLED) e fino a 5 moduli: sensori, display e pannelli LED WS2812B. Schede con i piedini e dupont, senza saldare; finestre nel coperchio e fori per i LED | scatola e coperchio |
+| **Antivibrazione tennis** | Antivibrazione per le corde, a bottone (tondo, ovale, esagono, cuore) o a verme, per schemi 16×19, 18×20 o con le tue misure, con una scritta | 1 |
+| **Antivibrazione padel** | Tappo per i fori della racchetta, o passante per tutto lo spessore, con una scritta sulla testa | quanti ne vuoi |
 | **Vite** | Vite con filetto metrico ISO da M3 a M30 (o misura libera), cinque tipi di testa | 1 |
 | **Bullone** | Vite con dado (esagonale, zigrinato o ad alette) e rondelle, già avvitabili tra loro | da 2 a 4 |
 | **Perno** | Perno a scatto per unire pezzi stampati, spina liscia o perno con testa e foro per coppiglia | 1, più le piastrine di prova |
@@ -253,6 +255,14 @@ Una scatola sola per un **processore** e fino a **5 moduli**, pensata per schede
 - **Avvisi automatici:** indirizzi I²C in comune (per esempio MPU6050 e BMI160), alimentazione a 5 V dei pannelli LED, GPIO3 dell'ESP8266 per i WS2812B, pin occupati dell'ESP32-CAM.
 - **Cosa è stimato:** le misure delle schede vengono dai produttori e dai venditori; altezze dei componenti, distanza dei piedini dal bordo e posizione delle finestre sui moduli sono stimate (il riquadro lo dice per ogni scheda). Stampa prima il coperchio, che è sottile e veloce, e prova le schede nelle finestre; se una scheda ha misure diverse usa *Altra scheda*.
 
+### Antivibrazione
+- **Tennis, bottone:** sta tra le due corde verticali centrali, sotto l'ultima orizzontale (la regola ITF lo vuole fuori dall'incrocio delle corde). Sotto ha due canali in cui le corde entrano di scatto. Scegli lo schema corde (16×19: 12,5 mm tra le corde centrali, 18×20: 10,5 mm, oppure *Misura tua*), il calibro della corda e la *Presa*, cioè quanto i canali sono più stretti della corda. Forma tonda, ovale, a esagono o a cuore, larghezza e spessore.
+- **Tennis, verme:** striscia lunga da 60 a 130 mm con una tacca per ogni corda verticale, alla distanza dello schema scelto. La scritta va sul fianco, che ha più spazio.
+- **Padel, tappo nel foro:** testa con la scritta e gambo con un dentino che si incastra in un foro della racchetta (i fori sono da 9 a 13 mm: misurali). Il gambo ha un taglio e un foro, così si stringe entrando. Testa tonda o a cuore.
+- **Padel, passante:** cilindro cavo lungo quanto lo spessore della racchetta (di solito 38 mm) con due nervature e un colletto sottile con la scritta. Il campo *Quanti* li mette già in coppia: uno per faccia nello stesso punto, in alto per più potenza, verso il manico per più controllo.
+- **Una sola scritta**, con i loghi SP e i visi: in rilievo (solo tennis), a filo colorata (nei primi o negli ultimi strati, con il colore 2) o incisa. Se non ci sta viene ridotta e il riquadro lo dice.
+- Il riquadro misure dà anche il **peso stimato** in TPU.
+
 ### Viti e bulloni
 ![Bullone M8 con rondella e dado](docs/img/bullone.png)
 - **Filetto metrico ISO** a passo grosso, da M3 a M30; con *Altro* scegli diametro e passo liberi. Filetto destro o sinistro.
@@ -293,7 +303,7 @@ I valori che imposti restano salvati nel browser. **Ripristina valori** torna a 
 
 **Frecce di posizione:** sotto ogni croce di frecce scegli il passo, 0,5 · 1 · 5 · 10 mm a clic (vale per tutte le croci; con Maiusc 0,2 mm).
 
-**Link diretti:** ogni generatore ha il suo indirizzo, da usare per linkarlo o salvarlo nei preferiti: `#natale` (pallina), `#natale-palla` (palla piatta), `#natale-piatto`, `#natale-albero`, `#natale-stella`, `#natale-lanterna`, `#natale-formina`, `#gridfinity`, `#gridfinity-cab` (cassettiera), `#gridfinity-base`, `#rack`, `#vasi`, `#supporti` (reggimensola), `#supporti-gancio`, `#powerbank`, `#schede` (box schede ESP), `#viteria` (vite), `#viteria-bullone`, `#viteria-perno`, `#cover`.
+**Link diretti:** ogni generatore ha il suo indirizzo, da usare per linkarlo o salvarlo nei preferiti: `#natale` (pallina), `#natale-palla` (palla piatta), `#natale-piatto`, `#natale-albero`, `#natale-stella`, `#natale-lanterna`, `#natale-formina`, `#gridfinity`, `#gridfinity-cab` (cassettiera), `#gridfinity-base`, `#rack`, `#vasi`, `#supporti` (reggimensola), `#supporti-gancio`, `#racchette` (antivibrazione tennis), `#racchette-padel`, `#powerbank`, `#schede` (box schede ESP), `#viteria` (vite), `#viteria-bullone`, `#viteria-perno`, `#cover`.
 
 ### Il file 3MF
 - Ogni pezzo è un oggetto separato e con il suo nome (per esempio "Cassetto 3" o "Cestello pescante 1").
@@ -326,6 +336,7 @@ Ogni stampante è diversa. Il parametro **Tolleranza stampante** (0,3 mm all'ini
 - **Viti e bulloni:** stampa prima un bullone M8 corto per tarare il *Gioco filetto*. Usa 4 o più perimetri (o riempimento 100%) e strati sottili (0,12–0,16 mm). Sotto M6 il filetto stampato è delicato. Per viti che lavorano, PETG o nylon.
 - **Powerbank:** PETG o ASA, non PLA (in auto al sole si deforma). Stampa prima la *prova del fronte*. Prima di collegare le celle in parallelo portale alla stessa tensione e rispetta la polarità sulle piazzole B+ e B−: al contrario la scheda si brucia.
 - **Box schede ESP:** PLA o PETG, scatola aperta in su e coperchio capovolto, senza supporti. Stampa prima il coperchio per controllare le finestre e prova una scheda nella sua culla. Il pannello LED vuole un alimentatore a 5 V a parte.
+- **Antivibrazione:** TPU morbido (85A–95A) o TPE: più è morbido più smorza, il PLA non smorza. 20 mm/s, 3 pareti, riempimento gyroid 30–50% (meno riempimento = più morbido), brim perché il TPU tende a sollevarsi. Stampa prima un pezzo e prova l'incastro: se scivola aumenta la *Presa*, se non entra diminuiscila.
 - **Perni a scatto:** se il perno entra troppo duro aumenta la tolleranza; se la fessura è corta (lo segnala il riquadro misure) il perno resta rigido.
 
 ---
@@ -348,6 +359,7 @@ Ogni stampante è diversa. Il parametro **Tolleranza stampante** (0,3 mm all'ini
 │   ├── telefoni.js misure dei telefoni per le cover
 │   ├── powerbank.js scatola per powerbank: celle, schede e connettori
 │   ├── schede.js   box per schede ESP e sensori: misure di processori, moduli e pannelli LED
+│   ├── racchette.js antivibrazione per racchette da tennis e padel
 │   ├── fonts.js    contorni dei caratteri (generato)
 │   ├── logos.js    contorni dei loghi per le scritte (generato da assets/)
 │   ├── svg.js      lettore SVG (disegni caricati e libreria)

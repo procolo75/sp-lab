@@ -47,6 +47,7 @@
     bianco: { col1: '#f4f4f2', col2: '#b8bcc2', col3: '#c62828', col4: '#1f6b3a' },
     blu: { col1: '#1d4e89', col2: '#c9ced6', col3: '#ffffff', col4: '#e3b341' },
     legno: { col1: '#c8a36a', col2: '#7a4a24', col3: '#2b2b2b', col4: '#ffffff' },
+    sport: { col1: '#d4e33b', col2: '#1b1b1b', col3: '#ffffff', col4: '#1d4e89' },
   };
   // disegni: Fluent Emoji (libreria) e SVG caricati dall'utente
   const EMOJI = window.SPLAB_EMOJI || [], EMO_BY = Object.fromEntries(EMOJI.map(e => [e.id, e]));
@@ -63,13 +64,14 @@
     const out = {}; pal.slice(0, 4).forEach((c, i) => { out['col' + (i + 1)] = c; });
     return out;
   };
-  const colorsP = (labels, art) => [
-    { sec: 'Colori', id: 'tavolozza', label: 'Abbinamenti pronti', type: 'select', def: art ? 'disegno' : 'rossoro',
-      options: [...(art ? [['disegno', 'Colori del disegno']] : []), ['rossoro', 'Rosso e oro'], ['verde', 'Verde e rosso'], ['bianco', 'Bianco e argento'], ['blu', 'Blu e argento'], ['legno', 'Legno']],
+  // sport = true: c'è anche (ed è il predefinito) l'abbinamento giallo pallina e nero
+  const colorsP = (labels, art, sport) => [
+    { sec: 'Colori', id: 'tavolozza', label: 'Abbinamenti pronti', type: 'select', def: art ? 'disegno' : sport ? 'sport' : 'rossoro',
+      options: [...(art ? [['disegno', 'Colori del disegno']] : []), ...(sport ? [['sport', 'Giallo pallina e nero']] : []), ['rossoro', 'Rosso e oro'], ['verde', 'Verde e rosso'], ['bianco', 'Bianco e argento'], ['blu', 'Blu e argento'], ['legno', 'Legno']],
       onSet: (k, v) => (k === 'disegno' ? artPal(v, art) : PALETTES[k]),
       help: art ? 'Al massimo 4 filamenti: il colore 1 è il pezzo. Ogni colore del disegno va sul filamento più simile; quelli uguali al colore 1 restano del colore del pezzo. "Colori del disegno" riduce i colori originali a 4.'
         : 'Nel 3MF ogni colore è una parte separata dello stesso oggetto: nello slicer dai un filamento a ciascuna.' },
-    ...labels.map((l, i) => ({ sec: 'Colori', id: 'col' + (i + 1), label: l, type: 'color', def: PALETTES.rossoro['col' + (i + 1)] })),
+    ...labels.map((l, i) => ({ sec: 'Colori', id: 'col' + (i + 1), label: l, type: 'color', def: PALETTES[sport ? 'sport' : 'rossoro']['col' + (i + 1)] })),
   ];
   // spessori allineati agli strati: multipli di 0,2 e di 0,28 (primo strato a 0,28)
   const LAYER_STOPS = (() => { const v = new Set(); for (const h of [0.2, 0.28]) for (let k = 1; k * h <= 12.01; k++) v.add(+(k * h).toFixed(2)); return [...v].sort((a, b) => a - b); })();
@@ -94,6 +96,16 @@
   // righe con la loro rotazione (coperchi di Powerbank e Box schede): "Rotazione riga N" subito dopo "Posizione riga N"
   const withRot = (list) => list.flatMap(q => (q.id === 'pos1' || q.id === 'pos2') ? [q, { sec: q.sec, id: q.id === 'pos1' ? 'rotTesto' : 'rotTesto2', label: q.id === 'pos1' ? 'Rotazione riga 1' : 'Rotazione riga 2', type: 'int', min: 0, max: 345, step: 15, def: 0, unit: '°', wrap: true, show: q.show,
     help: q.id === 'pos1' ? 'Gira la riga attorno al suo centro, 15° a clic. Le frecce la spostano sempre a destra/sinistra e su/giù del coperchio.' : undefined }] : [q]);
+  // una sola riga di scritta (antivibrazione): stili tra rilievo, a filo colorata e incisa
+  const oneTextP = (d, cap, styles) => [
+    ...linesP('Scritta', d, '', cap, undefined, 20).filter(q => !['scritta2', 'altTesto2', 'pos2'].includes(q.id))
+      .map(q => Object.assign({}, q, { label: { scritta: 'Scritta', altTesto: 'Altezza lettere', pos1: 'Posizione' }[q.id] })),
+    { sec: 'Scritta', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
+    nozzleP('Scritta'),
+    { sec: 'Scritta', id: 'stileTesto', label: 'Stile', type: 'select', def: styles[0][0], options: styles, show: p => String(p.scritta || '').trim() !== '',
+      help: 'A filo: le lettere sono di un altro colore ma non sporgono, non si consumano e non si staccano.' },
+    { sec: 'Scritta', id: 'rilievoTesto', label: 'Spessore scritta', type: 'num', min: 0.4, max: 1.2, step: 0.2, def: 0.6, unit: 'mm', show: p => String(p.scritta || '').trim() !== '', help: 'In rilievo: quanto sporge. A filo o incisa: quanto è profonda.' },
+  ];
   const textP = (d1, d2, font, cap, show) => [
     ...linesP('Scritta', d1, d2, cap, show),
     { sec: 'Scritta', id: 'carattere', label: 'Carattere', type: 'select', def: font, options: FONT_OPTS, show },
@@ -813,6 +825,44 @@
         { sec: 'Prese d\'aria', id: 'ariaAlt', label: 'Altezza della zona sulle pareti', type: 'num', min: 4, max: 60, step: 1, def: 12, unit: 'mm', show: p => p.ariaTipo !== 'nessuna', help: 'Altezza della fascia di aperture sulle pareti (non vale per "Tutta l\'altezza"). Dietro, le aperture saltano i passacavi; a sinistra saltano USB e antenna.' },
       ],
     },
+    tennis: {
+      label: 'Tennis',
+      params: [
+        { sec: 'Modello', id: 'modello', label: 'Modello', type: 'select', def: 'bottone', options: [['bottone', 'Bottone'], ['verme', 'Verme (lungo)']],
+          help: 'Il bottone sta tra le due corde verticali centrali. Il verme si aggancia a più corde verticali e ha più spazio per la scritta.' },
+        { sec: 'Modello', id: 'forma', label: 'Forma', type: 'select', def: 'tondo', options: [['tondo', 'Tondo'], ['ovale', 'Ovale'], ['esagono', 'Esagono'], ['cuore', 'Cuore']], show: p => p.modello === 'bottone' },
+        { sec: 'Misure', id: 'larghezza', label: 'Larghezza', type: 'num', min: 18, max: 35, step: 0.5, def: 24, unit: 'mm', show: p => p.modello === 'bottone', help: 'Di traverso alle corde. Più grande e più spesso smorza di più ma pesa di più.' },
+        { sec: 'Misure', id: 'altezza', label: 'Spessore', type: 'num', min: 5, max: 12, step: 0.5, def: 7, unit: 'mm', show: p => p.modello === 'bottone' },
+        { sec: 'Misure', id: 'lunghezza', label: 'Lunghezza', type: 'num', min: 60, max: 130, step: 1, def: 100, unit: 'mm', show: p => p.modello === 'verme' },
+        { sec: 'Misure', id: 'altVerme', label: 'Altezza', type: 'num', min: 8, max: 14, step: 0.5, def: 10, unit: 'mm', show: p => p.modello === 'verme' },
+        { sec: 'Misure', id: 'spessore', label: 'Spessore', type: 'num', min: 2.4, max: 5, step: 0.2, def: 3.6, unit: 'mm', show: p => p.modello === 'verme' },
+        { sec: 'Corde', id: 'schema', label: 'Schema corde', type: 'select', def: '16x19', options: [['16x19', '16×19 (aperto)'], ['18x20', '18×20 (fitto)'], ['misura', 'Misura tua']],
+          help: 'È scritto sul telaio, di solito sul cuore della racchetta. Con "Misura tua" metti la distanza tra le corde centrali.' },
+        { sec: 'Corde', id: 'interasse', label: 'Distanza tra le corde centrali', type: 'num', min: 8, max: 16, step: 0.1, def: 12.5, unit: 'mm', show: p => p.schema === 'misura',
+          help: 'Da centro a centro delle due corde verticali centrali, sotto l\'ultima corda orizzontale.' },
+        { sec: 'Corde', id: 'calibro', label: 'Calibro corda', type: 'num', min: 1.1, max: 1.45, step: 0.05, def: 1.25, unit: 'mm', help: 'È sulla confezione delle corde: 15L = 1,35, 16 = 1,30, 16L = 1,25, 17 = 1,20.' },
+        { sec: 'Corde', id: 'presa', label: 'Presa', type: 'num', min: 0, max: 0.3, step: 0.05, def: 0.15, unit: 'mm', help: 'Quanto i canali sono più stretti della corda. Se scivola via aumentala, se non entra diminuiscila.' },
+        ...oneTextP('ACE', 4, [['rilievo', 'In rilievo'], ['filo', 'A filo, colorata'], ['incisa', 'Incisa']]),
+        ...colorsP(['Colore 1 · antivibrazione', 'Colore 2 · scritta'], false, true),
+      ],
+    },
+    padel: {
+      label: 'Padel',
+      params: [
+        { sec: 'Modello', id: 'tipo', label: 'Modello', type: 'select', def: 'tappo', options: [['tappo', 'Tappo nel foro'], ['passante', 'Passante (tutto lo spessore)']],
+          help: 'Il tappo entra da una faccia e ha la testa con la scritta. Il passante attraversa tutta la racchetta e fuori resta solo un colletto sottile.' },
+        { sec: 'Modello', id: 'forma', label: 'Forma testa', type: 'select', def: 'tondo', options: [['tondo', 'Tonda'], ['cuore', 'Cuore']], show: p => p.tipo === 'tappo' },
+        { sec: 'Foro', id: 'foro', label: 'Diametro foro', type: 'num', min: 8, max: 14, step: 0.1, def: 12, unit: 'mm', help: 'I fori delle racchette da padel sono da 9 a 13 mm: misurali con il calibro.' },
+        { sec: 'Foro', id: 'presa', label: 'Presa', type: 'num', min: 0, max: 0.8, step: 0.1, def: 0.3, unit: 'mm', help: 'Quanto il gambo è più grosso del foro. Se esce da solo aumentala, se non entra diminuiscila.' },
+        { sec: 'Misure', id: 'diamTesta', label: 'Larghezza testa', type: 'num', min: 12, max: 28, step: 0.5, def: 19, unit: 'mm', show: p => p.tipo === 'tappo' },
+        { sec: 'Misure', id: 'spTesta', label: 'Spessore testa', type: 'num', min: 1.6, max: 3, step: 0.2, def: 2, unit: 'mm', show: p => p.tipo === 'tappo' },
+        { sec: 'Misure', id: 'gambo', label: 'Lunghezza gambo', type: 'num', min: 6, max: 20, step: 0.5, def: 10, unit: 'mm', show: p => p.tipo === 'tappo' },
+        { sec: 'Misure', id: 'spRacchetta', label: 'Spessore racchetta', type: 'num', min: 30, max: 40, step: 0.5, def: 38, unit: 'mm', show: p => p.tipo === 'passante', help: 'Quasi tutte sono da 38 mm; alcune leggere o da ragazzi da 36 o meno.' },
+        ...oneTextP('SP', 4, [['filo', 'A filo, colorata'], ['incisa', 'Incisa']]),
+        { sec: 'Stampa', id: 'copie', label: 'Quanti', type: 'int', min: 1, max: 8, def: 2, help: 'Di solito si mettono a coppie, uno per faccia.' },
+        ...colorsP(['Colore 1 · antivibrazione', 'Colore 2 · scritta'], false, true),
+      ],
+    },
   };
 
   // ================= GRUPPI (pagina iniziale) =================
@@ -825,6 +875,7 @@
     { id: 'supporti', title: 'Reggimensole e ganci', cat: 'Casa e giardino', desc: 'Squadre per mensole con rinforzo e viti, ganci a muro, appendiabiti, ganci sopra porta, per tubi e a S.', modes: ['mensola', 'gancio'], thumb: 'gancio' },
     { id: 'powerbank', title: 'Powerbank', cat: 'Elettronica', desc: 'Scatola per un powerbank fai-da-te: celle 18650 con contatti a molla come le pile, quattro schede di ricarica con le porte già al loro posto, coperchio a slitta o a viti nascoste.', modes: ['powerbank'], thumb: 'powerbank' },
     { id: 'schede', title: 'Box schede ESP', cat: 'Elettronica', desc: 'Scatola per un processore (NodeMCU, D1 mini, ESP32, ESP32-CAM, ESP32-C3) e i suoi sensori, display e pannelli LED. Le schede con i piedini e i dupont, senza saldare; finestre nel coperchio e fori per i LED.', modes: ['schede'], thumb: 'schede' },
+    { id: 'racchette', title: 'Antivibrazione', cat: 'Sport', desc: 'Antivibrazione con il tuo nome per racchette da tennis (bottone o verme, per corde 16×19 e 18×20) e da padel (tappo o passante per i fori della racchetta). Da stampare in TPU.', modes: ['tennis', 'padel'], thumb: 'tennis' },
     { id: 'viteria', title: 'Viti e bulloni', cat: 'Meccanica', desc: 'Viti e bulloni con filetto metrico ISO, dadi, rondelle e perni a scatto.', modes: ['vite', 'bullone', 'perno'], thumb: 'bullone' },
   ];
   const groupOf = (mode) => GROUPS.find(g => g.modes.includes(mode)) || GROUPS[0];
@@ -1439,6 +1490,8 @@ ${build}</build>
     if (state.mode === 'stella') return `stella_${v.uso}_${v.diametro}mm`;
     if (state.mode === 'lanterna') return `lanterna_${v.forma}_${v.disegno}`;
     if (state.mode === 'formina') return `formina_${v.forma}${v.timbro && nm ? nm : ''}`;
+    if (state.mode === 'tennis') return `antivibrazione-tennis_${v.modello}${v.modello === 'bottone' ? '_' + v.forma : ''}${nm}`;
+    if (state.mode === 'padel') return `antivibrazione-padel_${v.tipo}_${String(v.foro).replace('.', ',')}mm${nm}`;
     const mis = v.misura === 'custom' ? `M${String(v.diam).replace('.', ',')}x${String(v.passo).replace('.', ',')}` : v.misura;
     if (state.mode === 'mensola') return `reggimensola_${v.profondita}x${v.altezza}_${v.tipo}`;
     if (state.mode === 'gancio') return `gancio_${v.tipo}${v.tipo === 'muro' || v.tipo === 'porta' ? '_' + v.numero : ''}`;
