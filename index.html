@@ -119,6 +119,20 @@ header .face-top svg { display: block; width: 100%; height: 100%; }
 .tab { border: 0; background: transparent; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 500; color: var(--muted); }
 .tab[aria-selected="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
 .actions { display: flex; gap: 8px; }
+.filemenu { position: relative; display: flex; align-items: center; gap: 8px; }
+.fm-cur { order: -1; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font: 500 13px var(--f-num); }
+.fm-list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 210px; margin: 0; padding: 4px; list-style: none; background: var(--field); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 14px rgb(0 0 0 / .14); }
+.fm-list[hidden] { display: none; }
+.fm-list button { display: flex; width: 100%; justify-content: space-between; gap: 16px; border: 0; background: none; color: var(--ink); padding: 7px 10px; border-radius: 5px; cursor: pointer; font: 500 13px var(--f-ui); text-align: left; }
+.fm-list button:hover:not(:disabled), .fm-list button:focus-visible { background: var(--panel); }
+.fm-list button:disabled { color: var(--muted); cursor: default; opacity: .6; }
+.fm-dlg { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); padding: 16px; width: min(380px, calc(100% - 32px)); box-shadow: 0 10px 30px rgb(0 0 0 / .25); }
+.fm-dlg::backdrop { background: rgb(0 0 0 / .3); }
+.fm-dlg form { display: grid; gap: 10px; }
+.fm-dlg label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.fm-hint { margin: 0; color: var(--muted); font-size: 12px; }
+.fm-btns { display: flex; justify-content: flex-end; gap: 8px; }
+.fm-list kbd { color: var(--muted); font: 12px var(--f-ui); }
 .btn { border: 1px solid var(--line); background: var(--field); padding: 7px 12px; border-radius: 7px; cursor: pointer; font-weight: 500; }
 .btn:hover { border-color: var(--muted); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
@@ -159,20 +173,6 @@ select.txt { font-family: var(--f-ui); cursor: pointer; }
 .seg button[aria-checked="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 .side-foot { padding: 14px 16px 0; display: flex; gap: 8px; }
 .side-foot .btn { font-size: 13px; padding: 6px 10px; }
-.presets { margin: 12px 16px 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 10px; font-size: 13px; }
-.presets[hidden] { display: none; }
-.pr-new { display: flex; gap: 6px; }
-.pr-new .txt { flex: 1; min-width: 0; font-size: 13px; }
-.pr-new .btn, .pr-file .btn, .pr-list .btn { font-size: 13px; padding: 6px 10px; }
-.pr-title { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
-.pr-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.pr-list li { display: flex; align-items: center; gap: 6px; }
-.pr-list .pr-name { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pr-list .pr-name small { color: var(--muted); font-weight: 400; margin-left: 6px; }
-.pr-list .pr-empty { color: var(--muted); }
-.pr-file { display: flex; gap: 6px; flex-wrap: wrap; }
-.pr-file label { display: inline-flex; align-items: center; }
-.pr-hint { margin: 0; color: var(--muted); font-size: 12px; }
 
 .stage { position: relative; min-width: 0; min-height: 0; }
 #view { position: absolute; inset: 0; }
@@ -225,6 +225,23 @@ dl#info dd { margin: 0; font: 500 12px var(--f-num); font-variant-numeric: tabul
       <nav class="tabs" role="tablist" aria-label="Tipo di oggetto" id="subtabs"></nav>
     </div>
     <div class="hright">
+      <div class="filemenu">
+        <button class="btn" id="fileBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="fileMenu">File ▾</button>
+        <ul class="fm-list" id="fileMenu" role="menu" hidden>
+          <li role="none"><button type="button" role="menuitem" id="fmSaveAs">Salva con nome…<kbd>⌘S</kbd></button></li>
+          <li role="none"><button type="button" role="menuitem" id="fmOpen">Apri…<kbd>⌘O</kbd></button></li>
+        </ul>
+        <span class="fm-cur" id="fmCur" hidden></span>
+        <input type="file" id="fmInput" accept=".json,application/json" hidden>
+        <dialog class="fm-dlg" id="fmDlg" aria-labelledby="fmDlgT">
+          <form>
+            <strong id="fmDlgT">Salva con nome</strong>
+            <label>Nome del file<input class="txt" id="fmName" maxlength="60" required></label>
+            <p class="fm-hint">Il file va nella cartella Download. Per scegliere ogni volta la cartella: Safari › Impostazioni › Generali › Posizione dei download › Chiedi per ogni download.</p>
+            <div class="fm-btns"><button class="btn" type="button" id="fmNo">Annulla</button><button class="btn primary" type="submit">Salva</button></div>
+          </form>
+        </dialog>
+      </div>
       <div class="actions" id="actions" hidden>
         <button class="btn" id="expstl" type="button">STL</button>
         <button class="btn primary" id="exp3mf" type="button">Scarica 3MF</button>
@@ -242,14 +259,7 @@ dl#info dd { margin: 0; font: 500 12px var(--f-num); font-variant-numeric: tabul
   <main id="genView" hidden>
     <aside>
       <div id="params"></div>
-      <div class="side-foot"><button class="btn primary" id="prOpen" type="button" aria-expanded="false" aria-controls="presets">Salva impostazioni</button><button class="btn" id="reset" type="button">Ripristina valori</button></div>
-      <div class="presets" id="presets" hidden>
-        <form class="pr-new" id="prForm"><input class="txt" id="prName" maxlength="60" placeholder="Nome" aria-label="Nome delle impostazioni"><button class="btn primary" type="submit">Salva</button></form>
-        <div class="pr-title">Salvate per questo generatore</div>
-        <ul class="pr-list" id="prList"></ul>
-        <div class="pr-file"><button class="btn" id="prExport" type="button">Scarica come file</button><label class="btn">Apri file<input type="file" id="prImport" accept=".json,application/json" hidden></label></div>
-        <p class="pr-hint">Restano in questo browser. Per usarle su un altro computer, o per non perderle se cancelli i dati del browser, scaricale come file.</p>
-      </div>
+      <div class="side-foot"><button class="btn" id="reset" type="button">Ripristina valori</button></div>
     </aside>
     <section class="stage" aria-label="Anteprima 3D">
       <div id="view"></div>
@@ -4812,7 +4822,8 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           const holes2 = U(lens.map(([X, Y, r]) => C2(X, Y, r, 64))), P = U([OFF(cam.plat, cw), holes2]);
           // tasca alla quota z (la fetta va fino a z1: prendo la tasca più larga, quella in alto)
           const Pat = (z1) => (cam.B0 ? U([OFF(cam.B0, -cam.ins(zTop - z1) + (cw - 0.6)), holes2]) : P);
-          const OPEN = (c) => (empty(c) ? null : R2(R2(c.offset(-WMIN / 2, 'Round', 2, 48)).offset(WMIN / 2, 'Round', 2, 48)));
+          // semplifico il contorno: ogni fetta parte da quella sotto e senza semplificare i punti raddoppiano a ogni fetta (lentissimo)
+          const OPEN = (c) => (empty(c) ? null : R2(R2(R2(c.offset(-WMIN / 2, 'Round', 2, 48)).offset(WMIN / 2, 'Round', 2, 48)).simplify(0.01)));
           // contorno esterno all'altezza z: W0 fino a ta, poi la flangia si allarga a gradini (stanno dentro l'incavo della cover)
           // nella parte che si allarga ogni gradino sta dentro la flangia smussata sia sotto sia sopra: quindi anche nell'incavo
           const NS = 3, flLoft = loft([[W0, ta], [flange, ta + hf]]);
@@ -8192,6 +8203,7 @@ ${build}</build>
   let wanted = null;  // scheda scelta: la prima di un gruppo ha come indirizzo quello del gruppo
   function go(mode) { wanted = mode; if (location.hash.slice(1) !== hashFor(mode)) location.hash = hashFor(mode); else route(); }
   let inHome = true;
+  let fileH = null;                                           // ultimo file salvato o aperto: { mode, name }, si vede nell'header
   function route() {
     const h = location.hash.slice(1);
     let mode = null;
@@ -8202,9 +8214,9 @@ ${build}</build>
     wanted = null;
     inHome = !mode;
     $('#home').hidden = !inHome; $('#genView').hidden = inHome; $('#crumbs').hidden = inHome; $('#actions').hidden = inHome;
+    $('#fmSaveAs').disabled = inHome; showFileName();
     if (inHome) { renderThumbs(); return; }
     if (mode !== state.mode || !current) { state.mode = mode; save(); renderParams(); fitted = null; schedule(0); } else renderHeader();
-    if (!$('#presets').hidden) { $('#prName').value = ''; renderPresets(); }
     requestAnimationFrame(resize);
   }
   window.addEventListener('hashchange', route);
@@ -8271,62 +8283,85 @@ ${build}</build>
 
   // ================= EVENTI =================
   $('#reset').addEventListener('click', () => { delete state.values[state.mode]; save(); renderParams(); schedule(0); });
-  // impostazioni salvate con un nome, per generatore; restano nel browser e si possono scaricare e riaprire come file
-  const LSP = 'gp3d.salvate';
-  const loadPresets = () => { try { const o = JSON.parse(localStorage.getItem(LSP) || '{}'); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; } };
-  const storePresets = (o) => { try { localStorage.setItem(LSP, JSON.stringify(o)); return true; } catch (e) { return false; } };
-  function addPreset(mode, name, vals) {
-    const all = loadPresets(), list = (all[mode] || []).filter(q => q.name !== name);
-    list.unshift({ name, date: new Date().toISOString(), values: vals });
-    all[mode] = list;
-    return storePresets(all);
+  // ---- menu File: le impostazioni del generatore si salvano in un file .json, col nome scelto al momento di salvare.
+  // Con le API dei file (Chrome, Edge) si apre la finestra di sistema; altrove (Safari, Firefox, claude.ai) si scarica
+  const canPick = typeof window.showSaveFilePicker === 'function' && !inArtifact;
+  const JSON_TYPES = [{ description: 'Impostazioni SP Lab', accept: { 'application/json': ['.json'] } }];
+  const fileData = (name) => new TextEncoder().encode(JSON.stringify({ splab: 1, mode: state.mode, name, values: values(state.mode) }, null, 1));
+  const baseName = (n) => String(n).replace(/\.json$/i, '').slice(0, 60);
+  function showFileName() {
+    const on = !inHome && fileH && fileH.mode === state.mode, el = $('#fmCur');
+    el.hidden = !on; if (on) { el.textContent = fileH.name + '.json'; el.title = 'File salvato o aperto: ' + fileH.name + '.json'; }
   }
-  function usePreset(mode, q) {
-    state.values[mode] = JSON.parse(JSON.stringify(q.values || {}));
-    save(); renderParams(); schedule(0); setStatus('Impostazioni caricate: ' + q.name, 'ok');
+  function setFile(name) { fileH = { mode: state.mode, name }; showFileName(); }
+  // senza le API dei file (Safari, Firefox) il nome si chiede in una finestrella e il file si scarica in Download.
+  // Il download deve partire dentro il clic su "Salva": se parte dopo (alla chiusura della finestra) Safari lo blocca
+  function download(name) {
+    const data = fileData(name), fn = name.replace(/[\/\\:*?"<>|]+/g, '_') + '.json';
+    setFile(name);
+    if (inArtifact) { deliver(fn, data, 'application/json'); return; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' })); a.download = fn;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    setStatus('Salvato in Download: ' + fn, 'ok');
   }
-  function renderPresets() {
-    const list = loadPresets()[state.mode] || [], ul = $('#prList');
-    ul.innerHTML = list.length ? list.map((q, i) => `<li><button class="btn pr-name" type="button" data-use="${i}" title="Carica queste impostazioni">${esc(q.name)}<small>${new Date(q.date).toLocaleDateString('it-IT')}</small></button><button class="btn" type="button" data-del="${i}" title="Elimina" aria-label="Elimina ${esc(q.name)}">✕</button></li>`).join('')
-      : '<li class="pr-empty">Ancora nessuna</li>';
-  }
-  const showPresets = (on) => {
-    $('#presets').hidden = !on; $('#prOpen').setAttribute('aria-expanded', on);
-    if (on) { renderPresets(); const n = $('#prName'); if (!n.value) n.value = fileBase(); n.focus(); n.select(); }
-  };
-  $('#prOpen').addEventListener('click', () => showPresets($('#presets').hidden));
-  $('#prForm').addEventListener('submit', (e) => {
+  $('#fmDlg').addEventListener('submit', (e) => {
     e.preventDefault();
-    const name = $('#prName').value.trim() || fileBase();
-    if (addPreset(state.mode, name, values(state.mode))) { setStatus('Impostazioni salvate: ' + name, 'ok'); $('#prName').value = ''; renderPresets(); }
-    else setStatus('Il browser non lascia salvare qui: usa "Scarica come file"', 'err');
+    const name = baseName($('#fmName').value.trim());
+    if (!name) return;
+    $('#fmDlg').close();
+    download(name);
   });
-  $('#prList').addEventListener('click', (e) => {
-    const b = e.target.closest('button'); if (!b) return;
-    const all = loadPresets(), list = all[state.mode] || [];
-    if (b.dataset.use !== undefined) { const q = list[+b.dataset.use]; if (q) usePreset(state.mode, q); }
-    if (b.dataset.del !== undefined) { const q = list.splice(+b.dataset.del, 1)[0]; all[state.mode] = list; storePresets(all); renderPresets(); if (q) setStatus('Eliminate: ' + q.name, 'ok'); }
-  });
-  $('#prExport').addEventListener('click', () => {
-    const name = $('#prName').value.trim() || fileBase();
-    const data = { splab: 1, mode: state.mode, name, values: values(state.mode) };
-    deliver(name.replace(/[^\w.-]+/g, '_') + '.json', new TextEncoder().encode(JSON.stringify(data, null, 1)), 'application/json');
-  });
-  $('#prImport').addEventListener('change', (e) => {
+  $('#fmNo').addEventListener('click', () => $('#fmDlg').close());
+  async function saveAs() {
+    if (inHome) return;
+    const def = fileH && fileH.mode === state.mode ? fileH.name : fileBase();
+    if (!canPick) {
+      const dlg = $('#fmDlg'), inp = $('#fmName');
+      if (typeof dlg.showModal !== 'function') { download(def); return; }
+      inp.value = def; dlg.showModal(); inp.focus(); inp.select();
+      return;
+    }
+    try {
+      const h = await window.showSaveFilePicker({ suggestedName: def + '.json', types: JSON_TYPES });
+      const name = baseName(h.name), w = await h.createWritable();
+      await w.write(fileData(name)); await w.close();
+      setFile(name); setStatus('Salvato: ' + name + '.json', 'ok');
+    } catch (e) { if (e && e.name !== 'AbortError') setStatus('Salvataggio non riuscito', 'err'); }
+  }
+  function loadText(text, fname) {
+    let d = null; try { d = JSON.parse(String(text || '')); } catch (err) { d = null; }
+    if (!d || !d.values || !MODES[d.mode]) { setStatus('Il file non contiene impostazioni di SP Lab', 'err'); return; }
+    const name = baseName(fname);
+    state.values[d.mode] = JSON.parse(JSON.stringify(d.values));
+    fileH = { mode: d.mode, name };
+    save();
+    if (inHome || d.mode !== state.mode) go(d.mode);            // dalla pagina iniziale o da un altro generatore: ci vado
+    if (d.mode === state.mode) { renderParams(); schedule(0); }
+    showFileName();
+    setStatus('Aperto: ' + name + '.json', 'ok');
+  }
+  async function openFile() {
+    if (typeof window.showOpenFilePicker !== 'function' || inArtifact) { $('#fmInput').click(); return; }
+    try { const [h] = await window.showOpenFilePicker({ types: JSON_TYPES }); const f = await h.getFile(); loadText(await f.text(), f.name); }
+    catch (e) { if (e && e.name !== 'AbortError') setStatus('Il file non si apre', 'err'); }
+  }
+  $('#fmInput').addEventListener('change', (e) => {
     const f = e.target.files && e.target.files[0]; e.target.value = '';
     if (!f) return;
     const rd = new FileReader();
-    rd.onload = () => {
-      let d = null; try { d = JSON.parse(String(rd.result || '')); } catch (err) { d = null; }
-      if (!d || !d.values || !MODES[d.mode]) { setStatus('Il file non contiene impostazioni di SP Lab', 'err'); return; }
-      const name = String(d.name || f.name.replace(/\.json$/i, '')).slice(0, 60);
-      addPreset(d.mode, name, d.values);
-      if (d.mode === state.mode) { usePreset(d.mode, { name, values: d.values }); renderPresets(); return; }
-      // il file è di un altro generatore: ci vado con quei valori
-      state.values[d.mode] = JSON.parse(JSON.stringify(d.values)); save(); showPresets(false); go(d.mode);
-      setStatus('Impostazioni caricate: ' + name, 'ok');
-    };
+    rd.onload = () => loadText(rd.result, f.name);
     rd.readAsText(f);
+  });
+  const showFileMenu = (on) => { $('#fileMenu').hidden = !on; $('#fileBtn').setAttribute('aria-expanded', on); if (on) $('#fileMenu button:not(:disabled)').focus(); };
+  $('#fileBtn').addEventListener('click', () => showFileMenu($('#fileMenu').hidden));
+  document.addEventListener('click', (e) => { if (!e.target.closest('.filemenu')) showFileMenu(false); });
+  for (const [id, fn] of [['#fmSaveAs', saveAs], ['#fmOpen', openFile]]) $(id).addEventListener('click', () => { showFileMenu(false); fn(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('#fileMenu').hidden) { showFileMenu(false); $('#fileBtn').focus(); return; }
+    if (!(e.metaKey || e.ctrlKey) || e.altKey || $('#fmDlg').open) return;
+    const k = e.key.toLowerCase();
+    if (k === 's') { e.preventDefault(); saveAs(); }
+    else if (k === 'o' && !e.shiftKey) { e.preventDefault(); openFile(); }
   });
   $('#section').addEventListener('click', () => { sectionOn = !sectionOn; $('#section').setAttribute('aria-pressed', sectionOn); if (current) showResult(current); });
   $('#fit').addEventListener('click', () => { fitted = null; if (current) showResult(current); });

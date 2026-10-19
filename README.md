@@ -279,7 +279,7 @@ Una scatola sola per un **processore** e fino a **5 moduli**, pensata per schede
 2. Nella pagina iniziale scegli cosa generare. Con Gridfinity, in alto passi da contenitore a cassettiera a base. **← Tutti** riporta alla pagina iniziale.
 3. A sinistra regoli i parametri: l'anteprima si aggiorna subito.
 4. Con **Informazioni**, in alto a destra, apri il riquadro con le misure reali (esterno, interno, volumi, avvisi): così non copre l'anteprima. Il numero rosso sul pulsante dice quante note ci sono; **Esc** lo richiude.
-5. Con **Salva impostazioni**, in fondo ai parametri, dai un nome alle regolazioni e le ritrovi nella lista: un clic le ricarica, ✕ le elimina. Restano nel browser; con **Scarica come file** ottieni un file `.json` da riaprire con **Apri file**, anche su un altro computer.
+5. Dal menu **File**, in alto, **Salva con nome** (⌘S) salva le regolazioni in un file `.json` col nome che scegli in quel momento: su Chrome ed Edge si apre la finestra del Mac, dove scegli anche la cartella; su Safari e Firefox scrivi il nome in una finestrella e il file va in **Download** (per scegliere la cartella: Safari › Impostazioni › Generali › Posizione dei download › Chiedi per ogni download). **Apri** (⌘O) ricarica un file salvato, anche di un altro generatore o da un altro computer. Il nome del file aperto o salvato si vede accanto a **File**.
 6. Premi **Scarica 3MF**, oppure **STL**, e apri il file nello slicer.
 
 **Comandi dell'anteprima**

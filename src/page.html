@@ -111,6 +111,20 @@ header .face-top svg { display: block; width: 100%; height: 100%; }
 .tab { border: 0; background: transparent; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 500; color: var(--muted); }
 .tab[aria-selected="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
 .actions { display: flex; gap: 8px; }
+.filemenu { position: relative; display: flex; align-items: center; gap: 8px; }
+.fm-cur { order: -1; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font: 500 13px var(--f-num); }
+.fm-list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 210px; margin: 0; padding: 4px; list-style: none; background: var(--field); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 14px rgb(0 0 0 / .14); }
+.fm-list[hidden] { display: none; }
+.fm-list button { display: flex; width: 100%; justify-content: space-between; gap: 16px; border: 0; background: none; color: var(--ink); padding: 7px 10px; border-radius: 5px; cursor: pointer; font: 500 13px var(--f-ui); text-align: left; }
+.fm-list button:hover:not(:disabled), .fm-list button:focus-visible { background: var(--panel); }
+.fm-list button:disabled { color: var(--muted); cursor: default; opacity: .6; }
+.fm-dlg { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); padding: 16px; width: min(380px, calc(100% - 32px)); box-shadow: 0 10px 30px rgb(0 0 0 / .25); }
+.fm-dlg::backdrop { background: rgb(0 0 0 / .3); }
+.fm-dlg form { display: grid; gap: 10px; }
+.fm-dlg label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.fm-hint { margin: 0; color: var(--muted); font-size: 12px; }
+.fm-btns { display: flex; justify-content: flex-end; gap: 8px; }
+.fm-list kbd { color: var(--muted); font: 12px var(--f-ui); }
 .btn { border: 1px solid var(--line); background: var(--field); padding: 7px 12px; border-radius: 7px; cursor: pointer; font-weight: 500; }
 .btn:hover { border-color: var(--muted); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
@@ -151,20 +165,6 @@ select.txt { font-family: var(--f-ui); cursor: pointer; }
 .seg button[aria-checked="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 .side-foot { padding: 14px 16px 0; display: flex; gap: 8px; }
 .side-foot .btn { font-size: 13px; padding: 6px 10px; }
-.presets { margin: 12px 16px 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 10px; font-size: 13px; }
-.presets[hidden] { display: none; }
-.pr-new { display: flex; gap: 6px; }
-.pr-new .txt { flex: 1; min-width: 0; font-size: 13px; }
-.pr-new .btn, .pr-file .btn, .pr-list .btn { font-size: 13px; padding: 6px 10px; }
-.pr-title { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
-.pr-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.pr-list li { display: flex; align-items: center; gap: 6px; }
-.pr-list .pr-name { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pr-list .pr-name small { color: var(--muted); font-weight: 400; margin-left: 6px; }
-.pr-list .pr-empty { color: var(--muted); }
-.pr-file { display: flex; gap: 6px; flex-wrap: wrap; }
-.pr-file label { display: inline-flex; align-items: center; }
-.pr-hint { margin: 0; color: var(--muted); font-size: 12px; }
 
 .stage { position: relative; min-width: 0; min-height: 0; }
 #view { position: absolute; inset: 0; }
@@ -217,6 +217,23 @@ dl#info dd { margin: 0; font: 500 12px var(--f-num); font-variant-numeric: tabul
       <nav class="tabs" role="tablist" aria-label="Tipo di oggetto" id="subtabs"></nav>
     </div>
     <div class="hright">
+      <div class="filemenu">
+        <button class="btn" id="fileBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="fileMenu">File ▾</button>
+        <ul class="fm-list" id="fileMenu" role="menu" hidden>
+          <li role="none"><button type="button" role="menuitem" id="fmSaveAs">Salva con nome…<kbd>⌘S</kbd></button></li>
+          <li role="none"><button type="button" role="menuitem" id="fmOpen">Apri…<kbd>⌘O</kbd></button></li>
+        </ul>
+        <span class="fm-cur" id="fmCur" hidden></span>
+        <input type="file" id="fmInput" accept=".json,application/json" hidden>
+        <dialog class="fm-dlg" id="fmDlg" aria-labelledby="fmDlgT">
+          <form>
+            <strong id="fmDlgT">Salva con nome</strong>
+            <label>Nome del file<input class="txt" id="fmName" maxlength="60" required></label>
+            <p class="fm-hint">Il file va nella cartella Download. Per scegliere ogni volta la cartella: Safari › Impostazioni › Generali › Posizione dei download › Chiedi per ogni download.</p>
+            <div class="fm-btns"><button class="btn" type="button" id="fmNo">Annulla</button><button class="btn primary" type="submit">Salva</button></div>
+          </form>
+        </dialog>
+      </div>
       <div class="actions" id="actions" hidden>
         <button class="btn" id="expstl" type="button">STL</button>
         <button class="btn primary" id="exp3mf" type="button">Scarica 3MF</button>
@@ -234,14 +251,7 @@ dl#info dd { margin: 0; font: 500 12px var(--f-num); font-variant-numeric: tabul
   <main id="genView" hidden>
     <aside>
       <div id="params"></div>
-      <div class="side-foot"><button class="btn primary" id="prOpen" type="button" aria-expanded="false" aria-controls="presets">Salva impostazioni</button><button class="btn" id="reset" type="button">Ripristina valori</button></div>
-      <div class="presets" id="presets" hidden>
-        <form class="pr-new" id="prForm"><input class="txt" id="prName" maxlength="60" placeholder="Nome" aria-label="Nome delle impostazioni"><button class="btn primary" type="submit">Salva</button></form>
-        <div class="pr-title">Salvate per questo generatore</div>
-        <ul class="pr-list" id="prList"></ul>
-        <div class="pr-file"><button class="btn" id="prExport" type="button">Scarica come file</button><label class="btn">Apri file<input type="file" id="prImport" accept=".json,application/json" hidden></label></div>
-        <p class="pr-hint">Restano in questo browser. Per usarle su un altro computer, o per non perderle se cancelli i dati del browser, scaricale come file.</p>
-      </div>
+      <div class="side-foot"><button class="btn" id="reset" type="button">Ripristina valori</button></div>
     </aside>
     <section class="stage" aria-label="Anteprima 3D">
       <div id="view"></div>

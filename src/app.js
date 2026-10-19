@@ -1484,6 +1484,7 @@ ${build}</build>
   let wanted = null;  // scheda scelta: la prima di un gruppo ha come indirizzo quello del gruppo
   function go(mode) { wanted = mode; if (location.hash.slice(1) !== hashFor(mode)) location.hash = hashFor(mode); else route(); }
   let inHome = true;
+  let fileH = null;                                           // ultimo file salvato o aperto: { mode, name }, si vede nell'header
   function route() {
     const h = location.hash.slice(1);
     let mode = null;
@@ -1494,9 +1495,9 @@ ${build}</build>
     wanted = null;
     inHome = !mode;
     $('#home').hidden = !inHome; $('#genView').hidden = inHome; $('#crumbs').hidden = inHome; $('#actions').hidden = inHome;
+    $('#fmSaveAs').disabled = inHome; showFileName();
     if (inHome) { renderThumbs(); return; }
     if (mode !== state.mode || !current) { state.mode = mode; save(); renderParams(); fitted = null; schedule(0); } else renderHeader();
-    if (!$('#presets').hidden) { $('#prName').value = ''; renderPresets(); }
     requestAnimationFrame(resize);
   }
   window.addEventListener('hashchange', route);
@@ -1563,62 +1564,85 @@ ${build}</build>
 
   // ================= EVENTI =================
   $('#reset').addEventListener('click', () => { delete state.values[state.mode]; save(); renderParams(); schedule(0); });
-  // impostazioni salvate con un nome, per generatore; restano nel browser e si possono scaricare e riaprire come file
-  const LSP = 'gp3d.salvate';
-  const loadPresets = () => { try { const o = JSON.parse(localStorage.getItem(LSP) || '{}'); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; } };
-  const storePresets = (o) => { try { localStorage.setItem(LSP, JSON.stringify(o)); return true; } catch (e) { return false; } };
-  function addPreset(mode, name, vals) {
-    const all = loadPresets(), list = (all[mode] || []).filter(q => q.name !== name);
-    list.unshift({ name, date: new Date().toISOString(), values: vals });
-    all[mode] = list;
-    return storePresets(all);
+  // ---- menu File: le impostazioni del generatore si salvano in un file .json, col nome scelto al momento di salvare.
+  // Con le API dei file (Chrome, Edge) si apre la finestra di sistema; altrove (Safari, Firefox, claude.ai) si scarica
+  const canPick = typeof window.showSaveFilePicker === 'function' && !inArtifact;
+  const JSON_TYPES = [{ description: 'Impostazioni SP Lab', accept: { 'application/json': ['.json'] } }];
+  const fileData = (name) => new TextEncoder().encode(JSON.stringify({ splab: 1, mode: state.mode, name, values: values(state.mode) }, null, 1));
+  const baseName = (n) => String(n).replace(/\.json$/i, '').slice(0, 60);
+  function showFileName() {
+    const on = !inHome && fileH && fileH.mode === state.mode, el = $('#fmCur');
+    el.hidden = !on; if (on) { el.textContent = fileH.name + '.json'; el.title = 'File salvato o aperto: ' + fileH.name + '.json'; }
   }
-  function usePreset(mode, q) {
-    state.values[mode] = JSON.parse(JSON.stringify(q.values || {}));
-    save(); renderParams(); schedule(0); setStatus('Impostazioni caricate: ' + q.name, 'ok');
+  function setFile(name) { fileH = { mode: state.mode, name }; showFileName(); }
+  // senza le API dei file (Safari, Firefox) il nome si chiede in una finestrella e il file si scarica in Download.
+  // Il download deve partire dentro il clic su "Salva": se parte dopo (alla chiusura della finestra) Safari lo blocca
+  function download(name) {
+    const data = fileData(name), fn = name.replace(/[\/\\:*?"<>|]+/g, '_') + '.json';
+    setFile(name);
+    if (inArtifact) { deliver(fn, data, 'application/json'); return; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' })); a.download = fn;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    setStatus('Salvato in Download: ' + fn, 'ok');
   }
-  function renderPresets() {
-    const list = loadPresets()[state.mode] || [], ul = $('#prList');
-    ul.innerHTML = list.length ? list.map((q, i) => `<li><button class="btn pr-name" type="button" data-use="${i}" title="Carica queste impostazioni">${esc(q.name)}<small>${new Date(q.date).toLocaleDateString('it-IT')}</small></button><button class="btn" type="button" data-del="${i}" title="Elimina" aria-label="Elimina ${esc(q.name)}">✕</button></li>`).join('')
-      : '<li class="pr-empty">Ancora nessuna</li>';
-  }
-  const showPresets = (on) => {
-    $('#presets').hidden = !on; $('#prOpen').setAttribute('aria-expanded', on);
-    if (on) { renderPresets(); const n = $('#prName'); if (!n.value) n.value = fileBase(); n.focus(); n.select(); }
-  };
-  $('#prOpen').addEventListener('click', () => showPresets($('#presets').hidden));
-  $('#prForm').addEventListener('submit', (e) => {
+  $('#fmDlg').addEventListener('submit', (e) => {
     e.preventDefault();
-    const name = $('#prName').value.trim() || fileBase();
-    if (addPreset(state.mode, name, values(state.mode))) { setStatus('Impostazioni salvate: ' + name, 'ok'); $('#prName').value = ''; renderPresets(); }
-    else setStatus('Il browser non lascia salvare qui: usa "Scarica come file"', 'err');
+    const name = baseName($('#fmName').value.trim());
+    if (!name) return;
+    $('#fmDlg').close();
+    download(name);
   });
-  $('#prList').addEventListener('click', (e) => {
-    const b = e.target.closest('button'); if (!b) return;
-    const all = loadPresets(), list = all[state.mode] || [];
-    if (b.dataset.use !== undefined) { const q = list[+b.dataset.use]; if (q) usePreset(state.mode, q); }
-    if (b.dataset.del !== undefined) { const q = list.splice(+b.dataset.del, 1)[0]; all[state.mode] = list; storePresets(all); renderPresets(); if (q) setStatus('Eliminate: ' + q.name, 'ok'); }
-  });
-  $('#prExport').addEventListener('click', () => {
-    const name = $('#prName').value.trim() || fileBase();
-    const data = { splab: 1, mode: state.mode, name, values: values(state.mode) };
-    deliver(name.replace(/[^\w.-]+/g, '_') + '.json', new TextEncoder().encode(JSON.stringify(data, null, 1)), 'application/json');
-  });
-  $('#prImport').addEventListener('change', (e) => {
+  $('#fmNo').addEventListener('click', () => $('#fmDlg').close());
+  async function saveAs() {
+    if (inHome) return;
+    const def = fileH && fileH.mode === state.mode ? fileH.name : fileBase();
+    if (!canPick) {
+      const dlg = $('#fmDlg'), inp = $('#fmName');
+      if (typeof dlg.showModal !== 'function') { download(def); return; }
+      inp.value = def; dlg.showModal(); inp.focus(); inp.select();
+      return;
+    }
+    try {
+      const h = await window.showSaveFilePicker({ suggestedName: def + '.json', types: JSON_TYPES });
+      const name = baseName(h.name), w = await h.createWritable();
+      await w.write(fileData(name)); await w.close();
+      setFile(name); setStatus('Salvato: ' + name + '.json', 'ok');
+    } catch (e) { if (e && e.name !== 'AbortError') setStatus('Salvataggio non riuscito', 'err'); }
+  }
+  function loadText(text, fname) {
+    let d = null; try { d = JSON.parse(String(text || '')); } catch (err) { d = null; }
+    if (!d || !d.values || !MODES[d.mode]) { setStatus('Il file non contiene impostazioni di SP Lab', 'err'); return; }
+    const name = baseName(fname);
+    state.values[d.mode] = JSON.parse(JSON.stringify(d.values));
+    fileH = { mode: d.mode, name };
+    save();
+    if (inHome || d.mode !== state.mode) go(d.mode);            // dalla pagina iniziale o da un altro generatore: ci vado
+    if (d.mode === state.mode) { renderParams(); schedule(0); }
+    showFileName();
+    setStatus('Aperto: ' + name + '.json', 'ok');
+  }
+  async function openFile() {
+    if (typeof window.showOpenFilePicker !== 'function' || inArtifact) { $('#fmInput').click(); return; }
+    try { const [h] = await window.showOpenFilePicker({ types: JSON_TYPES }); const f = await h.getFile(); loadText(await f.text(), f.name); }
+    catch (e) { if (e && e.name !== 'AbortError') setStatus('Il file non si apre', 'err'); }
+  }
+  $('#fmInput').addEventListener('change', (e) => {
     const f = e.target.files && e.target.files[0]; e.target.value = '';
     if (!f) return;
     const rd = new FileReader();
-    rd.onload = () => {
-      let d = null; try { d = JSON.parse(String(rd.result || '')); } catch (err) { d = null; }
-      if (!d || !d.values || !MODES[d.mode]) { setStatus('Il file non contiene impostazioni di SP Lab', 'err'); return; }
-      const name = String(d.name || f.name.replace(/\.json$/i, '')).slice(0, 60);
-      addPreset(d.mode, name, d.values);
-      if (d.mode === state.mode) { usePreset(d.mode, { name, values: d.values }); renderPresets(); return; }
-      // il file è di un altro generatore: ci vado con quei valori
-      state.values[d.mode] = JSON.parse(JSON.stringify(d.values)); save(); showPresets(false); go(d.mode);
-      setStatus('Impostazioni caricate: ' + name, 'ok');
-    };
+    rd.onload = () => loadText(rd.result, f.name);
     rd.readAsText(f);
+  });
+  const showFileMenu = (on) => { $('#fileMenu').hidden = !on; $('#fileBtn').setAttribute('aria-expanded', on); if (on) $('#fileMenu button:not(:disabled)').focus(); };
+  $('#fileBtn').addEventListener('click', () => showFileMenu($('#fileMenu').hidden));
+  document.addEventListener('click', (e) => { if (!e.target.closest('.filemenu')) showFileMenu(false); });
+  for (const [id, fn] of [['#fmSaveAs', saveAs], ['#fmOpen', openFile]]) $(id).addEventListener('click', () => { showFileMenu(false); fn(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('#fileMenu').hidden) { showFileMenu(false); $('#fileBtn').focus(); return; }
+    if (!(e.metaKey || e.ctrlKey) || e.altKey || $('#fmDlg').open) return;
+    const k = e.key.toLowerCase();
+    if (k === 's') { e.preventDefault(); saveAs(); }
+    else if (k === 'o' && !e.shiftKey) { e.preventDefault(); openFile(); }
   });
   $('#section').addEventListener('click', () => { sectionOn = !sectionOn; $('#section').setAttribute('aria-pressed', sectionOn); if (current) showResult(current); });
   $('#fit').addEventListener('click', () => { fitted = null; if (current) showResult(current); });

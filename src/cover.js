@@ -218,7 +218,8 @@
           const holes2 = U(lens.map(([X, Y, r]) => C2(X, Y, r, 64))), P = U([OFF(cam.plat, cw), holes2]);
           // tasca alla quota z (la fetta va fino a z1: prendo la tasca più larga, quella in alto)
           const Pat = (z1) => (cam.B0 ? U([OFF(cam.B0, -cam.ins(zTop - z1) + (cw - 0.6)), holes2]) : P);
-          const OPEN = (c) => (empty(c) ? null : R2(R2(c.offset(-WMIN / 2, 'Round', 2, 48)).offset(WMIN / 2, 'Round', 2, 48)));
+          // semplifico il contorno: ogni fetta parte da quella sotto e senza semplificare i punti raddoppiano a ogni fetta (lentissimo)
+          const OPEN = (c) => (empty(c) ? null : R2(R2(R2(c.offset(-WMIN / 2, 'Round', 2, 48)).offset(WMIN / 2, 'Round', 2, 48)).simplify(0.01)));
           // contorno esterno all'altezza z: W0 fino a ta, poi la flangia si allarga a gradini (stanno dentro l'incavo della cover)
           // nella parte che si allarga ogni gradino sta dentro la flangia smussata sia sotto sia sopra: quindi anche nell'incavo
           const NS = 3, flLoft = loft([[W0, ta], [flange, ta + hf]]);
