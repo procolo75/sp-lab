@@ -19,7 +19,7 @@ La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la 
 | **Pallina** | Pallina di Natale sferica, a goccia, a oliva o a cipolla, con decorazioni e scritta | 2 metà, anello, cappuccio, tappo del LED |
 | **Pallina a spirale** | Pallina intera che si stampa senza supporti: spicchi a spirale, a V o dritti sopra e sotto, fascia liscia con scritte e simboli traforati, foro per il LED | pallina, cappuccio, tappo |
 | **Palla piatta** | Palla di Natale piatta con cappuccio, sfondi (fiocchi, maglione nordico, bosco…), un disegno a colori o il tuo SVG, e il nome, anche su una fascia | 1, più il supporto da tavolo |
-| **Decorazione** | Decorazione piatta da appendere con 57 disegni Fluent Emoji a colori (fino a 4 filamenti) o con il tuo SVG, nome su targhetta, oppure solo il nome | 1, più il supporto da tavolo |
+| **Decorazione** | Decorazione piatta da appendere con 73 disegni Fluent Emoji a colori (fino a 4 filamenti) o con il tuo SVG, nome su targhetta, oppure solo il nome | 1, più il supporto da tavolo |
 | **Albero** | Albero a spirale, a strati o da incastrare, con stella in cima e base con scritta | 1 o 2 |
 | **Stella** | Stella 3D a punte, come puntale dell'albero o da appendere | 2 metà |
 | **Lanterna** | Lanterna traforata per lumini LED, con scritta | 1 |
@@ -34,7 +34,7 @@ La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la 
 | **Gancio** | Gancio a muro o appendiabiti con più ganci, sopra porta o anta, per tubo o bastone, a S; fissaggio a viti, biadesivo o magneti | 1 |
 | **Powerbank** | Scatola per un powerbank fai-da-te: portapile già pronto (o contatti a molla), cinque schede di ricarica con le porte già al loro posto, coperchio a slitta o a viti nascoste con scritta, loghi e il tuo SVG | scatola e coperchio (anche a colori) |
 | **Box schede ESP** | Scatola per un processore ESP (NodeMCU, D1 mini, ESP32, ESP32-CAM, ESP32-C3 con OLED) e fino a 5 moduli: sensori, display e pannelli LED WS2812B. Schede con i piedini e dupont, senza saldare; finestre nel coperchio e fori per i LED | scatola e coperchio |
-| **Antivibrazione tennis** | Antivibrazione per le corde, a bottone (tondo, ovale, esagono, cuore) o a verme, per schemi 16×19, 18×20 o con le tue misure, con una scritta | 1 |
+| **Antivibrazione tennis** | Antivibrazione per le corde, a bottone (10 forme, i disegni della libreria o il tuo SVG) o a verme, per schemi 16×19, 18×20 o con le tue misure, con una scritta | 1 |
 | **Antivibrazione padel** | Tappo per i fori della racchetta, o passante per tutto lo spessore, con una scritta sulla testa | quanti ne vuoi |
 | **Vite** | Vite con filetto metrico ISO da M3 a M30 (o misura libera), cinque tipi di testa | 1 |
 | **Bullone** | Vite con dado (esagonale, zigrinato o ad alette) e rondelle, già avvitabili tra loro | da 2 a 4 |
@@ -65,7 +65,7 @@ Tutti gli oggetti di Natale possono avere **fino a tre colori** (abbinamenti pro
 
   ![Palle piatte con disegni diversi](docs/img/palle.png)
 - **Decorazione piatta:** scegli il **motivo** dal menu e scrivi il nome.
-  - *Disegni* **Fluent Emoji** di Microsoft (licenza MIT), 57 soggetti: *Natale* (albero, Babbo Natale, Mamma Natale, renna, pupazzo di neve, elfo, angelo, campana, regalo, candela, stelle, slitta, fiocco, biscotto, caramelle, orsetto, matrioske, chiesa, case, cioccolata, luna), *Inverno* (fiocco di neve, nuvola, montagna, abete, guanti, sciarpa, cappotto, calze, sciatore, pattino), *Animali* (pinguino, orso polare, orso, volpe, gufo, gatto, cane, coniglio, riccio, uccellino, colomba) e *Feste* (cuori, quadrifoglio, corona, festa, coriandoli, palloncino, fuochi d'artificio).
+  - *Disegni* **Fluent Emoji** di Microsoft (licenza MIT), 73 soggetti: *Natale* (albero, Babbo Natale, Mamma Natale, renna, pupazzo di neve, elfo, angelo, campana, regalo, candela, stelle, slitta, fiocco, biscotto, caramelle, orsetto, matrioske, chiesa, case, cioccolata, luna), *Inverno* (fiocco di neve, nuvola, montagna, abete, guanti, sciarpa, cappotto, calze, sciatore, pattino), *Animali* (pinguino, orso polare, orso, volpe, gufo, gatto, cane, coniglio, riccio, uccellino, colomba) e *Feste* (cuori, quadrifoglio, corona, festa, coriandoli, palloncino, fuochi d'artificio) e *Sport* (racchette, coppa, medaglie, fulmine, fuoco, bicipite, faccine, teschio, razzo, sole, leone, squalo, impronte).
   - *Il tuo disegno:* il riquadro **Il tuo disegno (SVG)**, in cima al pannello, carica un file **SVG** con il pulsante o trascinandolo sopra (forme piene, tratti, gradienti, trasformazioni). Il disegno si usa subito al posto di quello della libreria; *Usa la libreria* torna ai disegni Fluent e *Usa questo* lo riprende. Resta salvato nel browser. C'è anche nella palla piatta e nella formina.
   - *Con il nome:* solo il nome (la decorazione è la scritta stessa, con il contorno che unisce le lettere), medaglione, targhetta. *Forme:* stella a punte, cuore.
   - **Colori, al massimo 4 filamenti:** il colore 1 è il pezzo, poi 2, 3 e 4. Ogni colore del disegno va sul filamento più simile; quelli uguali al colore 1 restano del colore del pezzo. *Colori del disegno* riduce i colori originali a 4 (il più esteso diventa il pezzo). La scritta va sul colore scelto, o in automatico su quello che si legge meglio.
@@ -256,7 +256,12 @@ Una scatola sola per un **processore** e fino a **5 moduli**, pensata per schede
 - **Cosa è stimato:** le misure delle schede vengono dai produttori e dai venditori; altezze dei componenti, distanza dei piedini dal bordo e posizione delle finestre sui moduli sono stimate (il riquadro lo dice per ogni scheda). Stampa prima il coperchio, che è sottile e veloce, e prova le schede nelle finestre; se una scheda ha misure diverse usa *Altra scheda*.
 
 ### Antivibrazione
-- **Tennis, bottone:** sta tra le due corde verticali centrali, sotto l'ultima orizzontale (la regola ITF lo vuole fuori dall'incrocio delle corde). Sotto ha due canali in cui le corde entrano di scatto. Scegli lo schema corde (16×19: 12,5 mm tra le corde centrali, 18×20: 10,5 mm, oppure *Misura tua*), il calibro della corda e la *Presa*, cioè quanto i canali sono più stretti della corda. Forma tonda, ovale, a esagono o a cuore, larghezza e spessore.
+- **Tennis, bottone:** sta tra le due corde verticali centrali, sotto l'ultima orizzontale (la regola ITF lo vuole fuori dall'incrocio delle corde). Sotto ha due canali in cui le corde entrano di scatto. Scegli lo schema corde (16×19: 12,5 mm tra le corde centrali, 18×20: 10,5 mm, oppure *Misura tua*), il calibro della corda e la *Presa*, cioè quanto i canali sono più stretti della corda, poi larghezza e spessore.
+- **Forme** (bottone e testa del tappo padel), dal menu *Forma*:
+  - forme semplici: tondo, ovale, esagono, ottagono, quadrato, scudo, goccia, stella, cuore, fiore;
+  - tutti i disegni della libreria, con il gruppo **Sport** in cima (racchetta e pallina, racchetta e volano, coppa, medaglie, fulmine, fuoco, bicipite, teschio, leone, squalo…);
+  - **il tuo SVG**, caricato nel riquadro sopra il menu.
+  Con un disegno la sua sagoma diventa la forma e, con *Colori del disegno sulla faccia*, i suoi colori vanno a filo sulla faccia sui filamenti 2–4 più simili. Se la forma è troppo stretta dove passano le corde viene allargata, o le viene aggiunta una fascia che copre le corde; delle parti staccate resta la più grande.
 - **Tennis, verme:** striscia lunga da 60 a 130 mm con una tacca per ogni corda verticale, alla distanza dello schema scelto. La scritta va sul fianco, che ha più spazio.
 - **Padel, tappo nel foro:** testa con la scritta e gambo con un dentino che si incastra in un foro della racchetta (i fori sono da 9 a 13 mm: misurali). Il gambo ha un taglio e un foro, così si stringe entrando. Testa tonda o a cuore.
 - **Padel, passante:** cilindro cavo lungo quanto lo spessore della racchetta (di solito 38 mm) con due nervature e un colletto sottile con la scritta. Il campo *Quanti* li mette già in coppia: uno per faccia nello stesso punto, in alto per più potenza, verso il manico per più controllo.

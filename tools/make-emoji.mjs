@@ -30,6 +30,10 @@ const LIST = [
   ['red-heart', 'Cuore', 'Feste'], ['heart-with-ribbon', 'Cuore con fiocco', 'Feste'], ['sparkling-heart', 'Cuore scintillante', 'Feste'],
   ['four-leaf-clover', 'Quadrifoglio', 'Feste'], ['crown', 'Corona', 'Feste'], ['party-popper', 'Festa', 'Feste'], ['confetti-ball', 'Coriandoli', 'Feste'],
   ['balloon', 'Palloncino', 'Feste'], ['fireworks', 'Fuochi d\'artificio', 'Feste'],
+  ['tennis', 'Racchetta e pallina', 'Sport'], ['badminton', 'Racchetta e volano', 'Sport'], ['trophy', 'Coppa', 'Sport'], ['1st-place-medal', 'Medaglia d\'oro', 'Sport'],
+  ['sports-medal', 'Medaglia', 'Sport'], ['high-voltage', 'Fulmine', 'Sport'], ['fire', 'Fuoco', 'Sport'], ['flexed-biceps', 'Bicipite', 'Sport'],
+  ['smiling-face-with-sunglasses', 'Faccina con occhiali da sole', 'Sport'], ['star-struck', 'Faccina con stelle', 'Sport'], ['skull', 'Teschio', 'Sport'],
+  ['rocket', 'Razzo', 'Sport'], ['sun', 'Sole', 'Sport'], ['lion', 'Leone', 'Sport'], ['shark', 'Squalo', 'Sport'], ['paw-prints', 'Impronte', 'Sport'],
 ];
 
 const { simplify, simplifyRing } = S;

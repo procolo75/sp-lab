@@ -104,7 +104,7 @@
     nozzleP('Scritta'),
     { sec: 'Scritta', id: 'stileTesto', label: 'Stile', type: 'select', def: styles[0][0], options: styles, show: p => String(p.scritta || '').trim() !== '',
       help: 'A filo: le lettere sono di un altro colore ma non sporgono, non si consumano e non si staccano.' },
-    { sec: 'Scritta', id: 'rilievoTesto', label: 'Spessore scritta', type: 'num', min: 0.4, max: 1.2, step: 0.2, def: 0.6, unit: 'mm', show: p => String(p.scritta || '').trim() !== '', help: 'In rilievo: quanto sporge. A filo o incisa: quanto è profonda.' },
+    { sec: 'Scritta', id: 'rilievoTesto', label: 'Spessore scritta', type: 'num', min: 0.4, max: 1.2, step: 0.2, def: 0.6, unit: 'mm', show: p => String(p.scritta || '').trim() !== '' || (isArtId(p.forma) && p.coloriDisegno !== false), help: 'In rilievo: quanto sporge. A filo o incisa: quanto è profonda. Vale anche per i colori del disegno.' },
   ];
   const textP = (d1, d2, font, cap, show) => [
     ...linesP('Scritta', d1, d2, cap, show),
@@ -133,6 +133,24 @@
     ['stella', 'Stella a punte', 'Forme'], ['cuore', 'Cuore semplice', 'Forme'],
     ['svg', 'Il tuo SVG (caricalo qui sopra)', 'Il tuo disegno'],
   ];
+  // forme degli antivibrazione: geometriche, i disegni (prima quelli sportivi) e il tuo SVG
+  const DAMP_OPTS = [
+    ...[['tondo', 'Tondo'], ['ovale', 'Ovale'], ['esagono', 'Esagono'], ['ottagono', 'Ottagono'], ['quadrato', 'Quadrato'], ['scudo', 'Scudo'],
+      ['goccia', 'Goccia'], ['stella', 'Stella'], ['cuore', 'Cuore'], ['fiore', 'Fiore']].map(([k, l]) => [k, l, 'Forme']),
+    ...EMOJI.filter(e => e.g === 'Sport').map(e => [e.id, e.it, e.g]),
+    ...EMOJI.filter(e => e.g !== 'Sport').map(e => [e.id, e.it, e.g]),
+    ['svg', 'Il tuo SVG (caricalo qui sopra)', 'Il tuo disegno'],
+  ];
+  const dampShapeP = (label, show) => [
+    { sec: 'Modello', id: 'svg', label: 'Il tuo disegno', type: 'svg', palKey: 'forma', use: { forma: 'svg' }, unuse: { forma: 'tondo' }, using: p => p.forma === 'svg', show },
+    { sec: 'Modello', id: 'forma', label, type: 'select', menu: true, def: 'tondo', options: DAMP_OPTS, show,
+      help: 'Forme semplici, i disegni Fluent Emoji (licenza MIT) o il tuo SVG: la sagoma del disegno diventa la forma. Se la forma non copre bene le corde viene allargata.' },
+    { sec: 'Modello', id: 'coloriDisegno', label: 'Colori del disegno sulla faccia', type: 'bool', def: true, show: p => (!show || show(p)) && isArtId(p.forma),
+      help: 'I colori del disegno a filo sulla faccia, sui filamenti 2–4 più simili. Spento resta solo la sagoma.' },
+  ];
+  // colori degli antivibrazione: il 3 e il 4 servono solo ai colori del disegno
+  const dampColorsP = (show) => colorsP(['Colore 1 · antivibrazione', 'Colore 2 · scritta', 'Colore 3 · disegno', 'Colore 4 · disegno'], false, true)
+    .map(q => (q.id === 'col3' || q.id === 'col4' ? Object.assign(q, { show: p => show(p) && isArtId(p.forma) && p.coloriDisegno !== false }) : q));
   // disegni della palla piatta
   const PALLA_OPTS = [
     ['fiocchi', 'Fiocchi di neve', 'Sfondi'], ['stelle', 'Stelle', 'Sfondi'], ['cuori', 'Cuori', 'Sfondi'], ['pois', 'Pois', 'Sfondi'],
@@ -830,7 +848,7 @@
       params: [
         { sec: 'Modello', id: 'modello', label: 'Modello', type: 'select', def: 'bottone', options: [['bottone', 'Bottone'], ['verme', 'Verme (lungo)']],
           help: 'Il bottone sta tra le due corde verticali centrali. Il verme si aggancia a più corde verticali e ha più spazio per la scritta.' },
-        { sec: 'Modello', id: 'forma', label: 'Forma', type: 'select', def: 'tondo', options: [['tondo', 'Tondo'], ['ovale', 'Ovale'], ['esagono', 'Esagono'], ['cuore', 'Cuore']], show: p => p.modello === 'bottone' },
+        ...dampShapeP('Forma', p => p.modello === 'bottone'),
         { sec: 'Misure', id: 'larghezza', label: 'Larghezza', type: 'num', min: 18, max: 35, step: 0.5, def: 24, unit: 'mm', show: p => p.modello === 'bottone', help: 'Di traverso alle corde. Più grande e più spesso smorza di più ma pesa di più.' },
         { sec: 'Misure', id: 'altezza', label: 'Spessore', type: 'num', min: 5, max: 12, step: 0.5, def: 7, unit: 'mm', show: p => p.modello === 'bottone' },
         { sec: 'Misure', id: 'lunghezza', label: 'Lunghezza', type: 'num', min: 60, max: 130, step: 1, def: 100, unit: 'mm', show: p => p.modello === 'verme' },
@@ -843,7 +861,7 @@
         { sec: 'Corde', id: 'calibro', label: 'Calibro corda', type: 'num', min: 1.1, max: 1.45, step: 0.05, def: 1.25, unit: 'mm', help: 'È sulla confezione delle corde: 15L = 1,35, 16 = 1,30, 16L = 1,25, 17 = 1,20.' },
         { sec: 'Corde', id: 'presa', label: 'Presa', type: 'num', min: 0, max: 0.3, step: 0.05, def: 0.15, unit: 'mm', help: 'Quanto i canali sono più stretti della corda. Se scivola via aumentala, se non entra diminuiscila.' },
         ...oneTextP('ACE', 4, [['rilievo', 'In rilievo'], ['filo', 'A filo, colorata'], ['incisa', 'Incisa']]),
-        ...colorsP(['Colore 1 · antivibrazione', 'Colore 2 · scritta'], false, true),
+        ...dampColorsP(p => p.modello === 'bottone'),
       ],
     },
     padel: {
@@ -851,7 +869,7 @@
       params: [
         { sec: 'Modello', id: 'tipo', label: 'Modello', type: 'select', def: 'tappo', options: [['tappo', 'Tappo nel foro'], ['passante', 'Passante (tutto lo spessore)']],
           help: 'Il tappo entra da una faccia e ha la testa con la scritta. Il passante attraversa tutta la racchetta e fuori resta solo un colletto sottile.' },
-        { sec: 'Modello', id: 'forma', label: 'Forma testa', type: 'select', def: 'tondo', options: [['tondo', 'Tonda'], ['cuore', 'Cuore']], show: p => p.tipo === 'tappo' },
+        ...dampShapeP('Forma testa', p => p.tipo === 'tappo'),
         { sec: 'Foro', id: 'foro', label: 'Diametro foro', type: 'num', min: 8, max: 14, step: 0.1, def: 12, unit: 'mm', help: 'I fori delle racchette da padel sono da 9 a 13 mm: misurali con il calibro.' },
         { sec: 'Foro', id: 'presa', label: 'Presa', type: 'num', min: 0, max: 0.8, step: 0.1, def: 0.3, unit: 'mm', help: 'Quanto il gambo è più grosso del foro. Se esce da solo aumentala, se non entra diminuiscila.' },
         { sec: 'Misure', id: 'diamTesta', label: 'Larghezza testa', type: 'num', min: 12, max: 28, step: 0.5, def: 19, unit: 'mm', show: p => p.tipo === 'tappo' },
@@ -860,7 +878,7 @@
         { sec: 'Misure', id: 'spRacchetta', label: 'Spessore racchetta', type: 'num', min: 30, max: 40, step: 0.5, def: 38, unit: 'mm', show: p => p.tipo === 'passante', help: 'Quasi tutte sono da 38 mm; alcune leggere o da ragazzi da 36 o meno.' },
         ...oneTextP('SP', 4, [['filo', 'A filo, colorata'], ['incisa', 'Incisa']]),
         { sec: 'Stampa', id: 'copie', label: 'Quanti', type: 'int', min: 1, max: 8, def: 2, help: 'Di solito si mettono a coppie, uno per faccia.' },
-        ...colorsP(['Colore 1 · antivibrazione', 'Colore 2 · scritta'], false, true),
+        ...dampColorsP(p => p.tipo === 'tappo'),
       ],
     },
   };
