@@ -8,7 +8,6 @@
   (root.SPRECOLO_EXT = root.SPRECOLO_EXT || []).push(function cassetti(H) {
     const { Manifold, reg, union, sub, box, cylZ, coneZ, hullPts, fmt } = H;
     const CIELO = 4;      // spessore del cielo: ci si avvita il gambo del bottoncino
-    const FONDO = 7;      // piastra del fondo, sopra la gonna
     const GONNA = 7;      // altezza della gonna cava sotto il modulo
     const INCAVO = 5;     // profondità delle cavità tonde nella piastra del fondo
     const GUIDA = 1.75;   // sporgenza delle guide sui fianchi interni
@@ -55,6 +54,7 @@
       const sp = { D: Math.round(ds * 0.587 * 10) / 10, P: Math.max(2, Math.round(ds / 10)) };   // filetto grosso, come nel modello Pork3D (Ø 17,6 passo 3 sul bottoncino da 30)
       const rCore = sp.D / 2 - 0.8;                                      // anima piena: il filetto sporge solo 0,8 mm, come nell'originale
       const Ls = CIELO - 0.6;
+      const FONDO = Math.max(INCAVO + 1, +p.fondo);                      // piastra del fondo sopra la gonna: sopra le cavità restano almeno 1 mm
       const zF = GONNA + FONDO, zC = Hm - CIELO;                         // pavimento e soffitto del vano
       const xI = W / 2 - t, yF = -D / 2, yB = D / 2 - t;
       const zc = (zF + zC) / 2, rb = Math.min(10, (zC - zF) / 4);         // centro e mezza base delle guide
@@ -107,17 +107,17 @@
       parts.push({ name: `Bottoncini (${nS} pezzi)`, m: union(placed), role: 'pin', print: union(flat) });
 
       // ---- cassetto ----
-      const gd = +p.giocoCassetto, ct = +p.cPareti, ts = ct + GUIDA + 0.6;   // fianchi più spessi: c'è la scanalatura per la guida
+      const gd = +p.giocoCassetto, ct = +p.cPareti, gdp = GUIDA - gd + 0.35, ts = ct + gdp;   // fianchi più spessi della scanalatura per la guida: dietro resta la parete normale
       const dw = 2 * xI - 2 * gd, dh = zC - zF - 2 * gd, dd = yB - yF - gd;
       const nT = p.separatori === 'nessuno' ? 0 : Math.max(0, p.sepTrasv | 0), nL = p.separatori === 'nessuno' ? 0 : Math.max(0, p.sepLong | 0);
       if (dw > 20 && dh > 10 && dd > 20) {
-        const iw = dw - 2 * ts, id = dd - 2 * ct, f = ct, R = Math.max(0.5, Math.min(+p.raccordo, iw / 4, id / 4, (dh - f) / 2));
+        const iw = dw - 2 * ts, id = dd - 2 * ct, f = +p.cFondo, R = Math.max(0.5, Math.min(+p.raccordo, iw / 4, id / 4, (dh - f) / 2));
         let dm = box(-dw / 2, -dd / 2, 0, dw / 2, dd / 2, dh);
         const cav = [];
         for (const x of [-iw / 2 + R, iw / 2 - R]) for (const y of [-id / 2 + R, id / 2 - R]) cav.push(reg(reg(Manifold.sphere(R, 48)).translate([x, y, f + R])), cylZ(R, f + R, dh + 1, x, y, 48));
         const dcuts = [hullPts(cav)];
         // scanalature sui fianchi: la guida entra con 0,25 mm di gioco sopra e sotto e 0,35 in fondo
-        const zg = zc - zF - gd, a = rb - GUIDA + 0.25, gdp = GUIDA - gd + 0.35;
+        const zg = zc - zF - gd, a = rb - GUIDA + 0.25;
         for (const sx of [-1, 1]) {
           const xo = sx * (dw / 2 + 1), xi = sx * (dw / 2 - gdp), pts = [];
           for (const y of [-dd / 2 - 1, dd / 2 + 1]) pts.push([xo, y, zg - a - gdp - 1], [xo, y, zg + a + gdp + 1], [xi, y, zg - a], [xi, y, zg + a]);

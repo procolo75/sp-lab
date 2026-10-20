@@ -7167,7 +7167,6 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
   (root.SPRECOLO_EXT = root.SPRECOLO_EXT || []).push(function cassetti(H) {
     const { Manifold, reg, union, sub, box, cylZ, coneZ, hullPts, fmt } = H;
     const CIELO = 4;      // spessore del cielo: ci si avvita il gambo del bottoncino
-    const FONDO = 7;      // piastra del fondo, sopra la gonna
     const GONNA = 7;      // altezza della gonna cava sotto il modulo
     const INCAVO = 5;     // profondità delle cavità tonde nella piastra del fondo
     const GUIDA = 1.75;   // sporgenza delle guide sui fianchi interni
@@ -7214,6 +7213,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       const sp = { D: Math.round(ds * 0.587 * 10) / 10, P: Math.max(2, Math.round(ds / 10)) };   // filetto grosso, come nel modello Pork3D (Ø 17,6 passo 3 sul bottoncino da 30)
       const rCore = sp.D / 2 - 0.8;                                      // anima piena: il filetto sporge solo 0,8 mm, come nell'originale
       const Ls = CIELO - 0.6;
+      const FONDO = Math.max(INCAVO + 1, +p.fondo);                      // piastra del fondo sopra la gonna: sopra le cavità restano almeno 1 mm
       const zF = GONNA + FONDO, zC = Hm - CIELO;                         // pavimento e soffitto del vano
       const xI = W / 2 - t, yF = -D / 2, yB = D / 2 - t;
       const zc = (zF + zC) / 2, rb = Math.min(10, (zC - zF) / 4);         // centro e mezza base delle guide
@@ -7266,17 +7266,17 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       parts.push({ name: `Bottoncini (${nS} pezzi)`, m: union(placed), role: 'pin', print: union(flat) });
 
       // ---- cassetto ----
-      const gd = +p.giocoCassetto, ct = +p.cPareti, ts = ct + GUIDA + 0.6;   // fianchi più spessi: c'è la scanalatura per la guida
+      const gd = +p.giocoCassetto, ct = +p.cPareti, gdp = GUIDA - gd + 0.35, ts = ct + gdp;   // fianchi più spessi della scanalatura per la guida: dietro resta la parete normale
       const dw = 2 * xI - 2 * gd, dh = zC - zF - 2 * gd, dd = yB - yF - gd;
       const nT = p.separatori === 'nessuno' ? 0 : Math.max(0, p.sepTrasv | 0), nL = p.separatori === 'nessuno' ? 0 : Math.max(0, p.sepLong | 0);
       if (dw > 20 && dh > 10 && dd > 20) {
-        const iw = dw - 2 * ts, id = dd - 2 * ct, f = ct, R = Math.max(0.5, Math.min(+p.raccordo, iw / 4, id / 4, (dh - f) / 2));
+        const iw = dw - 2 * ts, id = dd - 2 * ct, f = +p.cFondo, R = Math.max(0.5, Math.min(+p.raccordo, iw / 4, id / 4, (dh - f) / 2));
         let dm = box(-dw / 2, -dd / 2, 0, dw / 2, dd / 2, dh);
         const cav = [];
         for (const x of [-iw / 2 + R, iw / 2 - R]) for (const y of [-id / 2 + R, id / 2 - R]) cav.push(reg(reg(Manifold.sphere(R, 48)).translate([x, y, f + R])), cylZ(R, f + R, dh + 1, x, y, 48));
         const dcuts = [hullPts(cav)];
         // scanalature sui fianchi: la guida entra con 0,25 mm di gioco sopra e sotto e 0,35 in fondo
-        const zg = zc - zF - gd, a = rb - GUIDA + 0.25, gdp = GUIDA - gd + 0.35;
+        const zg = zc - zF - gd, a = rb - GUIDA + 0.25;
         for (const sx of [-1, 1]) {
           const xo = sx * (dw / 2 + 1), xi = sx * (dw / 2 - gdp), pts = [];
           for (const y of [-dd / 2 - 1, dd / 2 + 1]) pts.push([xo, y, zg - a - gdp - 1], [xo, y, zg + a + gdp + 1], [xi, y, zg - a], [xi, y, zg + a]);
@@ -7651,21 +7651,23 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Dimensioni', id: 'unita', label: 'Unità della griglia', type: 'num', min: 30, max: 70, step: 1, def: 50, unit: 'mm', help: 'Il passo dei mattoncini (un bottoncino per unità): tutti i moduli da incastrare fra loro devono avere la stessa unità.' },
         { sec: 'Dimensioni', id: 'larghezza', label: 'Larghezza', type: 'int', min: 1, max: 6, def: 4, unit: 'unità' },
         { sec: 'Dimensioni', id: 'profondita', label: 'Profondità', type: 'int', min: 1, max: 6, def: 2, unit: 'unità' },
-        { sec: 'Dimensioni', id: 'altezza', label: 'Altezza', type: 'num', min: 40, max: 150, step: 1, def: 60, unit: 'mm', help: 'Senza i bottoncini. Il cassetto è alto 20 mm in meno.' },
+        { sec: 'Dimensioni', id: 'altezza', label: 'Altezza', type: 'num', min: 40, max: 150, step: 1, def: 60, unit: 'mm', help: 'Senza i bottoncini. Il cassetto è più basso di gonna, fondo e cielo (20 mm con i valori iniziali).' },
         { sec: 'Bottoncini', id: 'diamBott', label: 'Diametro bottoncini', type: 'num', min: 12, max: 50, step: 0.5, def: 30, unit: 'mm', help: 'Si stampano a parte e si avvitano nel cielo del modulo. Sotto, ogni modulo ha la gonna cava e una cavità tonda per unità.' },
         { sec: 'Bottoncini', id: 'giocoIncastro', label: 'Gioco dell\'incastro', type: 'num', min: 0, max: 1, step: 0.05, def: 0.4, unit: 'mm', help: 'Quanto la cavità sotto è più larga del bottoncino. Se l\'incastro è duro aumentalo, se balla diminuiscilo.' },
         { sec: 'Bottoncini', id: 'viteGioco', label: 'Gioco del filetto', type: 'num', min: 0.1, max: 0.8, step: 0.05, def: 0.3, unit: 'mm', help: 'Se il bottoncino si avvita duro aumentalo, se balla diminuiscilo.' },
         { sec: 'Cassetto', id: 'maniglia', label: 'Maniglia', type: 'select', def: 'tacca', options: [['tacca', 'Tacca per le dita'], ['nessuna', 'Nessuna']] },
         { sec: 'Cassetto', id: 'taccaProf', label: 'Profondità tacca', type: 'num', min: 5, max: 40, step: 1, def: 10, unit: 'mm', show: p => p.maniglia === 'tacca', help: 'Quanto scende dal bordo del frontale.' },
-        { sec: 'Cassetto', id: 'cPareti', label: 'Pareti e fondo', type: 'num', min: 1.2, max: 3, step: 0.2, def: 2, unit: 'mm', help: 'I fianchi sono più spessi: ci passa la scanalatura per la guida.' },
-        { sec: 'Cassetto', id: 'raccordo', label: 'Raccordo interno', type: 'num', min: 1, max: 15, step: 0.5, def: 10, unit: 'mm', help: 'Angoli interni arrotondati: le cose si prendono meglio.' },
+        { sec: 'Cassetto', id: 'cPareti', label: 'Pareti cassetto', type: 'num', min: 0.8, max: 4, step: 0.2, def: 1.2, unit: 'mm', help: 'I fianchi sono più spessi della scanalatura per la guida (1,35 mm con il gioco iniziale).' },
+        { sec: 'Cassetto', id: 'cFondo', label: 'Fondo cassetto', type: 'num', min: 0.6, max: 4, step: 0.2, def: 1, unit: 'mm' },
+        { sec: 'Cassetto', id: 'raccordo', label: 'Raccordo interno', type: 'num', min: 1, max: 15, step: 0.5, def: 5, unit: 'mm', help: 'Angoli interni arrotondati: le cose si prendono meglio.' },
         { sec: 'Cassetto', id: 'giocoCassetto', label: 'Gioco nel vano', type: 'num', min: 0.3, max: 1.5, step: 0.05, def: 0.75, unit: 'mm', help: 'Spazio fra cassetto e modulo, per lato.' },
         { sec: 'Separatori', id: 'separatori', label: 'Separatori', type: 'select', def: 'estraibili', options: [['estraibili', 'Estraibili'], ['fissi', 'Fissi nel cassetto'], ['nessuno', 'Nessuno']], help: 'Gli estraibili sono lamine stampate in piano che scorrono nelle scanalature del cassetto: li sposti quando vuoi.' },
         { sec: 'Separatori', id: 'sepTrasv', label: 'Trasversali', type: 'int', min: 0, max: 10, def: 1, help: 'Paralleli al frontale.', show: p => p.separatori !== 'nessuno' },
         { sec: 'Separatori', id: 'sepLong', label: 'Longitudinali', type: 'int', min: 0, max: 10, def: 2, help: 'Dal frontale al fondo.', show: p => p.separatori !== 'nessuno' },
         { sec: 'Separatori', id: 'spDiv', label: 'Spessore', type: 'num', min: 0.8, max: 2.4, step: 0.4, def: 1.2, unit: 'mm', show: p => p.separatori !== 'nessuno' },
         { sec: 'Separatori', id: 'passo', label: 'Passo scanalature', type: 'num', min: 10, max: 60, step: 1, def: 20, unit: 'mm', show: p => p.separatori === 'estraibili', help: 'Ogni quanti millimetri c\'è una scanalatura dove infilare un separatore.' },
-        { sec: 'Struttura', id: 'pareti', label: 'Pareti modulo', type: 'num', min: 2, max: 6, step: 0.5, def: 4, unit: 'mm' },
+        { sec: 'Struttura', id: 'pareti', label: 'Pareti modulo', type: 'num', min: 1.2, max: 6, step: 0.2, def: 1.6, unit: 'mm', help: 'Meglio un multiplo della passata (1,2 / 1,6 / 2): lo slicer fa solo perimetri e stampa prima.' },
+        { sec: 'Struttura', id: 'fondo', label: 'Fondo modulo', type: 'num', min: 6, max: 12, step: 0.5, def: 6, unit: 'mm', help: 'Piastra sopra la gonna. Le cavità per i bottoncini sono profonde 5 mm, quindi almeno 6. Più spesso = cassetto più basso.' },
       ],
     },
     rack: {
