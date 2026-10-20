@@ -27,6 +27,7 @@ La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la 
 | **Contenitore** | Contenitore [Gridfinity](https://gridfinity.xyz/) impilabile, con divisori, raccordo frontale e ripiano per l'etichetta | 1 |
 | **Cassettiera** | Mobiletto Gridfinity con cassetti, impilabile, maniglie a scelta e divisori nei cassetti | mobile + un pezzo per cassetto |
 | **Base** | Griglia Gridfinity su cui agganciare contenitori e cassettiere | 1 |
+| **Cassetti modulari** | Mattoncini con cassetto che si impilano come i Lego: bottoncini avvitati sopra, gonna cava sotto, cassetto su guide, separatori estraibili; tutto senza supporti | modulo, bottoncini, cassetto, separatori |
 | **Rack telefoni** | Rack a fessure per riporre telefoni e tablet, con spessori diversi per ogni fessura | 1 |
 | **Cover telefono** | Cover per gli iPhone dal 12 al 17 (misure dei disegni Apple), OnePlus Nord o per qualsiasi telefono con le tue misure: TPU o PLA/PETG a scatto, cavalletto, scritta e il tuo SVG sul retro | 1, più copertura della fotocamera e cavalletto |
 | **Vasi** | Vasi per piante aromatiche: tondi, quadrati, esagonali o fioriera a scomparti; normali con sottovaso oppure autoirriganti | da 1 a 5 |
@@ -133,6 +134,13 @@ In ogni scritta puoi mettere il **viso** e il **viso di Natale** (con cappello d
 - Maniglia: tacca, aletta, pomello o nessuna.
 - Divisori dentro i cassetti.
 - Nell'anteprima uno slider apre i cassetti.
+
+### Cassetti modulari
+- Mattoncini a griglia come i Lego (passo 50 mm di default, larghezza e profondità in unità, altezza libera), sul modello del Building Brick Storage di Pork3D.
+- Bottoncini stampati a parte e avvitati nel cielo con un filetto grosso; sotto, gonna cava e una cavità tonda per unità. I moduli si impilano anche sfalsati.
+- Cassetto che scorre su due guide laterali, con angoli interni arrotondati e tacca per le dita.
+- Separatori estraibili che scorrono nelle scanalature del cassetto, con una tacca a ogni scanalatura per incrociarsi ovunque; oppure fissi.
+- Tutto senza supporti: modulo sdraiato sulla schiena, bottoncini in piedi, cassetto sul fondo, separatori in piano.
 
 ### Base
 ![Base](docs/img/base.png)
@@ -384,6 +392,7 @@ Ogni stampante è diversa. Il parametro **Tolleranza stampante** (0,3 mm all'ini
 │   ├── powerbank.js scatola per powerbank: celle, schede e connettori
 │   ├── schede.js   box per schede ESP e sensori: misure di processori, moduli e pannelli LED
 │   ├── racchette.js antivibrazione per racchette da tennis e padel
+│   ├── cassetti.js cassetti modulari a mattoncino
 │   ├── fonts.js    contorni dei caratteri (generato)
 │   ├── logos.js    contorni dei loghi per le scritte (generato da assets/)
 │   ├── svg.js      lettore SVG (disegni caricati e libreria)

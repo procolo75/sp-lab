@@ -912,7 +912,8 @@
       return h;
     }
     const H = { Manifold, Mesh: wasm.Mesh, CrossSection, reg, union, sub, box, cylZ, coneZ, cylY, hullPts, slab, rr, fmt, knurled, roundCyl,
-      csPoly, csCircle, csRect, csUnion, csSub, vite: { lista: VITI_STAMPA, spec: viteSpec, screw: viteStampata, hole: viteForo, T_DEPTH } };
+      csPoly, csCircle, csRect, csUnion, csSub, vite: { lista: VITI_STAMPA, spec: viteSpec, screw: viteStampata, hole: viteForo, rod: threadRod, T_DEPTH },
+      cassetto: makeDrawer };
     const EXT = {};
     for (const f of (root.SPRECOLO_EXT || [])) Object.assign(EXT, f(H));
 

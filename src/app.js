@@ -303,6 +303,29 @@
         ...common,
       ],
     },
+    lego: {
+      label: 'Cassetti modulari',
+      params: [
+        { sec: 'Dimensioni', id: 'unita', label: 'Unità della griglia', type: 'num', min: 30, max: 70, step: 1, def: 50, unit: 'mm', help: 'Il passo dei mattoncini (un bottoncino per unità): tutti i moduli da incastrare fra loro devono avere la stessa unità.' },
+        { sec: 'Dimensioni', id: 'larghezza', label: 'Larghezza', type: 'int', min: 1, max: 6, def: 4, unit: 'unità' },
+        { sec: 'Dimensioni', id: 'profondita', label: 'Profondità', type: 'int', min: 1, max: 6, def: 2, unit: 'unità' },
+        { sec: 'Dimensioni', id: 'altezza', label: 'Altezza', type: 'num', min: 40, max: 150, step: 1, def: 60, unit: 'mm', help: 'Senza i bottoncini. Il cassetto è alto 20 mm in meno.' },
+        { sec: 'Bottoncini', id: 'diamBott', label: 'Diametro bottoncini', type: 'num', min: 12, max: 50, step: 0.5, def: 30, unit: 'mm', help: 'Si stampano a parte e si avvitano nel cielo del modulo. Sotto, ogni modulo ha la gonna cava e una cavità tonda per unità.' },
+        { sec: 'Bottoncini', id: 'giocoIncastro', label: 'Gioco dell\'incastro', type: 'num', min: 0, max: 1, step: 0.05, def: 0.4, unit: 'mm', help: 'Quanto la cavità sotto è più larga del bottoncino. Se l\'incastro è duro aumentalo, se balla diminuiscilo.' },
+        { sec: 'Bottoncini', id: 'viteGioco', label: 'Gioco del filetto', type: 'num', min: 0.1, max: 0.8, step: 0.05, def: 0.3, unit: 'mm', help: 'Se il bottoncino si avvita duro aumentalo, se balla diminuiscilo.' },
+        { sec: 'Cassetto', id: 'maniglia', label: 'Maniglia', type: 'select', def: 'tacca', options: [['tacca', 'Tacca per le dita'], ['nessuna', 'Nessuna']] },
+        { sec: 'Cassetto', id: 'taccaProf', label: 'Profondità tacca', type: 'num', min: 5, max: 40, step: 1, def: 10, unit: 'mm', show: p => p.maniglia === 'tacca', help: 'Quanto scende dal bordo del frontale.' },
+        { sec: 'Cassetto', id: 'cPareti', label: 'Pareti e fondo', type: 'num', min: 1.2, max: 3, step: 0.2, def: 2, unit: 'mm', help: 'I fianchi sono più spessi: ci passa la scanalatura per la guida.' },
+        { sec: 'Cassetto', id: 'raccordo', label: 'Raccordo interno', type: 'num', min: 1, max: 15, step: 0.5, def: 10, unit: 'mm', help: 'Angoli interni arrotondati: le cose si prendono meglio.' },
+        { sec: 'Cassetto', id: 'giocoCassetto', label: 'Gioco nel vano', type: 'num', min: 0.3, max: 1.5, step: 0.05, def: 0.75, unit: 'mm', help: 'Spazio fra cassetto e modulo, per lato.' },
+        { sec: 'Separatori', id: 'separatori', label: 'Separatori', type: 'select', def: 'estraibili', options: [['estraibili', 'Estraibili'], ['fissi', 'Fissi nel cassetto'], ['nessuno', 'Nessuno']], help: 'Gli estraibili sono lamine stampate in piano che scorrono nelle scanalature del cassetto: li sposti quando vuoi.' },
+        { sec: 'Separatori', id: 'sepTrasv', label: 'Trasversali', type: 'int', min: 0, max: 10, def: 1, help: 'Paralleli al frontale.', show: p => p.separatori !== 'nessuno' },
+        { sec: 'Separatori', id: 'sepLong', label: 'Longitudinali', type: 'int', min: 0, max: 10, def: 2, help: 'Dal frontale al fondo.', show: p => p.separatori !== 'nessuno' },
+        { sec: 'Separatori', id: 'spDiv', label: 'Spessore', type: 'num', min: 0.8, max: 2.4, step: 0.4, def: 1.2, unit: 'mm', show: p => p.separatori !== 'nessuno' },
+        { sec: 'Separatori', id: 'passo', label: 'Passo scanalature', type: 'num', min: 10, max: 60, step: 1, def: 20, unit: 'mm', show: p => p.separatori === 'estraibili', help: 'Ogni quanti millimetri c\'è una scanalatura dove infilare un separatore.' },
+        { sec: 'Struttura', id: 'pareti', label: 'Pareti modulo', type: 'num', min: 2, max: 6, step: 0.5, def: 4, unit: 'mm' },
+      ],
+    },
     rack: {
       label: 'Rack telefoni',
       params: [
@@ -921,6 +944,7 @@
   const GROUPS = [
     { id: 'natale', title: 'Natale', cat: 'Feste', desc: 'Palline (anche a spirale, intere senza supporti), palle piatte con disegni e nome, decorazioni con il nome, alberi, stelle puntale, lanterne e formine per biscotti. Fino a tre colori.', modes: ['pallina', 'spirale', 'palla', 'piatto', 'albero', 'stella', 'lanterna', 'formina'], thumb: 'pallina' },
     { id: 'gridfinity', title: 'Gridfinity', cat: 'Organizzazione', desc: 'Contenitori impilabili, cassettiere con cassetti e basi a griglia da 42 mm.', modes: ['bin', 'cab', 'base'], thumb: 'cab' },
+    { id: 'lego', title: 'Cassetti modulari', cat: 'Organizzazione', desc: 'Mattoncini con cassetto che si impilano come i Lego: bottoncini avvitati sopra, gonna cava sotto, cassetto su guide e separatori estraibili. Tutto senza supporti.', modes: ['lego'], thumb: 'lego' },
     { id: 'rack', title: 'Rack telefoni', cat: 'Organizzazione', desc: 'Rack a fessure per riporre telefoni e tablet, anche di spessori diversi.', modes: ['rack'], thumb: 'rack' },
     { id: 'cover', title: 'Cover telefono', cat: 'Accessori', desc: 'Cover per iPhone dal 12 al 17 con le misure dei disegni Apple, OnePlus Nord, o per qualsiasi telefono con le tue misure. TPU o PLA/PETG a scatto, cornice per le lenti, cavalletto, scritta e il tuo SVG sul retro.', modes: ['cover'], thumb: 'cover' },
     { id: 'vasi', title: 'Vasi', cat: 'Casa e giardino', desc: 'Vasi e fioriere per aromatiche, normali con sottovaso o autoirriganti.', modes: ['vaso'], thumb: 'vaso' },
@@ -1147,7 +1171,7 @@
     }
     updateVisibility();
     renderHeader();
-    $('#openWrap').hidden = mode !== 'cab';
+    $('#openWrap').hidden = mode !== 'cab' && mode !== 'lego';
         $('#openLabel').textContent = 'Apri cassetti';
   }
   function updateVisibility() {
@@ -1529,6 +1553,7 @@ ${build}</build>
   function fileBase() {
     const v = values(state.mode);
     const s = state.mode === 'bin' ? `contenitore_${v.gridX}x${v.gridY}x${v.altU}` : state.mode === 'vaso' ? `vaso_${v.forma}_${Math.round(v.larghezza)}x${Math.round(v.altezza)}_${v.tipo}` : state.mode === 'rack' ? `rack_${String(v.spessoriLista || '').trim() ? 'misto' : v.fessure + 'x' + v.spessore + 'mm'}_${v.base}` : state.mode === 'cab' ? `cassettiera_${v.gridX}x${v.gridY}x${v.altU}_${v.righe * v.colonne}cassetti` : state.mode === 'base' ? `base_${v.gridX}x${v.gridY}` : null;
+    if (state.mode === 'lego') return `cassetto-modulare_${v.larghezza}x${v.profondita}_${v.unita}mm_h${v.altezza}`;
     if (state.mode === 'cover') { const nm = String(v.scritta || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24); return `cover_${v.modello}_${v.materiale}${v.tipo === 'cavalletto' ? '_cavalletto' : ''}${v.prova !== 'nessuna' ? '_prova-' + v.prova : ''}${nm ? '_' + nm : ''}`; }
     if (state.mode === 'schede') return `box_${v.cpu}${[v.mod1, v.mod2, v.mod3, v.mod4, v.mod5].filter(k => k && k !== 'nessuno').map(k => '_' + k).join('')}`;
     if (state.mode === 'powerbank') return `powerbank_${v.scheda}_${v.contatti === 'portapile' ? v.ppN * v.ppCelle : v.celle}celle_${v.coperchio}${v.prova && v.prova !== 'nessuna' ? '_prova-' + v.prova : ''}`;
