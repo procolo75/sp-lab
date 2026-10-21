@@ -1,16 +1,16 @@
-// Cassetti modulari a mattoncino: moduli impilabili come i Lego, con un cassetto che scorre su due guide e i separatori.
+// Cassetti modulari a mattoncino: moduli impilabili come i Lego, con un cassetto e i separatori.
 // Si aggancia al motore di geom.js tramite SPRECOLO_EXT. Coordinate in mm: x larghezza, y profondità (fronte verso -y), z altezza.
-// Tutto senza supporti:
-// - il modulo si stampa sdraiato sulla schiena (pareti, guide e gonna verticali; cavità e fori con la chiave piatta verso l'alto di stampa);
-// - i bottoncini si stampano a parte, in piedi, e si avvitano nei fori filettati del cielo;
-// - sotto, la gonna cava e le cavità tonde ricevono i bottoncini del modulo di sotto.
+// Modello nostro, fatto per usare poca plastica e stampare tutto dritto, senza supporti:
+// - la vaschetta (fondo, fianchi e schiena, davanti aperto) si stampa sul fondo; sotto ha i fori tondi per i bottoncini;
+// - il coperchio è una piastra che si stampa piatta con i bottoncini pieni sopra; entra fra le pareti e poggia su un
+//   battente a 45°; a scatto (un dentino sulle pareti) oppure da incollare;
+// - i bottoncini del coperchio entrano nei fori del fondo del modulo di sopra.
 (function (root) {
   (root.SPRECOLO_EXT = root.SPRECOLO_EXT || []).push(function cassetti(H) {
-    const { Manifold, reg, union, sub, box, cylZ, coneZ, hullPts, fmt } = H;
-    const CIELO = 4;      // spessore del cielo: ci si avvita il gambo del bottoncino
-    const GONNA = 7;      // altezza della gonna cava sotto il modulo
-    const INCAVO = 5;     // profondità delle cavità tonde nella piastra del fondo
-    const GUIDA = 1.75;   // sporgenza delle guide sui fianchi interni
+    const { Manifold, reg, union, sub, box, cylZ, hullPts, fmt } = H;
+    const GUIDA = 1.75;   // sporgenza delle guide sui fianchi interni (se ci sono)
+    const LED = 2;        // larghezza del battente che regge il coperchio
+    const SMU = 1;        // smusso del bordo del coperchio (a scatto): il dentino delle pareti ci si aggancia sopra
 
     // posizioni a passo fisso centrate nel vano (almeno `m` mm dalle pareti)
     function slots(span, pitch, m) {
@@ -26,9 +26,14 @@
       for (let i = 0; i < k; i++) out.push(list[Math.round((i + 1) * (list.length + 1) / (k + 1)) - 1]);
       return [...new Set(out)];
     }
-    // foro tondo lungo z con la chiave piatta verso -y (in stampa, col modulo sulla schiena, -y è l'alto): il cielo del foro è un ponte corto
-    function keyhole(r, kw, ext, z0, z1, x, y) {
-      return hullPts([cylZ(r, z0, z1, x, y, 72), box(x - kw / 2, y - r - ext, z0, x + kw / 2, y - r - ext + 0.01, z1)]);
+    // prisma lungo una parete: profilo [u (verso l'interno), z] estruso lungo la parete; side: 'sx', 'dx' o 'dietro'
+    function along(side, prof, xI, y0, yB) {
+      const pts = [];
+      for (const [u, z] of prof) {
+        if (side === 'dietro') pts.push([-xI, yB - u, z], [xI, yB - u, z]);
+        else { const sx = side === 'sx' ? -1 : 1; pts.push([sx * (xI - u), y0, z], [sx * (xI - u), yB, z]); }
+      }
+      return hullPts(pts);
     }
     // separatore stampato in piano: lungo L (x), alto hp (y), spesso th (z); tacche a mezza altezza dove si incrocia,
     // angoli sotto smussati a 45° per stare sopra il raccordo del cassetto
@@ -45,70 +50,62 @@
 
     function lego(p) {
       const U = +p.unita, nx = Math.max(1, p.larghezza | 0), ny = Math.max(1, p.profondita | 0);
-      const W = nx * U, D = ny * U, Hm = +p.altezza, t = +p.pareti;
+      const W = nx * U, D = ny * U, Hm = +p.altezza, t = +p.pareti, tl = +p.cielo;
       const notes = [];
+      const gI = +p.giocoIncastro, gc = +p.giocoCoperchio, hb = +p.altBott, snap = p.fissaggio !== 'colla', smu = Math.min(SMU, tl - 0.4);
+      // bottoncino: deve stare nella sua unità, lontano dalle pareti
       let ds = +p.diamBott;
-      if (ds > U - 2 * t - 4) { ds = U - 2 * t - 4; notes.push(`~Bottoncini ridotti a ${fmt(ds)} mm: devono stare dentro la gonna del modulo di sopra`); }
-      const gI = +p.giocoIncastro, gT = +p.viteGioco, rS = ds / 2 + gI / 2;
-      const hs = GONNA + INCAVO - 0.6;                                   // testa del bottoncino: entra in gonna + cavità con 0,6 mm d'aria
-      const sp = { D: Math.round(ds * 0.587 * 10) / 10, P: Math.max(2, Math.round(ds / 10)) };   // filetto grosso, come nel modello Pork3D (Ø 17,6 passo 3 sul bottoncino da 30)
-      const rCore = sp.D / 2 - 0.8;                                      // anima piena: il filetto sporge solo 0,8 mm, come nell'originale
-      const Ls = CIELO - 0.6;
-      const FONDO = Math.max(INCAVO + 1, +p.fondo);                      // piastra del fondo sopra la gonna: sopra le cavità restano almeno 1 mm
-      const zF = GONNA + FONDO, zC = Hm - CIELO;                         // pavimento e soffitto del vano
-      const xI = W / 2 - t, yF = -D / 2, yB = D / 2 - t;
+      const dMax = U - 2 * t - 4;
+      if (ds > dMax) { ds = Math.floor(dMax * 2) / 2; notes.push(`~Bottoncini ridotti a ${fmt(ds)} mm: devono stare nella loro unità`); }
+      const tf = hb + 0.4;                                                 // fondo: il bottoncino del modulo sotto ci entra e resta 0,4 mm più basso
+      const xI = W / 2 - t, yB = D / 2 - t, y0 = -D / 2;
+      const zL = Hm - tl;                                                  // il coperchio poggia qui, sul battente
+      const zF = tf, zC = zL - LED;                                        // pavimento e soffitto del vano (sotto il battente)
+      const guide = p.guide === 'si';
       const zc = (zF + zC) / 2, rb = Math.min(10, (zC - zF) / 4);         // centro e mezza base delle guide
       if (zC - zF < 15) notes.push('Il vano è troppo basso: aumenta l\'altezza del modulo.');
-
-      // ---- modulo ----
       const cx = [], cy = [];
       for (let i = 0; i < nx; i++) cx.push((i - (nx - 1) / 2) * U);
       for (let j = 0; j < ny; j++) cy.push((j - (ny - 1) / 2) * U);
-      const solid = [box(-W / 2, -D / 2, 0, W / 2, D / 2, Hm)];
-      // guide: trapezio a 45° sui fianchi interni, per tutta la profondità del vano
-      for (const sx of [-1, 1]) {
-        const x0 = sx * (xI + 0.01), x1 = sx * (xI - GUIDA), pts = [];
-        for (const y of [yF, yB + 0.01]) pts.push([x0, y, zc - rb], [x0, y, zc + rb], [x1, y, zc - rb + GUIDA], [x1, y, zc + rb - GUIDA]);
-        solid.push(hullPts(pts));
-      }
-      const cuts = [box(-xI, yF - 1, zF, xI, yB, zC)];
-      // gonna cava sotto: fianchi dritti, davanti e dietro smussati a 45° (in stampa il davanti è in alto e non fa ponte)
-      const gi = t + GONNA;
-      cuts.push(hullPts([box(-xI, -D / 2 + t - 1, -1, xI, D / 2 - t + 1, -0.99), box(-xI, -D / 2 + gi, GONNA - 0.01, xI, D / 2 - gi, GONNA)]));
-      const hole = union([reg(H.vite.rod(sp, CIELO + 1, gT / 2, false, 0.5).translate([0, 0, Hm - CIELO - 0.5])), cylZ(rCore + gT / 2, Hm - CIELO - 0.5, Hm + 0.5, 0, 0, 96)]);
-      const rKey = rCore + gT / 2;
-      for (const x of cx) for (const y of cy) {
-        cuts.push(keyhole(rS, Math.min(14, rS), 1.8, -1, GONNA + INCAVO, x, y));   // cavità per il bottoncino del modulo sotto (taglia anche lo smusso della gonna)
-        cuts.push(reg(hole.translate([x, y, 0])), keyhole(rKey, Math.min(6, sp.D / 3), 1.2, Hm - CIELO - 0.5, Hm + 0.5, x, y));
-      }
-      const body = sub(union(solid), union(cuts));
-      const parts = [{ name: `Modulo ${nx}×${ny}`, m: body, role: 'body', print: reg(body.rotate([-90, 0, 0])) }];
+
+      // ---- vaschetta: stampata sul fondo; il battente a 45° e il dentino crescono dalla parete ----
+      const sides = ['sx', 'dx', 'dietro'];
+      const add = sides.map(sd => along(sd, [[0, zL - LED], [0, zL], [LED, zL]], xI, y0, yB));
+      // dentino a scatto: sopra il bordo smussato del coperchio, sporge b verso l'interno, sopra e sotto a 45°
+      const bd = smu / 2;
+      if (snap) for (const sd of sides) add.push(along(sd, [[0, Hm - smu], [bd, Hm - bd], [0, Hm]], xI, y0, yB));
+      const holes = [];
+      for (const x of cx) for (const y of cy) holes.push(cylZ(ds / 2 + gI / 2, -1, tf + 1, x, y, 96));
+      const tray = sub(union([sub(box(-W / 2, y0, 0, W / 2, D / 2, Hm), box(-xI, y0 - 1, tf, xI, yB, Hm + 1)), ...add,
+        ...(guide ? [-1, 1].map(sx => {   // guide: trapezio a 45° sui fianchi interni, per tutta la profondità del vano
+          const x0 = sx * (xI + 0.01), x1 = sx * (xI - GUIDA), pts = [];
+          for (const y of [y0, yB + 0.01]) pts.push([x0, y, zc - rb], [x0, y, zc + rb], [x1, y, zc - rb + GUIDA], [x1, y, zc + rb - GUIDA]);
+          return hullPts(pts);
+        }) : [])]), union(holes));
+      const parts = [{ name: `Vaschetta ${nx}×${ny}`, m: tray, role: 'body' }];
+
+      // ---- coperchio: piastra fra le pareti con i bottoncini pieni sopra; a scatto il bordo è smussato sotto il dentino ----
+      const lx = xI - gc, ly0 = y0, ly1 = yB - gc;
+      let lid = box(-lx, ly0, zL, lx, ly1, Hm);
+      if (snap) lid = sub(lid, union([
+        hullPts([[-lx - 1, ly0 - 1, Hm - smu - 1], [-lx - 1, ly0 - 1, Hm + 1], [-lx + smu + 1, ly0 - 1, Hm + 1], [-lx - 1, ly1 + 1, Hm - smu - 1], [-lx - 1, ly1 + 1, Hm + 1], [-lx + smu + 1, ly1 + 1, Hm + 1]]),
+        hullPts([[lx + 1, ly0 - 1, Hm - smu - 1], [lx + 1, ly0 - 1, Hm + 1], [lx - smu - 1, ly0 - 1, Hm + 1], [lx + 1, ly1 + 1, Hm - smu - 1], [lx + 1, ly1 + 1, Hm + 1], [lx - smu - 1, ly1 + 1, Hm + 1]]),
+        hullPts([[-lx - 1, ly1 + 1, Hm - smu - 1], [-lx - 1, ly1 + 1, Hm + 1], [-lx - 1, ly1 - smu - 1, Hm + 1], [lx + 1, ly1 + 1, Hm - smu - 1], [lx + 1, ly1 + 1, Hm + 1], [lx + 1, ly1 - smu - 1, Hm + 1]]),
+      ]));
+      const studs = [];
+      for (const x of cx) for (const y of cy) studs.push(cylZ(ds / 2, Hm - 0.01, Hm + hb, x, y, 96));
+      lid = union([lid, ...studs]);
+      parts.push({ name: 'Coperchio', m: lid, role: 'pin', print: reg(lid.translate([0, 0, -zL])) });
+      const nS = cx.length * cy.length;
       const info = [
-        ['Modulo', `${fmt(W)} × ${fmt(D)} × ${fmt(Hm)} mm (${nx} × ${ny} unità da ${fmt(U)} mm)`],
-        ['Vano', `${fmt(2 * xI)} × ${fmt(yB - yF)} × ${fmt(zC - zF)} mm, guide sui fianchi`],
+        ['Modulo', `${fmt(W)} × ${fmt(D)} × ${fmt(Hm)} mm (${nx} × ${ny} unità da ${fmt(U)} mm), pareti ${fmt(t)}, fondo ${fmt(tf)}, coperchio ${fmt(tl)} mm`],
+        ['Vano', `${fmt(2 * xI)} × ${fmt(yB - y0)} × ${fmt(zC - zF)} mm${guide ? ', guide sui fianchi' : ''}`],
       ];
 
-      // ---- bottoncini: testa Ø ds alta hs (smusso in cima), gambo filettato sotto ----
-      const c = -gT / 2, r0 = rCore + c - 0.5;
-      let rod = union([reg(H.vite.rod(sp, Ls + 0.5, c, false, 0.5).translate([0, 0, -Ls])), cylZ(rCore + c, -Ls, 0.5, 0, 0, 96)]);
-      rod = reg(rod.intersect(coneZ(r0, r0 + Ls + 2, -Ls, 2, 96)));
-      const st = union([hullPts([cylZ(ds / 2, 0, hs - 1, 0, 0, 96), cylZ(ds / 2 - 1, hs - 0.01, hs, 0, 0, 96)]), rod]);
-      // nell'anteprima giro il bottoncino finché il suo filetto combacia con quello del foro
-      const probe = sub(cylZ(sp.D, -CIELO, 0, 0, 0, 48), reg(hole.translate([0, 0, -Hm])));
-      let stA = st, best = Infinity;
-      for (let k = 0; k < 24; k++) {
-        const r = reg(st.rotate([0, 0, k * 15])), v = reg(r.intersect(probe)).volume();
-        if (v < best - 1e-6) { best = v; stA = r; }
-      }
-      const nS = cx.length * cy.length, cols = Math.ceil(Math.sqrt(nS)), step = ds + 4, flipS = reg(st.rotate([180, 0, 0]));
-      const placed = [], flat = [];
-      for (const x of cx) for (const y of cy) placed.push(reg(stA.translate([x, y, Hm])));
-      for (let k = 0; k < nS; k++) flat.push(reg(flipS.translate([(k % cols) * step, Math.floor(k / cols) * step, 0])));
-      parts.push({ name: `Bottoncini (${nS} pezzi)`, m: union(placed), role: 'pin', print: union(flat) });
-
       // ---- cassetto ----
-      const gd = +p.giocoCassetto, ct = +p.cPareti, gdp = GUIDA - gd + 0.35, ts = ct + gdp;   // fianchi più spessi della scanalatura per la guida: dietro resta la parete normale
-      const dw = 2 * xI - 2 * gd, dh = zC - zF - 2 * gd, dd = yB - yF - gd;
+      // con le guide i fianchi sono più spessi della scanalatura (dietro resta la parete normale); senza, il cassetto scorre sul pavimento
+      const gd = +p.giocoCassetto, ct = +p.cPareti, gdp = guide ? GUIDA - gd + 0.35 : 0, ts = ct + gdp;
+      const dw = 2 * xI - 2 * gd, dh = zC - zF - 2 * gd, dd = yB - y0 - gd;
       const nT = p.separatori === 'nessuno' ? 0 : Math.max(0, p.sepTrasv | 0), nL = p.separatori === 'nessuno' ? 0 : Math.max(0, p.sepLong | 0);
       if (dw > 20 && dh > 10 && dd > 20) {
         const iw = dw - 2 * ts, id = dd - 2 * ct, f = +p.cFondo, R = Math.max(0.5, Math.min(+p.raccordo, iw / 4, id / 4, (dh - f) / 2));
@@ -118,7 +115,7 @@
         const dcuts = [hullPts(cav)];
         // scanalature sui fianchi: la guida entra con 0,25 mm di gioco sopra e sotto e 0,35 in fondo
         const zg = zc - zF - gd, a = rb - GUIDA + 0.25;
-        for (const sx of [-1, 1]) {
+        if (guide) for (const sx of [-1, 1]) {
           const xo = sx * (dw / 2 + 1), xi = sx * (dw / 2 - gdp), pts = [];
           for (const y of [-dd / 2 - 1, dd / 2 + 1]) pts.push([xo, y, zg - a - gdp - 1], [xo, y, zg + a + gdp + 1], [xi, y, zg - a], [xi, y, zg + a]);
           dcuts.push(hullPts(pts));
@@ -128,7 +125,7 @@
         const tacca = tp > 0 ? reg(hullPts([reg(reg(reg(Manifold.cylinder(ct + 2, rw, rw, 64)).rotate([-90, 0, 0])).translate([0, -dd / 2 - 1, dh - tp + rw])), box(-rw, -dd / 2 - 1, dh + 1, rw, -dd / 2 + ct + 1, dh + 2)])
           .intersect(box(-rw - 1, -dd / 2 - 2, dh - tp, rw + 1, -dd / 2 + ct + 2, dh + 3))) : null;
         dm = sub(dm, union(dcuts));
-        const at = [0, yF + dd / 2, zF + gd], size = [dw, dd, dh];
+        const at = [0, y0 + dd / 2, zF + gd], size = [dw, dd, dh];
         if (nT || nL) {
           const removable = p.separatori === 'estraibili';
           const s = +p.spDiv + (removable ? 0.3 : 0), rt = 0.8, rp = 1.2, pitch = +p.passo, th = +p.spDiv;
@@ -168,9 +165,10 @@
         parts.splice(2, 0, { name: 'Cassetto', m: dm, role: 'drawer', at, size });
         info.push(['Cassetto', `${fmt(dw)} × ${fmt(dd)} × ${fmt(dh)} mm, interno ${fmt(iw)} × ${fmt(id)} × ${fmt(dh - f)} mm`]);
       } else info.push(['Cassetto', 'troppo piccolo']);
-      info.push(['Bottoncini', `${nS}, Ø ${fmt(ds)} × ${fmt(hs)} mm, gambo Ø ${fmt(2 * rCore)} con filetto fino a Ø ${fmt(sp.D)}, passo ${fmt(sp.P)}: si avvitano a mano nel cielo. Sul modulo in cima puoi non metterli`]);
-      info.push(['Stampa', 'Modulo sdraiato sulla schiena, bottoncini con la testa sul piatto, cassetto sul fondo, separatori in piano: niente supporti']);
-      info.push(['Prova', 'Se il bottoncino entra duro nella cavità aumenta il gioco dell\'incastro, se si avvita duro il gioco del filetto']);
+      info.push(['Bottoncini', `${nS} pieni, Ø ${fmt(ds)} alti ${fmt(hb)} mm, stampati sul coperchio; entrano nei fori Ø ${fmt(ds + gI)} del fondo del modulo di sopra`]);
+      info.push(['Coperchio', snap ? `a scatto: si preme fra le pareti finché il dentino (${fmt(bd)} mm) scatta sul bordo smussato` : 'poggia sul battente: incollalo lungo i bordi']);
+      info.push(['Stampa', 'Vaschetta sul fondo, coperchio piatto con i bottoncini in su, cassetto sul fondo, separatori in piano: niente supporti']);
+      info.push(['Prova', 'Il gioco dell\'incastro allarga o stringe i fori del fondo (i bottoncini non cambiano): se balla diminuiscilo, se entra duro aumentalo']);
       for (const n of notes) info.push(['Nota', n]);
       return { parts, info, view: [-0.6, -1, 0.75] };
     }

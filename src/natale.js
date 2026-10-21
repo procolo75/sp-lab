@@ -170,8 +170,8 @@
     }
 
     // ---------- marchio SP ----------
-    // "SP" nel carattere Tondo, alla misura più piccola che l'ugello stampa pulita: linee di almeno due passate, spazi di almeno una.
-    // La misura dipende solo dall'ugello (con 0,4 circa 7,3 × 4,8 mm); centrato in (0,0)
+    // "SP" nel carattere Tondo, con margine sulla misura minima: linee larghe almeno 3 volte l'ugello, spazi almeno 1,5 volte
+    // (al minimo stretto, due passate e spazi di una, a volte veniva male). La misura dipende solo dall'ugello (con 0,4 circa 9,2 × 6,1 mm); centrato in (0,0)
     const markCache = new Map();
     function markCS(noz) {
       noz = +noz || 0.4;
@@ -182,7 +182,7 @@
         // larghezza delle linee e degli spazi più sottili (oltre l'1% dell'area), come per i loghi
         const width = (loss) => { let lo = 0.001, hi = 5; for (let k = 0; k < 30; k++) { const m = (lo + hi) / 2; if (loss(m) > 0.01) hi = m; else lo = m; } return 2 * lo; };
         const wl = width(r => (A - OFF(OFF(c, -r), r).area()) / A), wg = width(r => (OFF(OFF(c, r), -r).area() - A) / A);
-        const w1 = noz * 1.05, k = Math.max(2 * w1 / wl, w1 / wg);
+        const k = Math.max(3 * noz / wl, 1.5 * noz / wg);
         markCache.set(noz, c.scale([k, k]));   // non registrato: deve sopravvivere alla pulizia di fine generazione
       }
       return markCache.get(noz);

@@ -3099,8 +3099,8 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
     }
 
     // ---------- marchio SP ----------
-    // "SP" nel carattere Tondo, alla misura più piccola che l'ugello stampa pulita: linee di almeno due passate, spazi di almeno una.
-    // La misura dipende solo dall'ugello (con 0,4 circa 7,3 × 4,8 mm); centrato in (0,0)
+    // "SP" nel carattere Tondo, con margine sulla misura minima: linee larghe almeno 3 volte l'ugello, spazi almeno 1,5 volte
+    // (al minimo stretto, due passate e spazi di una, a volte veniva male). La misura dipende solo dall'ugello (con 0,4 circa 9,2 × 6,1 mm); centrato in (0,0)
     const markCache = new Map();
     function markCS(noz) {
       noz = +noz || 0.4;
@@ -3111,7 +3111,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         // larghezza delle linee e degli spazi più sottili (oltre l'1% dell'area), come per i loghi
         const width = (loss) => { let lo = 0.001, hi = 5; for (let k = 0; k < 30; k++) { const m = (lo + hi) / 2; if (loss(m) > 0.01) hi = m; else lo = m; } return 2 * lo; };
         const wl = width(r => (A - OFF(OFF(c, -r), r).area()) / A), wg = width(r => (OFF(OFF(c, r), -r).area() - A) / A);
-        const w1 = noz * 1.05, k = Math.max(2 * w1 / wl, w1 / wg);
+        const k = Math.max(3 * noz / wl, 1.5 * noz / wg);
         markCache.set(noz, c.scale([k, k]));   // non registrato: deve sopravvivere alla pulizia di fine generazione
       }
       return markCache.get(noz);
@@ -7157,19 +7157,19 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
 
 </script>
 <script>
-// Cassetti modulari a mattoncino: moduli impilabili come i Lego, con un cassetto che scorre su due guide e i separatori.
+// Cassetti modulari a mattoncino: moduli impilabili come i Lego, con un cassetto e i separatori.
 // Si aggancia al motore di geom.js tramite SPRECOLO_EXT. Coordinate in mm: x larghezza, y profondità (fronte verso -y), z altezza.
-// Tutto senza supporti:
-// - il modulo si stampa sdraiato sulla schiena (pareti, guide e gonna verticali; cavità e fori con la chiave piatta verso l'alto di stampa);
-// - i bottoncini si stampano a parte, in piedi, e si avvitano nei fori filettati del cielo;
-// - sotto, la gonna cava e le cavità tonde ricevono i bottoncini del modulo di sotto.
+// Modello nostro, fatto per usare poca plastica e stampare tutto dritto, senza supporti:
+// - la vaschetta (fondo, fianchi e schiena, davanti aperto) si stampa sul fondo; sotto ha i fori tondi per i bottoncini;
+// - il coperchio è una piastra che si stampa piatta con i bottoncini pieni sopra; entra fra le pareti e poggia su un
+//   battente a 45°; a scatto (un dentino sulle pareti) oppure da incollare;
+// - i bottoncini del coperchio entrano nei fori del fondo del modulo di sopra.
 (function (root) {
   (root.SPRECOLO_EXT = root.SPRECOLO_EXT || []).push(function cassetti(H) {
-    const { Manifold, reg, union, sub, box, cylZ, coneZ, hullPts, fmt } = H;
-    const CIELO = 4;      // spessore del cielo: ci si avvita il gambo del bottoncino
-    const GONNA = 7;      // altezza della gonna cava sotto il modulo
-    const INCAVO = 5;     // profondità delle cavità tonde nella piastra del fondo
-    const GUIDA = 1.75;   // sporgenza delle guide sui fianchi interni
+    const { Manifold, reg, union, sub, box, cylZ, hullPts, fmt } = H;
+    const GUIDA = 1.75;   // sporgenza delle guide sui fianchi interni (se ci sono)
+    const LED = 2;        // larghezza del battente che regge il coperchio
+    const SMU = 1;        // smusso del bordo del coperchio (a scatto): il dentino delle pareti ci si aggancia sopra
 
     // posizioni a passo fisso centrate nel vano (almeno `m` mm dalle pareti)
     function slots(span, pitch, m) {
@@ -7185,9 +7185,14 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       for (let i = 0; i < k; i++) out.push(list[Math.round((i + 1) * (list.length + 1) / (k + 1)) - 1]);
       return [...new Set(out)];
     }
-    // foro tondo lungo z con la chiave piatta verso -y (in stampa, col modulo sulla schiena, -y è l'alto): il cielo del foro è un ponte corto
-    function keyhole(r, kw, ext, z0, z1, x, y) {
-      return hullPts([cylZ(r, z0, z1, x, y, 72), box(x - kw / 2, y - r - ext, z0, x + kw / 2, y - r - ext + 0.01, z1)]);
+    // prisma lungo una parete: profilo [u (verso l'interno), z] estruso lungo la parete; side: 'sx', 'dx' o 'dietro'
+    function along(side, prof, xI, y0, yB) {
+      const pts = [];
+      for (const [u, z] of prof) {
+        if (side === 'dietro') pts.push([-xI, yB - u, z], [xI, yB - u, z]);
+        else { const sx = side === 'sx' ? -1 : 1; pts.push([sx * (xI - u), y0, z], [sx * (xI - u), yB, z]); }
+      }
+      return hullPts(pts);
     }
     // separatore stampato in piano: lungo L (x), alto hp (y), spesso th (z); tacche a mezza altezza dove si incrocia,
     // angoli sotto smussati a 45° per stare sopra il raccordo del cassetto
@@ -7204,70 +7209,62 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
 
     function lego(p) {
       const U = +p.unita, nx = Math.max(1, p.larghezza | 0), ny = Math.max(1, p.profondita | 0);
-      const W = nx * U, D = ny * U, Hm = +p.altezza, t = +p.pareti;
+      const W = nx * U, D = ny * U, Hm = +p.altezza, t = +p.pareti, tl = +p.cielo;
       const notes = [];
+      const gI = +p.giocoIncastro, gc = +p.giocoCoperchio, hb = +p.altBott, snap = p.fissaggio !== 'colla', smu = Math.min(SMU, tl - 0.4);
+      // bottoncino: deve stare nella sua unità, lontano dalle pareti
       let ds = +p.diamBott;
-      if (ds > U - 2 * t - 4) { ds = U - 2 * t - 4; notes.push(`~Bottoncini ridotti a ${fmt(ds)} mm: devono stare dentro la gonna del modulo di sopra`); }
-      const gI = +p.giocoIncastro, gT = +p.viteGioco, rS = ds / 2 + gI / 2;
-      const hs = GONNA + INCAVO - 0.6;                                   // testa del bottoncino: entra in gonna + cavità con 0,6 mm d'aria
-      const sp = { D: Math.round(ds * 0.587 * 10) / 10, P: Math.max(2, Math.round(ds / 10)) };   // filetto grosso, come nel modello Pork3D (Ø 17,6 passo 3 sul bottoncino da 30)
-      const rCore = sp.D / 2 - 0.8;                                      // anima piena: il filetto sporge solo 0,8 mm, come nell'originale
-      const Ls = CIELO - 0.6;
-      const FONDO = Math.max(INCAVO + 1, +p.fondo);                      // piastra del fondo sopra la gonna: sopra le cavità restano almeno 1 mm
-      const zF = GONNA + FONDO, zC = Hm - CIELO;                         // pavimento e soffitto del vano
-      const xI = W / 2 - t, yF = -D / 2, yB = D / 2 - t;
+      const dMax = U - 2 * t - 4;
+      if (ds > dMax) { ds = Math.floor(dMax * 2) / 2; notes.push(`~Bottoncini ridotti a ${fmt(ds)} mm: devono stare nella loro unità`); }
+      const tf = hb + 0.4;                                                 // fondo: il bottoncino del modulo sotto ci entra e resta 0,4 mm più basso
+      const xI = W / 2 - t, yB = D / 2 - t, y0 = -D / 2;
+      const zL = Hm - tl;                                                  // il coperchio poggia qui, sul battente
+      const zF = tf, zC = zL - LED;                                        // pavimento e soffitto del vano (sotto il battente)
+      const guide = p.guide === 'si';
       const zc = (zF + zC) / 2, rb = Math.min(10, (zC - zF) / 4);         // centro e mezza base delle guide
       if (zC - zF < 15) notes.push('Il vano è troppo basso: aumenta l\'altezza del modulo.');
-
-      // ---- modulo ----
       const cx = [], cy = [];
       for (let i = 0; i < nx; i++) cx.push((i - (nx - 1) / 2) * U);
       for (let j = 0; j < ny; j++) cy.push((j - (ny - 1) / 2) * U);
-      const solid = [box(-W / 2, -D / 2, 0, W / 2, D / 2, Hm)];
-      // guide: trapezio a 45° sui fianchi interni, per tutta la profondità del vano
-      for (const sx of [-1, 1]) {
-        const x0 = sx * (xI + 0.01), x1 = sx * (xI - GUIDA), pts = [];
-        for (const y of [yF, yB + 0.01]) pts.push([x0, y, zc - rb], [x0, y, zc + rb], [x1, y, zc - rb + GUIDA], [x1, y, zc + rb - GUIDA]);
-        solid.push(hullPts(pts));
-      }
-      const cuts = [box(-xI, yF - 1, zF, xI, yB, zC)];
-      // gonna cava sotto: fianchi dritti, davanti e dietro smussati a 45° (in stampa il davanti è in alto e non fa ponte)
-      const gi = t + GONNA;
-      cuts.push(hullPts([box(-xI, -D / 2 + t - 1, -1, xI, D / 2 - t + 1, -0.99), box(-xI, -D / 2 + gi, GONNA - 0.01, xI, D / 2 - gi, GONNA)]));
-      const hole = union([reg(H.vite.rod(sp, CIELO + 1, gT / 2, false, 0.5).translate([0, 0, Hm - CIELO - 0.5])), cylZ(rCore + gT / 2, Hm - CIELO - 0.5, Hm + 0.5, 0, 0, 96)]);
-      const rKey = rCore + gT / 2;
-      for (const x of cx) for (const y of cy) {
-        cuts.push(keyhole(rS, Math.min(14, rS), 1.8, -1, GONNA + INCAVO, x, y));   // cavità per il bottoncino del modulo sotto (taglia anche lo smusso della gonna)
-        cuts.push(reg(hole.translate([x, y, 0])), keyhole(rKey, Math.min(6, sp.D / 3), 1.2, Hm - CIELO - 0.5, Hm + 0.5, x, y));
-      }
-      const body = sub(union(solid), union(cuts));
-      const parts = [{ name: `Modulo ${nx}×${ny}`, m: body, role: 'body', print: reg(body.rotate([-90, 0, 0])) }];
+
+      // ---- vaschetta: stampata sul fondo; il battente a 45° e il dentino crescono dalla parete ----
+      const sides = ['sx', 'dx', 'dietro'];
+      const add = sides.map(sd => along(sd, [[0, zL - LED], [0, zL], [LED, zL]], xI, y0, yB));
+      // dentino a scatto: sopra il bordo smussato del coperchio, sporge b verso l'interno, sopra e sotto a 45°
+      const bd = smu / 2;
+      if (snap) for (const sd of sides) add.push(along(sd, [[0, Hm - smu], [bd, Hm - bd], [0, Hm]], xI, y0, yB));
+      const holes = [];
+      for (const x of cx) for (const y of cy) holes.push(cylZ(ds / 2 + gI / 2, -1, tf + 1, x, y, 96));
+      const tray = sub(union([sub(box(-W / 2, y0, 0, W / 2, D / 2, Hm), box(-xI, y0 - 1, tf, xI, yB, Hm + 1)), ...add,
+        ...(guide ? [-1, 1].map(sx => {   // guide: trapezio a 45° sui fianchi interni, per tutta la profondità del vano
+          const x0 = sx * (xI + 0.01), x1 = sx * (xI - GUIDA), pts = [];
+          for (const y of [y0, yB + 0.01]) pts.push([x0, y, zc - rb], [x0, y, zc + rb], [x1, y, zc - rb + GUIDA], [x1, y, zc + rb - GUIDA]);
+          return hullPts(pts);
+        }) : [])]), union(holes));
+      const parts = [{ name: `Vaschetta ${nx}×${ny}`, m: tray, role: 'body' }];
+
+      // ---- coperchio: piastra fra le pareti con i bottoncini pieni sopra; a scatto il bordo è smussato sotto il dentino ----
+      const lx = xI - gc, ly0 = y0, ly1 = yB - gc;
+      let lid = box(-lx, ly0, zL, lx, ly1, Hm);
+      if (snap) lid = sub(lid, union([
+        hullPts([[-lx - 1, ly0 - 1, Hm - smu - 1], [-lx - 1, ly0 - 1, Hm + 1], [-lx + smu + 1, ly0 - 1, Hm + 1], [-lx - 1, ly1 + 1, Hm - smu - 1], [-lx - 1, ly1 + 1, Hm + 1], [-lx + smu + 1, ly1 + 1, Hm + 1]]),
+        hullPts([[lx + 1, ly0 - 1, Hm - smu - 1], [lx + 1, ly0 - 1, Hm + 1], [lx - smu - 1, ly0 - 1, Hm + 1], [lx + 1, ly1 + 1, Hm - smu - 1], [lx + 1, ly1 + 1, Hm + 1], [lx - smu - 1, ly1 + 1, Hm + 1]]),
+        hullPts([[-lx - 1, ly1 + 1, Hm - smu - 1], [-lx - 1, ly1 + 1, Hm + 1], [-lx - 1, ly1 - smu - 1, Hm + 1], [lx + 1, ly1 + 1, Hm - smu - 1], [lx + 1, ly1 + 1, Hm + 1], [lx + 1, ly1 - smu - 1, Hm + 1]]),
+      ]));
+      const studs = [];
+      for (const x of cx) for (const y of cy) studs.push(cylZ(ds / 2, Hm - 0.01, Hm + hb, x, y, 96));
+      lid = union([lid, ...studs]);
+      parts.push({ name: 'Coperchio', m: lid, role: 'pin', print: reg(lid.translate([0, 0, -zL])) });
+      const nS = cx.length * cy.length;
       const info = [
-        ['Modulo', `${fmt(W)} × ${fmt(D)} × ${fmt(Hm)} mm (${nx} × ${ny} unità da ${fmt(U)} mm)`],
-        ['Vano', `${fmt(2 * xI)} × ${fmt(yB - yF)} × ${fmt(zC - zF)} mm, guide sui fianchi`],
+        ['Modulo', `${fmt(W)} × ${fmt(D)} × ${fmt(Hm)} mm (${nx} × ${ny} unità da ${fmt(U)} mm), pareti ${fmt(t)}, fondo ${fmt(tf)}, coperchio ${fmt(tl)} mm`],
+        ['Vano', `${fmt(2 * xI)} × ${fmt(yB - y0)} × ${fmt(zC - zF)} mm${guide ? ', guide sui fianchi' : ''}`],
       ];
 
-      // ---- bottoncini: testa Ø ds alta hs (smusso in cima), gambo filettato sotto ----
-      const c = -gT / 2, r0 = rCore + c - 0.5;
-      let rod = union([reg(H.vite.rod(sp, Ls + 0.5, c, false, 0.5).translate([0, 0, -Ls])), cylZ(rCore + c, -Ls, 0.5, 0, 0, 96)]);
-      rod = reg(rod.intersect(coneZ(r0, r0 + Ls + 2, -Ls, 2, 96)));
-      const st = union([hullPts([cylZ(ds / 2, 0, hs - 1, 0, 0, 96), cylZ(ds / 2 - 1, hs - 0.01, hs, 0, 0, 96)]), rod]);
-      // nell'anteprima giro il bottoncino finché il suo filetto combacia con quello del foro
-      const probe = sub(cylZ(sp.D, -CIELO, 0, 0, 0, 48), reg(hole.translate([0, 0, -Hm])));
-      let stA = st, best = Infinity;
-      for (let k = 0; k < 24; k++) {
-        const r = reg(st.rotate([0, 0, k * 15])), v = reg(r.intersect(probe)).volume();
-        if (v < best - 1e-6) { best = v; stA = r; }
-      }
-      const nS = cx.length * cy.length, cols = Math.ceil(Math.sqrt(nS)), step = ds + 4, flipS = reg(st.rotate([180, 0, 0]));
-      const placed = [], flat = [];
-      for (const x of cx) for (const y of cy) placed.push(reg(stA.translate([x, y, Hm])));
-      for (let k = 0; k < nS; k++) flat.push(reg(flipS.translate([(k % cols) * step, Math.floor(k / cols) * step, 0])));
-      parts.push({ name: `Bottoncini (${nS} pezzi)`, m: union(placed), role: 'pin', print: union(flat) });
-
       // ---- cassetto ----
-      const gd = +p.giocoCassetto, ct = +p.cPareti, gdp = GUIDA - gd + 0.35, ts = ct + gdp;   // fianchi più spessi della scanalatura per la guida: dietro resta la parete normale
-      const dw = 2 * xI - 2 * gd, dh = zC - zF - 2 * gd, dd = yB - yF - gd;
+      // con le guide i fianchi sono più spessi della scanalatura (dietro resta la parete normale); senza, il cassetto scorre sul pavimento
+      const gd = +p.giocoCassetto, ct = +p.cPareti, gdp = guide ? GUIDA - gd + 0.35 : 0, ts = ct + gdp;
+      const dw = 2 * xI - 2 * gd, dh = zC - zF - 2 * gd, dd = yB - y0 - gd;
       const nT = p.separatori === 'nessuno' ? 0 : Math.max(0, p.sepTrasv | 0), nL = p.separatori === 'nessuno' ? 0 : Math.max(0, p.sepLong | 0);
       if (dw > 20 && dh > 10 && dd > 20) {
         const iw = dw - 2 * ts, id = dd - 2 * ct, f = +p.cFondo, R = Math.max(0.5, Math.min(+p.raccordo, iw / 4, id / 4, (dh - f) / 2));
@@ -7277,7 +7274,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         const dcuts = [hullPts(cav)];
         // scanalature sui fianchi: la guida entra con 0,25 mm di gioco sopra e sotto e 0,35 in fondo
         const zg = zc - zF - gd, a = rb - GUIDA + 0.25;
-        for (const sx of [-1, 1]) {
+        if (guide) for (const sx of [-1, 1]) {
           const xo = sx * (dw / 2 + 1), xi = sx * (dw / 2 - gdp), pts = [];
           for (const y of [-dd / 2 - 1, dd / 2 + 1]) pts.push([xo, y, zg - a - gdp - 1], [xo, y, zg + a + gdp + 1], [xi, y, zg - a], [xi, y, zg + a]);
           dcuts.push(hullPts(pts));
@@ -7287,7 +7284,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         const tacca = tp > 0 ? reg(hullPts([reg(reg(reg(Manifold.cylinder(ct + 2, rw, rw, 64)).rotate([-90, 0, 0])).translate([0, -dd / 2 - 1, dh - tp + rw])), box(-rw, -dd / 2 - 1, dh + 1, rw, -dd / 2 + ct + 1, dh + 2)])
           .intersect(box(-rw - 1, -dd / 2 - 2, dh - tp, rw + 1, -dd / 2 + ct + 2, dh + 3))) : null;
         dm = sub(dm, union(dcuts));
-        const at = [0, yF + dd / 2, zF + gd], size = [dw, dd, dh];
+        const at = [0, y0 + dd / 2, zF + gd], size = [dw, dd, dh];
         if (nT || nL) {
           const removable = p.separatori === 'estraibili';
           const s = +p.spDiv + (removable ? 0.3 : 0), rt = 0.8, rp = 1.2, pitch = +p.passo, th = +p.spDiv;
@@ -7327,9 +7324,10 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         parts.splice(2, 0, { name: 'Cassetto', m: dm, role: 'drawer', at, size });
         info.push(['Cassetto', `${fmt(dw)} × ${fmt(dd)} × ${fmt(dh)} mm, interno ${fmt(iw)} × ${fmt(id)} × ${fmt(dh - f)} mm`]);
       } else info.push(['Cassetto', 'troppo piccolo']);
-      info.push(['Bottoncini', `${nS}, Ø ${fmt(ds)} × ${fmt(hs)} mm, gambo Ø ${fmt(2 * rCore)} con filetto fino a Ø ${fmt(sp.D)}, passo ${fmt(sp.P)}: si avvitano a mano nel cielo. Sul modulo in cima puoi non metterli`]);
-      info.push(['Stampa', 'Modulo sdraiato sulla schiena, bottoncini con la testa sul piatto, cassetto sul fondo, separatori in piano: niente supporti']);
-      info.push(['Prova', 'Se il bottoncino entra duro nella cavità aumenta il gioco dell\'incastro, se si avvita duro il gioco del filetto']);
+      info.push(['Bottoncini', `${nS} pieni, Ø ${fmt(ds)} alti ${fmt(hb)} mm, stampati sul coperchio; entrano nei fori Ø ${fmt(ds + gI)} del fondo del modulo di sopra`]);
+      info.push(['Coperchio', snap ? `a scatto: si preme fra le pareti finché il dentino (${fmt(bd)} mm) scatta sul bordo smussato` : 'poggia sul battente: incollalo lungo i bordi']);
+      info.push(['Stampa', 'Vaschetta sul fondo, coperchio piatto con i bottoncini in su, cassetto sul fondo, separatori in piano: niente supporti']);
+      info.push(['Prova', 'Il gioco dell\'incastro allarga o stringe i fori del fondo (i bottoncini non cambiano): se balla diminuiscilo, se entra duro aumentalo']);
       for (const n of notes) info.push(['Nota', n]);
       return { parts, info, view: [-0.6, -1, 0.75] };
     }
@@ -7449,13 +7447,13 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       help: 'A filo: le lettere sono di un altro colore ma non sporgono, non si consumano e non si staccano.' },
     { sec: 'Scritta', id: 'rilievoTesto', label: 'Spessore scritta', type: 'num', min: 0.4, max: 1.2, step: 0.2, def: 0.6, unit: 'mm', show: p => String(p.scritta || '').trim() !== '' || (isArtId(p.forma) && p.coloriDisegno !== false), help: 'In rilievo: quanto sporge. A filo o incisa: quanto è profonda. Vale anche per i colori del disegno.' },
   ];
-  // marchio SP: piccolo, alla misura più piccola che l'ugello stampa pulita; stesso stile e colore della scritta.
+  // marchio SP: piccolo, alla misura che l'ugello stampa pulita con margine; stesso stile e colore della scritta.
   // corner: pezzi con una faccia piatta, dove si sceglie l'angolo in basso; negli altri sta dietro, in basso
   const markP = (corner, show, extra = []) => {
     const on = (p) => (!show || show(p)) && p.marchio;
     return [
       { sec: 'Logo SP', id: 'marchio', label: 'Aggiungi logo SP', type: 'bool', def: false, show,
-        help: `Il marchio SP piccolo ${corner ? 'nell\'angolo in basso' : 'dietro'}, alla misura più piccola che l'ugello stampa pulita (linee di due passate), solo su una superficie piatta. Stesso stile e colore della scritta.` },
+        help: `Il marchio SP piccolo ${corner ? 'nell\'angolo in basso' : 'dietro'}, alla misura che l'ugello stampa pulita con margine (linee larghe 3 volte l'ugello: con 0,4 circa 9 × 6 mm), solo su una superficie piatta. Stesso stile e colore della scritta.` },
       ...extra.map(q => Object.assign({ sec: 'Logo SP' }, q, { show: (p) => on(p) && (!q.show || q.show(p)) })),
       { sec: 'Logo SP', id: 'colMarchio', label: 'Colore', type: 'select', def: 'scritta', options: [['scritta', 'Come la scritta'], ['2', '2'], ['3', '3'], ['4', '4']], show: on,
         help: 'Il filamento del logo (vale a filo e in rilievo; inciso o traforato non ha colore). Il colore 1 è il pezzo: lì il logo non si vedrebbe.' },
@@ -7651,14 +7649,15 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Dimensioni', id: 'unita', label: 'Unità della griglia', type: 'num', min: 30, max: 70, step: 1, def: 50, unit: 'mm', help: 'Il passo dei mattoncini (un bottoncino per unità): tutti i moduli da incastrare fra loro devono avere la stessa unità.' },
         { sec: 'Dimensioni', id: 'larghezza', label: 'Larghezza', type: 'int', min: 1, max: 6, def: 4, unit: 'unità' },
         { sec: 'Dimensioni', id: 'profondita', label: 'Profondità', type: 'int', min: 1, max: 6, def: 2, unit: 'unità' },
-        { sec: 'Dimensioni', id: 'altezza', label: 'Altezza', type: 'num', min: 40, max: 150, step: 1, def: 60, unit: 'mm', help: 'Senza i bottoncini. Il cassetto è più basso di gonna, fondo e cielo (20 mm con i valori iniziali).' },
-        { sec: 'Bottoncini', id: 'diamBott', label: 'Diametro bottoncini', type: 'num', min: 12, max: 50, step: 0.5, def: 30, unit: 'mm', help: 'Si stampano a parte e si avvitano nel cielo del modulo. Sotto, ogni modulo ha la gonna cava e una cavità tonda per unità.' },
-        { sec: 'Bottoncini', id: 'giocoIncastro', label: 'Gioco dell\'incastro', type: 'num', min: 0, max: 1, step: 0.05, def: 0.4, unit: 'mm', help: 'Quanto la cavità sotto è più larga del bottoncino. Se l\'incastro è duro aumentalo, se balla diminuiscilo.' },
-        { sec: 'Bottoncini', id: 'viteGioco', label: 'Gioco del filetto', type: 'num', min: 0.1, max: 0.8, step: 0.05, def: 0.3, unit: 'mm', help: 'Se il bottoncino si avvita duro aumentalo, se balla diminuiscilo.' },
+        { sec: 'Dimensioni', id: 'altezza', label: 'Altezza', type: 'num', min: 40, max: 150, step: 1, def: 60, unit: 'mm', help: 'Vaschetta con il coperchio, senza i bottoncini. Il cassetto è più basso di fondo, coperchio e battente (circa 8 mm con i valori iniziali).' },
+        { sec: 'Bottoncini', id: 'diamBott', label: 'Diametro bottoncini', type: 'num', min: 12, max: 50, step: 0.5, def: 30, unit: 'mm', help: 'Stampati sul coperchio. Entrano nei fori del fondo del modulo di sopra.' },
+        { sec: 'Bottoncini', id: 'altBott', label: 'Altezza bottoncini', type: 'num', min: 1.2, max: 4, step: 0.2, def: 2, unit: 'mm', help: 'Il fondo è spesso 0,4 mm in più, così i bottoncini del modulo sotto entrano nei fori senza toccare il cassetto.' },
+        { sec: 'Bottoncini', id: 'giocoIncastro', label: 'Gioco dell\'incastro', type: 'num', min: 0, max: 1, step: 0.05, def: 0.3, unit: 'mm', help: 'Quanto i fori del fondo sono più larghi dei bottoncini; i bottoncini non cambiano. Se balla diminuiscilo, se entra duro aumentalo.' },
         { sec: 'Cassetto', id: 'maniglia', label: 'Maniglia', type: 'select', def: 'tacca', options: [['tacca', 'Tacca per le dita'], ['nessuna', 'Nessuna']] },
         { sec: 'Cassetto', id: 'taccaProf', label: 'Profondità tacca', type: 'num', min: 5, max: 40, step: 1, def: 10, unit: 'mm', show: p => p.maniglia === 'tacca', help: 'Quanto scende dal bordo del frontale.' },
-        { sec: 'Cassetto', id: 'cPareti', label: 'Pareti cassetto', type: 'num', min: 0.8, max: 4, step: 0.2, def: 1.2, unit: 'mm', help: 'I fianchi sono più spessi della scanalatura per la guida (1,35 mm con il gioco iniziale).' },
-        { sec: 'Cassetto', id: 'cFondo', label: 'Fondo cassetto', type: 'num', min: 0.6, max: 4, step: 0.2, def: 1, unit: 'mm' },
+        { sec: 'Cassetto', id: 'guide', label: 'Guide', type: 'select', def: 'no', options: [['no', 'Senza guide'], ['si', 'Guide sui fianchi']], help: 'Senza guide il cassetto scorre sul pavimento: meno plastica. Con le guide non si inclina quando lo tiri fuori, ma i fianchi sono più spessi.' },
+        { sec: 'Cassetto', id: 'cPareti', label: 'Pareti cassetto', type: 'num', min: 1.2, max: 4, step: 0.2, def: 1.4, unit: 'mm', help: 'Con le guide i fianchi del cassetto diventano più spessi, perché dentro hanno la scanalatura dove scorre la guida (circa 1,35 mm in più).' },
+        { sec: 'Cassetto', id: 'cFondo', label: 'Fondo cassetto', type: 'num', min: 1.2, max: 4, step: 0.2, def: 1.4, unit: 'mm' },
         { sec: 'Cassetto', id: 'raccordo', label: 'Raccordo interno', type: 'num', min: 1, max: 15, step: 0.5, def: 5, unit: 'mm', help: 'Angoli interni arrotondati: le cose si prendono meglio.' },
         { sec: 'Cassetto', id: 'giocoCassetto', label: 'Gioco nel vano', type: 'num', min: 0.3, max: 1.5, step: 0.05, def: 0.75, unit: 'mm', help: 'Spazio fra cassetto e modulo, per lato.' },
         { sec: 'Separatori', id: 'separatori', label: 'Separatori', type: 'select', def: 'estraibili', options: [['estraibili', 'Estraibili'], ['fissi', 'Fissi nel cassetto'], ['nessuno', 'Nessuno']], help: 'Gli estraibili sono lamine stampate in piano che scorrono nelle scanalature del cassetto: li sposti quando vuoi.' },
@@ -7666,8 +7665,10 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Separatori', id: 'sepLong', label: 'Longitudinali', type: 'int', min: 0, max: 10, def: 2, help: 'Dal frontale al fondo.', show: p => p.separatori !== 'nessuno' },
         { sec: 'Separatori', id: 'spDiv', label: 'Spessore', type: 'num', min: 0.8, max: 2.4, step: 0.4, def: 1.2, unit: 'mm', show: p => p.separatori !== 'nessuno' },
         { sec: 'Separatori', id: 'passo', label: 'Passo scanalature', type: 'num', min: 10, max: 60, step: 1, def: 20, unit: 'mm', show: p => p.separatori === 'estraibili', help: 'Ogni quanti millimetri c\'è una scanalatura dove infilare un separatore.' },
-        { sec: 'Struttura', id: 'pareti', label: 'Pareti modulo', type: 'num', min: 1.2, max: 6, step: 0.2, def: 1.6, unit: 'mm', help: 'Meglio un multiplo della passata (1,2 / 1,6 / 2): lo slicer fa solo perimetri e stampa prima.' },
-        { sec: 'Struttura', id: 'fondo', label: 'Fondo modulo', type: 'num', min: 6, max: 12, step: 0.5, def: 6, unit: 'mm', help: 'Piastra sopra la gonna. Le cavità per i bottoncini sono profonde 5 mm, quindi almeno 6. Più spesso = cassetto più basso.' },
+        { sec: 'Struttura', id: 'pareti', label: 'Pareti modulo', type: 'num', min: 1.2, max: 4, step: 0.2, def: 1.4, unit: 'mm', help: 'Fianchi e schiena della vaschetta. 1,4 mm sono circa tre passate con l\'ugello da 0,4.' },
+        { sec: 'Coperchio', id: 'fissaggio', label: 'Fissaggio', type: 'select', def: 'scatto', options: [['scatto', 'A scatto'], ['colla', 'Colla']], help: 'A scatto: un dentino sulle pareti si aggancia sul bordo smussato del coperchio; si toglie facendo leva. Colla: il coperchio poggia sul battente e si incolla.' },
+        { sec: 'Coperchio', id: 'cielo', label: 'Spessore coperchio', type: 'num', min: 1.2, max: 4, step: 0.2, def: 1.4, unit: 'mm' },
+        { sec: 'Coperchio', id: 'giocoCoperchio', label: 'Gioco del coperchio', type: 'num', min: 0, max: 0.6, step: 0.05, def: 0.2, unit: 'mm', help: 'Spazio fra coperchio e pareti, per lato. Se non entra aumentalo, se a scatto non tiene diminuiscilo.' },
       ],
     },
     rack: {
@@ -8288,7 +8289,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
   const GROUPS = [
     { id: 'natale', title: 'Natale', cat: 'Feste', desc: 'Palline (anche a spirale, intere senza supporti), palle piatte con disegni e nome, decorazioni con il nome, alberi, stelle puntale, lanterne e formine per biscotti. Fino a tre colori.', modes: ['pallina', 'spirale', 'palla', 'piatto', 'albero', 'stella', 'lanterna', 'formina'], thumb: 'pallina' },
     { id: 'gridfinity', title: 'Gridfinity', cat: 'Organizzazione', desc: 'Contenitori impilabili, cassettiere con cassetti e basi a griglia da 42 mm.', modes: ['bin', 'cab', 'base'], thumb: 'cab' },
-    { id: 'lego', title: 'Cassetti modulari', cat: 'Organizzazione', desc: 'Mattoncini con cassetto che si impilano come i Lego: bottoncini avvitati sopra, gonna cava sotto, cassetto su guide e separatori estraibili. Tutto senza supporti.', modes: ['lego'], thumb: 'lego' },
+    { id: 'lego', title: 'Cassetti modulari', cat: 'Organizzazione', desc: 'Mattoncini con cassetto che si impilano come i Lego: vaschetta e coperchio con i bottoncini, a scatto o incollato, cassetto con o senza guide e separatori estraibili. Poca plastica, tutto stampato dritto.', modes: ['lego'], thumb: 'lego' },
     { id: 'rack', title: 'Rack telefoni', cat: 'Organizzazione', desc: 'Rack a fessure per riporre telefoni e tablet, anche di spessori diversi.', modes: ['rack'], thumb: 'rack' },
     { id: 'cover', title: 'Cover telefono', cat: 'Accessori', desc: 'Cover per iPhone dal 12 al 17 con le misure dei disegni Apple, OnePlus Nord, o per qualsiasi telefono con le tue misure. TPU o PLA/PETG a scatto, cornice per le lenti, cavalletto, scritta e il tuo SVG sul retro.', modes: ['cover'], thumb: 'cover' },
     { id: 'vasi', title: 'Vasi', cat: 'Casa e giardino', desc: 'Vasi e fioriere per aromatiche, normali con sottovaso o autoirriganti.', modes: ['vaso'], thumb: 'vaso' },

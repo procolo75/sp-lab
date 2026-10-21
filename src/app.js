@@ -107,13 +107,13 @@
       help: 'A filo: le lettere sono di un altro colore ma non sporgono, non si consumano e non si staccano.' },
     { sec: 'Scritta', id: 'rilievoTesto', label: 'Spessore scritta', type: 'num', min: 0.4, max: 1.2, step: 0.2, def: 0.6, unit: 'mm', show: p => String(p.scritta || '').trim() !== '' || (isArtId(p.forma) && p.coloriDisegno !== false), help: 'In rilievo: quanto sporge. A filo o incisa: quanto è profonda. Vale anche per i colori del disegno.' },
   ];
-  // marchio SP: piccolo, alla misura più piccola che l'ugello stampa pulita; stesso stile e colore della scritta.
+  // marchio SP: piccolo, alla misura che l'ugello stampa pulita con margine; stesso stile e colore della scritta.
   // corner: pezzi con una faccia piatta, dove si sceglie l'angolo in basso; negli altri sta dietro, in basso
   const markP = (corner, show, extra = []) => {
     const on = (p) => (!show || show(p)) && p.marchio;
     return [
       { sec: 'Logo SP', id: 'marchio', label: 'Aggiungi logo SP', type: 'bool', def: false, show,
-        help: `Il marchio SP piccolo ${corner ? 'nell\'angolo in basso' : 'dietro'}, alla misura più piccola che l'ugello stampa pulita (linee di due passate), solo su una superficie piatta. Stesso stile e colore della scritta.` },
+        help: `Il marchio SP piccolo ${corner ? 'nell\'angolo in basso' : 'dietro'}, alla misura che l'ugello stampa pulita con margine (linee larghe 3 volte l'ugello: con 0,4 circa 9 × 6 mm), solo su una superficie piatta. Stesso stile e colore della scritta.` },
       ...extra.map(q => Object.assign({ sec: 'Logo SP' }, q, { show: (p) => on(p) && (!q.show || q.show(p)) })),
       { sec: 'Logo SP', id: 'colMarchio', label: 'Colore', type: 'select', def: 'scritta', options: [['scritta', 'Come la scritta'], ['2', '2'], ['3', '3'], ['4', '4']], show: on,
         help: 'Il filamento del logo (vale a filo e in rilievo; inciso o traforato non ha colore). Il colore 1 è il pezzo: lì il logo non si vedrebbe.' },
@@ -309,14 +309,15 @@
         { sec: 'Dimensioni', id: 'unita', label: 'Unità della griglia', type: 'num', min: 30, max: 70, step: 1, def: 50, unit: 'mm', help: 'Il passo dei mattoncini (un bottoncino per unità): tutti i moduli da incastrare fra loro devono avere la stessa unità.' },
         { sec: 'Dimensioni', id: 'larghezza', label: 'Larghezza', type: 'int', min: 1, max: 6, def: 4, unit: 'unità' },
         { sec: 'Dimensioni', id: 'profondita', label: 'Profondità', type: 'int', min: 1, max: 6, def: 2, unit: 'unità' },
-        { sec: 'Dimensioni', id: 'altezza', label: 'Altezza', type: 'num', min: 40, max: 150, step: 1, def: 60, unit: 'mm', help: 'Senza i bottoncini. Il cassetto è più basso di gonna, fondo e cielo (20 mm con i valori iniziali).' },
-        { sec: 'Bottoncini', id: 'diamBott', label: 'Diametro bottoncini', type: 'num', min: 12, max: 50, step: 0.5, def: 30, unit: 'mm', help: 'Si stampano a parte e si avvitano nel cielo del modulo. Sotto, ogni modulo ha la gonna cava e una cavità tonda per unità.' },
-        { sec: 'Bottoncini', id: 'giocoIncastro', label: 'Gioco dell\'incastro', type: 'num', min: 0, max: 1, step: 0.05, def: 0.4, unit: 'mm', help: 'Quanto la cavità sotto è più larga del bottoncino. Se l\'incastro è duro aumentalo, se balla diminuiscilo.' },
-        { sec: 'Bottoncini', id: 'viteGioco', label: 'Gioco del filetto', type: 'num', min: 0.1, max: 0.8, step: 0.05, def: 0.3, unit: 'mm', help: 'Se il bottoncino si avvita duro aumentalo, se balla diminuiscilo.' },
+        { sec: 'Dimensioni', id: 'altezza', label: 'Altezza', type: 'num', min: 40, max: 150, step: 1, def: 60, unit: 'mm', help: 'Vaschetta con il coperchio, senza i bottoncini. Il cassetto è più basso di fondo, coperchio e battente (circa 8 mm con i valori iniziali).' },
+        { sec: 'Bottoncini', id: 'diamBott', label: 'Diametro bottoncini', type: 'num', min: 12, max: 50, step: 0.5, def: 30, unit: 'mm', help: 'Stampati sul coperchio. Entrano nei fori del fondo del modulo di sopra.' },
+        { sec: 'Bottoncini', id: 'altBott', label: 'Altezza bottoncini', type: 'num', min: 1.2, max: 4, step: 0.2, def: 2, unit: 'mm', help: 'Il fondo è spesso 0,4 mm in più, così i bottoncini del modulo sotto entrano nei fori senza toccare il cassetto.' },
+        { sec: 'Bottoncini', id: 'giocoIncastro', label: 'Gioco dell\'incastro', type: 'num', min: 0, max: 1, step: 0.05, def: 0.3, unit: 'mm', help: 'Quanto i fori del fondo sono più larghi dei bottoncini; i bottoncini non cambiano. Se balla diminuiscilo, se entra duro aumentalo.' },
         { sec: 'Cassetto', id: 'maniglia', label: 'Maniglia', type: 'select', def: 'tacca', options: [['tacca', 'Tacca per le dita'], ['nessuna', 'Nessuna']] },
         { sec: 'Cassetto', id: 'taccaProf', label: 'Profondità tacca', type: 'num', min: 5, max: 40, step: 1, def: 10, unit: 'mm', show: p => p.maniglia === 'tacca', help: 'Quanto scende dal bordo del frontale.' },
-        { sec: 'Cassetto', id: 'cPareti', label: 'Pareti cassetto', type: 'num', min: 0.8, max: 4, step: 0.2, def: 1.2, unit: 'mm', help: 'I fianchi sono più spessi della scanalatura per la guida (1,35 mm con il gioco iniziale).' },
-        { sec: 'Cassetto', id: 'cFondo', label: 'Fondo cassetto', type: 'num', min: 0.6, max: 4, step: 0.2, def: 1, unit: 'mm' },
+        { sec: 'Cassetto', id: 'guide', label: 'Guide', type: 'select', def: 'no', options: [['no', 'Senza guide'], ['si', 'Guide sui fianchi']], help: 'Senza guide il cassetto scorre sul pavimento: meno plastica. Con le guide non si inclina quando lo tiri fuori, ma i fianchi sono più spessi.' },
+        { sec: 'Cassetto', id: 'cPareti', label: 'Pareti cassetto', type: 'num', min: 1.2, max: 4, step: 0.2, def: 1.4, unit: 'mm', help: 'Con le guide i fianchi del cassetto diventano più spessi, perché dentro hanno la scanalatura dove scorre la guida (circa 1,35 mm in più).' },
+        { sec: 'Cassetto', id: 'cFondo', label: 'Fondo cassetto', type: 'num', min: 1.2, max: 4, step: 0.2, def: 1.4, unit: 'mm' },
         { sec: 'Cassetto', id: 'raccordo', label: 'Raccordo interno', type: 'num', min: 1, max: 15, step: 0.5, def: 5, unit: 'mm', help: 'Angoli interni arrotondati: le cose si prendono meglio.' },
         { sec: 'Cassetto', id: 'giocoCassetto', label: 'Gioco nel vano', type: 'num', min: 0.3, max: 1.5, step: 0.05, def: 0.75, unit: 'mm', help: 'Spazio fra cassetto e modulo, per lato.' },
         { sec: 'Separatori', id: 'separatori', label: 'Separatori', type: 'select', def: 'estraibili', options: [['estraibili', 'Estraibili'], ['fissi', 'Fissi nel cassetto'], ['nessuno', 'Nessuno']], help: 'Gli estraibili sono lamine stampate in piano che scorrono nelle scanalature del cassetto: li sposti quando vuoi.' },
@@ -324,8 +325,10 @@
         { sec: 'Separatori', id: 'sepLong', label: 'Longitudinali', type: 'int', min: 0, max: 10, def: 2, help: 'Dal frontale al fondo.', show: p => p.separatori !== 'nessuno' },
         { sec: 'Separatori', id: 'spDiv', label: 'Spessore', type: 'num', min: 0.8, max: 2.4, step: 0.4, def: 1.2, unit: 'mm', show: p => p.separatori !== 'nessuno' },
         { sec: 'Separatori', id: 'passo', label: 'Passo scanalature', type: 'num', min: 10, max: 60, step: 1, def: 20, unit: 'mm', show: p => p.separatori === 'estraibili', help: 'Ogni quanti millimetri c\'è una scanalatura dove infilare un separatore.' },
-        { sec: 'Struttura', id: 'pareti', label: 'Pareti modulo', type: 'num', min: 1.2, max: 6, step: 0.2, def: 1.6, unit: 'mm', help: 'Meglio un multiplo della passata (1,2 / 1,6 / 2): lo slicer fa solo perimetri e stampa prima.' },
-        { sec: 'Struttura', id: 'fondo', label: 'Fondo modulo', type: 'num', min: 6, max: 12, step: 0.5, def: 6, unit: 'mm', help: 'Piastra sopra la gonna. Le cavità per i bottoncini sono profonde 5 mm, quindi almeno 6. Più spesso = cassetto più basso.' },
+        { sec: 'Struttura', id: 'pareti', label: 'Pareti modulo', type: 'num', min: 1.2, max: 4, step: 0.2, def: 1.4, unit: 'mm', help: 'Fianchi e schiena della vaschetta. 1,4 mm sono circa tre passate con l\'ugello da 0,4.' },
+        { sec: 'Coperchio', id: 'fissaggio', label: 'Fissaggio', type: 'select', def: 'scatto', options: [['scatto', 'A scatto'], ['colla', 'Colla']], help: 'A scatto: un dentino sulle pareti si aggancia sul bordo smussato del coperchio; si toglie facendo leva. Colla: il coperchio poggia sul battente e si incolla.' },
+        { sec: 'Coperchio', id: 'cielo', label: 'Spessore coperchio', type: 'num', min: 1.2, max: 4, step: 0.2, def: 1.4, unit: 'mm' },
+        { sec: 'Coperchio', id: 'giocoCoperchio', label: 'Gioco del coperchio', type: 'num', min: 0, max: 0.6, step: 0.05, def: 0.2, unit: 'mm', help: 'Spazio fra coperchio e pareti, per lato. Se non entra aumentalo, se a scatto non tiene diminuiscilo.' },
       ],
     },
     rack: {
@@ -946,7 +949,7 @@
   const GROUPS = [
     { id: 'natale', title: 'Natale', cat: 'Feste', desc: 'Palline (anche a spirale, intere senza supporti), palle piatte con disegni e nome, decorazioni con il nome, alberi, stelle puntale, lanterne e formine per biscotti. Fino a tre colori.', modes: ['pallina', 'spirale', 'palla', 'piatto', 'albero', 'stella', 'lanterna', 'formina'], thumb: 'pallina' },
     { id: 'gridfinity', title: 'Gridfinity', cat: 'Organizzazione', desc: 'Contenitori impilabili, cassettiere con cassetti e basi a griglia da 42 mm.', modes: ['bin', 'cab', 'base'], thumb: 'cab' },
-    { id: 'lego', title: 'Cassetti modulari', cat: 'Organizzazione', desc: 'Mattoncini con cassetto che si impilano come i Lego: bottoncini avvitati sopra, gonna cava sotto, cassetto su guide e separatori estraibili. Tutto senza supporti.', modes: ['lego'], thumb: 'lego' },
+    { id: 'lego', title: 'Cassetti modulari', cat: 'Organizzazione', desc: 'Mattoncini con cassetto che si impilano come i Lego: vaschetta e coperchio con i bottoncini, a scatto o incollato, cassetto con o senza guide e separatori estraibili. Poca plastica, tutto stampato dritto.', modes: ['lego'], thumb: 'lego' },
     { id: 'rack', title: 'Rack telefoni', cat: 'Organizzazione', desc: 'Rack a fessure per riporre telefoni e tablet, anche di spessori diversi.', modes: ['rack'], thumb: 'rack' },
     { id: 'cover', title: 'Cover telefono', cat: 'Accessori', desc: 'Cover per iPhone dal 12 al 17 con le misure dei disegni Apple, OnePlus Nord, o per qualsiasi telefono con le tue misure. TPU o PLA/PETG a scatto, cornice per le lenti, cavalletto, scritta e il tuo SVG sul retro.', modes: ['cover'], thumb: 'cover' },
     { id: 'vasi', title: 'Vasi', cat: 'Casa e giardino', desc: 'Vasi e fioriere per aromatiche, normali con sottovaso o autoirriganti.', modes: ['vaso'], thumb: 'vaso' },

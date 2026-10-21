@@ -90,7 +90,7 @@ Tutti gli oggetti di Natale possono avere **fino a tre colori** (abbinamenti pro
 
 #### Logo SP
 In quasi tutti i generatori con le scritte c'è la sezione **Logo SP** con la voce *Aggiungi logo SP* (spenta all'inizio): mette il marchio SP piccolo, nel carattere Tondo.
-- **Misura fissa:** è la più piccola che l'ugello scelto stampa pulita, con linee di due passate e spazi di una. Con ugello da 0,4 mm è circa 7,3 × 4,8 mm.
+- **Misura fissa:** quella che l'ugello scelto stampa pulita con margine, con linee larghe 3 volte l'ugello e spazi 1,5 volte. Con ugello da 0,4 mm è circa 9,2 × 6,1 mm.
 - **Solo su superfici piatte**, mai su un fianco curvo o sugli spigoli arrotondati.
 - **Nell'angolo in basso**, a destra o a sinistra (voce *Angolo*), nel punto più vicino all'angolo dove ci sta tutto senza toccare scritta, disegni, fori e finestre:
   - parte piatta del retro della cover, vista da fuori; oppure, con *Dove* → *Copertura delle lenti*, sulla faccia esterna della copertura a parte, tra i fori;
@@ -136,11 +136,12 @@ In ogni scritta puoi mettere il **viso** e il **viso di Natale** (con cappello d
 - Nell'anteprima uno slider apre i cassetti.
 
 ### Cassetti modulari
-- Mattoncini a griglia come i Lego (passo 50 mm di default, larghezza e profondità in unità, altezza libera), sul modello del Building Brick Storage di Pork3D.
-- Bottoncini stampati a parte e avvitati nel cielo con un filetto grosso; sotto, gonna cava e una cavità tonda per unità. I moduli si impilano anche sfalsati.
-- Cassetto che scorre su due guide laterali, con angoli interni arrotondati e tacca per le dita.
+- Mattoncini a griglia come i Lego (passo 50 mm di default, larghezza e profondità in unità, altezza libera). Modello nostro, fatto per usare poca plastica e stampare tutto dritto: pareti da 1,4 mm (regolabili da 1,2). Il 4 × 2 di partenza, con cassetto e separatori, usa circa 190 cm³ di plastica.
+- Ogni modulo è in due pezzi: la **vaschetta** (fondo, fianchi e schiena, davanti aperto per il cassetto) e il **coperchio**, una piastra con i **bottoncini pieni** stampati sopra, come i Lego. Il coperchio entra fra le pareti e poggia su un battente; si fissa **a scatto** (un dentino sulle pareti si aggancia sul suo bordo smussato) oppure **con la colla**.
+- I bottoncini entrano nei fori tondi del fondo del modulo di sopra. Il *gioco dell'incastro* allarga o stringe i fori, i bottoncini non cambiano. I moduli si impilano anche spostati di un'unità.
+- Cassetto **senza guide** (scorre sul pavimento, meno plastica) oppure **con le guide sui fianchi** (non si inclina quando lo tiri fuori). Ha gli angoli interni arrotondati e la tacca per le dita.
 - Separatori estraibili che scorrono nelle scanalature del cassetto, con una tacca a ogni scanalatura per incrociarsi ovunque; oppure fissi.
-- Tutto senza supporti: modulo sdraiato sulla schiena, bottoncini in piedi, cassetto sul fondo, separatori in piano.
+- Tutto senza supporti: vaschetta sul fondo, coperchio piatto con i bottoncini in su, cassetto sul fondo, separatori in piano.
 
 ### Base
 ![Base](docs/img/base.png)
