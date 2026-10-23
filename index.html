@@ -7216,7 +7216,9 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       let ds = +p.diamBott;
       const dMax = U - 2 * t - 4;
       if (ds > dMax) { ds = Math.floor(dMax * 2) / 2; notes.push(`~Bottoncini ridotti a ${fmt(ds)} mm: devono stare nella loro unità`); }
-      const tf = hb + 0.4;                                                 // fondo: il bottoncino del modulo sotto ci entra e resta 0,4 mm più basso
+      // fondo: i fori sono passanti e il bottoncino del modulo sotto ci entra; deve restare 0,4 mm sotto il pavimento, se no tocca il cassetto
+      const tfMin = hb + 0.4, tf = Math.max(tfMin, +p.fondoVasc || 0);
+      if (+p.fondoVasc < tfMin - 1e-6) notes.push(`~Fondo portato a ${fmt(tfMin)} mm: non può essere più sottile dei bottoncini (${fmt(hb)} mm) più 0,4`);
       const xI = W / 2 - t, yB = D / 2 - t, y0 = -D / 2;
       const zL = Hm - tl;                                                  // il coperchio poggia qui, sul battente
       const zF = tf, zC = zL - LED;                                        // pavimento e soffitto del vano (sotto il battente)
@@ -7258,13 +7260,14 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       const nS = cx.length * cy.length;
       const info = [
         ['Modulo', `${fmt(W)} × ${fmt(D)} × ${fmt(Hm)} mm (${nx} × ${ny} unità da ${fmt(U)} mm), pareti ${fmt(t)}, fondo ${fmt(tf)}, coperchio ${fmt(tl)} mm`],
-        ['Vano', `${fmt(2 * xI)} × ${fmt(yB - y0)} × ${fmt(zC - zF)} mm${guide ? ', guide sui fianchi' : ''}`],
+        ['Vano', `${fmt(2 * xI)} × ${fmt(yB - y0)} × ${fmt(zL - zF)} mm${guide ? ', guide sui fianchi' : ''}`],
       ];
 
       // ---- cassetto ----
       // con le guide i fianchi sono più spessi della scanalatura (dietro resta la parete normale); senza, il cassetto scorre sul pavimento
       const gd = +p.giocoCassetto, ct = +p.cPareti, gdp = guide ? GUIDA - gd + 0.35 : 0, ts = ct + gdp;
-      const dw = 2 * xI - 2 * gd, dh = zC - zF - 2 * gd, dd = yB - y0 - gd;
+      // il cassetto sale fino al coperchio: in cima i fianchi e la schiena sono smussati a 45° sotto il battente
+      const dw = 2 * xI - 2 * gd, dh = zL - zF - 2 * gd, dd = yB - y0 - gd;
       const nT = p.separatori === 'nessuno' ? 0 : Math.max(0, p.sepTrasv | 0), nL = p.separatori === 'nessuno' ? 0 : Math.max(0, p.sepLong | 0);
       if (dw > 20 && dh > 10 && dd > 20) {
         const iw = dw - 2 * ts, id = dd - 2 * ct, f = +p.cFondo, R = Math.max(0.5, Math.min(+p.raccordo, iw / 4, id / 4, (dh - f) / 2));
@@ -7272,6 +7275,16 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         const cav = [];
         for (const x of [-iw / 2 + R, iw / 2 - R]) for (const y of [-id / 2 + R, id / 2 - R]) cav.push(reg(reg(Manifold.sphere(R, 48)).translate([x, y, f + R])), cylZ(R, f + R, dh + 1, x, y, 48));
         const dcuts = [hullPts(cav)];
+        // smusso parallelo al battente, con gioco gd: z <= k + u (u = distanza dalla parete del modulo)
+        const k = dh + gd - LED - gd * Math.SQRT2, ue = dh + 1 - k;
+        for (const sx of [-1, 1]) {
+          const X = (u) => sx * (xI - u), pts = [];
+          for (const y of [-dd / 2 - 1, dd / 2 + 1]) pts.push([X(gd - 1), y, k + gd - 1], [X(gd - 1), y, dh + 1], [X(ue), y, dh + 1]);
+          dcuts.push(hullPts(pts));
+        }
+        { const Y = (u) => dd / 2 + gd - u, pts = [];
+          for (const x of [-dw / 2 - 1, dw / 2 + 1]) pts.push([x, Y(gd - 1), k + gd - 1], [x, Y(gd - 1), dh + 1], [x, Y(ue), dh + 1]);
+          dcuts.push(hullPts(pts)); }
         // scanalature sui fianchi: la guida entra con 0,25 mm di gioco sopra e sotto e 0,35 in fondo
         const zg = zc - zF - gd, a = rb - GUIDA + 0.25;
         if (guide) for (const sx of [-1, 1]) {
@@ -7649,9 +7662,9 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Dimensioni', id: 'unita', label: 'Unità della griglia', type: 'num', min: 30, max: 70, step: 1, def: 50, unit: 'mm', help: 'Il passo dei mattoncini (un bottoncino per unità): tutti i moduli da incastrare fra loro devono avere la stessa unità.' },
         { sec: 'Dimensioni', id: 'larghezza', label: 'Larghezza', type: 'int', min: 1, max: 6, def: 4, unit: 'unità' },
         { sec: 'Dimensioni', id: 'profondita', label: 'Profondità', type: 'int', min: 1, max: 6, def: 2, unit: 'unità' },
-        { sec: 'Dimensioni', id: 'altezza', label: 'Altezza', type: 'num', min: 40, max: 150, step: 1, def: 60, unit: 'mm', help: 'Vaschetta con il coperchio, senza i bottoncini. Il cassetto è più basso di fondo, coperchio e battente (circa 8 mm con i valori iniziali).' },
+        { sec: 'Dimensioni', id: 'altezza', label: 'Altezza', type: 'num', min: 40, max: 150, step: 1, def: 60, unit: 'mm', help: 'Vaschetta con il coperchio, senza i bottoncini. Il cassetto è più basso di fondo e coperchio (circa 5 mm con i valori iniziali): in cima i fianchi sono smussati e salgono sotto il battente.' },
         { sec: 'Bottoncini', id: 'diamBott', label: 'Diametro bottoncini', type: 'num', min: 12, max: 50, step: 0.5, def: 30, unit: 'mm', help: 'Stampati sul coperchio. Entrano nei fori del fondo del modulo di sopra.' },
-        { sec: 'Bottoncini', id: 'altBott', label: 'Altezza bottoncini', type: 'num', min: 1.2, max: 4, step: 0.2, def: 2, unit: 'mm', help: 'Il fondo è spesso 0,4 mm in più, così i bottoncini del modulo sotto entrano nei fori senza toccare il cassetto.' },
+        { sec: 'Bottoncini', id: 'altBott', label: 'Altezza bottoncini', type: 'num', min: 1.2, max: 4, step: 0.2, def: 2, unit: 'mm', help: 'Il fondo della vaschetta deve essere spesso almeno 0,4 mm in più, così i bottoncini del modulo sotto entrano nei fori senza toccare il cassetto: se lo alzi, il fondo cresce da solo quando serve.' },
         { sec: 'Bottoncini', id: 'giocoIncastro', label: 'Gioco dell\'incastro', type: 'num', min: 0, max: 1, step: 0.05, def: 0.3, unit: 'mm', help: 'Quanto i fori del fondo sono più larghi dei bottoncini; i bottoncini non cambiano. Se balla diminuiscilo, se entra duro aumentalo.' },
         { sec: 'Cassetto', id: 'maniglia', label: 'Maniglia', type: 'select', def: 'tacca', options: [['tacca', 'Tacca per le dita'], ['nessuna', 'Nessuna']] },
         { sec: 'Cassetto', id: 'taccaProf', label: 'Profondità tacca', type: 'num', min: 5, max: 40, step: 1, def: 10, unit: 'mm', show: p => p.maniglia === 'tacca', help: 'Quanto scende dal bordo del frontale.' },
@@ -7665,6 +7678,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Separatori', id: 'sepLong', label: 'Longitudinali', type: 'int', min: 0, max: 10, def: 2, help: 'Dal frontale al fondo.', show: p => p.separatori !== 'nessuno' },
         { sec: 'Separatori', id: 'spDiv', label: 'Spessore', type: 'num', min: 0.8, max: 2.4, step: 0.4, def: 1.2, unit: 'mm', show: p => p.separatori !== 'nessuno' },
         { sec: 'Separatori', id: 'passo', label: 'Passo scanalature', type: 'num', min: 10, max: 60, step: 1, def: 20, unit: 'mm', show: p => p.separatori === 'estraibili', help: 'Ogni quanti millimetri c\'è una scanalatura dove infilare un separatore.' },
+        { sec: 'Struttura', id: 'fondoVasc', label: 'Fondo vaschetta', type: 'num', min: 1.6, max: 8, step: 0.2, def: 2.4, unit: 'mm', help: 'Minimo: altezza dei bottoncini + 0,4 mm. I fori del fondo sono passanti e il bottoncino del modulo sotto ci entra dentro: se il fondo fosse più sottile sporgerebbe nel vano e il cassetto ci sbatterebbe. Gli 0,4 in più lo tengono appena sotto il pavimento. Se metti meno, viene portato al minimo.' },
         { sec: 'Struttura', id: 'pareti', label: 'Pareti modulo', type: 'num', min: 1.2, max: 4, step: 0.2, def: 1.4, unit: 'mm', help: 'Fianchi e schiena della vaschetta. 1,4 mm sono circa tre passate con l\'ugello da 0,4.' },
         { sec: 'Coperchio', id: 'fissaggio', label: 'Fissaggio', type: 'select', def: 'scatto', options: [['scatto', 'A scatto'], ['colla', 'Colla']], help: 'A scatto: un dentino sulle pareti si aggancia sul bordo smussato del coperchio; si toglie facendo leva. Colla: il coperchio poggia sul battente e si incolla.' },
         { sec: 'Coperchio', id: 'cielo', label: 'Spessore coperchio', type: 'num', min: 1.2, max: 4, step: 0.2, def: 1.4, unit: 'mm' },

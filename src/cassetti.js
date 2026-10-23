@@ -57,7 +57,9 @@
       let ds = +p.diamBott;
       const dMax = U - 2 * t - 4;
       if (ds > dMax) { ds = Math.floor(dMax * 2) / 2; notes.push(`~Bottoncini ridotti a ${fmt(ds)} mm: devono stare nella loro unità`); }
-      const tf = hb + 0.4;                                                 // fondo: il bottoncino del modulo sotto ci entra e resta 0,4 mm più basso
+      // fondo: i fori sono passanti e il bottoncino del modulo sotto ci entra; deve restare 0,4 mm sotto il pavimento, se no tocca il cassetto
+      const tfMin = hb + 0.4, tf = Math.max(tfMin, +p.fondoVasc || 0);
+      if (+p.fondoVasc < tfMin - 1e-6) notes.push(`~Fondo portato a ${fmt(tfMin)} mm: non può essere più sottile dei bottoncini (${fmt(hb)} mm) più 0,4`);
       const xI = W / 2 - t, yB = D / 2 - t, y0 = -D / 2;
       const zL = Hm - tl;                                                  // il coperchio poggia qui, sul battente
       const zF = tf, zC = zL - LED;                                        // pavimento e soffitto del vano (sotto il battente)
@@ -99,13 +101,14 @@
       const nS = cx.length * cy.length;
       const info = [
         ['Modulo', `${fmt(W)} × ${fmt(D)} × ${fmt(Hm)} mm (${nx} × ${ny} unità da ${fmt(U)} mm), pareti ${fmt(t)}, fondo ${fmt(tf)}, coperchio ${fmt(tl)} mm`],
-        ['Vano', `${fmt(2 * xI)} × ${fmt(yB - y0)} × ${fmt(zC - zF)} mm${guide ? ', guide sui fianchi' : ''}`],
+        ['Vano', `${fmt(2 * xI)} × ${fmt(yB - y0)} × ${fmt(zL - zF)} mm${guide ? ', guide sui fianchi' : ''}`],
       ];
 
       // ---- cassetto ----
       // con le guide i fianchi sono più spessi della scanalatura (dietro resta la parete normale); senza, il cassetto scorre sul pavimento
       const gd = +p.giocoCassetto, ct = +p.cPareti, gdp = guide ? GUIDA - gd + 0.35 : 0, ts = ct + gdp;
-      const dw = 2 * xI - 2 * gd, dh = zC - zF - 2 * gd, dd = yB - y0 - gd;
+      // il cassetto sale fino al coperchio: in cima i fianchi e la schiena sono smussati a 45° sotto il battente
+      const dw = 2 * xI - 2 * gd, dh = zL - zF - 2 * gd, dd = yB - y0 - gd;
       const nT = p.separatori === 'nessuno' ? 0 : Math.max(0, p.sepTrasv | 0), nL = p.separatori === 'nessuno' ? 0 : Math.max(0, p.sepLong | 0);
       if (dw > 20 && dh > 10 && dd > 20) {
         const iw = dw - 2 * ts, id = dd - 2 * ct, f = +p.cFondo, R = Math.max(0.5, Math.min(+p.raccordo, iw / 4, id / 4, (dh - f) / 2));
@@ -113,6 +116,16 @@
         const cav = [];
         for (const x of [-iw / 2 + R, iw / 2 - R]) for (const y of [-id / 2 + R, id / 2 - R]) cav.push(reg(reg(Manifold.sphere(R, 48)).translate([x, y, f + R])), cylZ(R, f + R, dh + 1, x, y, 48));
         const dcuts = [hullPts(cav)];
+        // smusso parallelo al battente, con gioco gd: z <= k + u (u = distanza dalla parete del modulo)
+        const k = dh + gd - LED - gd * Math.SQRT2, ue = dh + 1 - k;
+        for (const sx of [-1, 1]) {
+          const X = (u) => sx * (xI - u), pts = [];
+          for (const y of [-dd / 2 - 1, dd / 2 + 1]) pts.push([X(gd - 1), y, k + gd - 1], [X(gd - 1), y, dh + 1], [X(ue), y, dh + 1]);
+          dcuts.push(hullPts(pts));
+        }
+        { const Y = (u) => dd / 2 + gd - u, pts = [];
+          for (const x of [-dw / 2 - 1, dw / 2 + 1]) pts.push([x, Y(gd - 1), k + gd - 1], [x, Y(gd - 1), dh + 1], [x, Y(ue), dh + 1]);
+          dcuts.push(hullPts(pts)); }
         // scanalature sui fianchi: la guida entra con 0,25 mm di gioco sopra e sotto e 0,35 in fondo
         const zg = zc - zF - gd, a = rb - GUIDA + 0.25;
         if (guide) for (const sx of [-1, 1]) {
