@@ -917,6 +917,7 @@
     const EXT = {};
     for (const f of (root.SPRECOLO_EXT || [])) Object.assign(EXT, f(H));
 
+    const MESHES = new Map();
     function build(kind, p) {
       try {
         const res = EXT[kind] ? EXT[kind](p) : kind === 'bin' ? bin(p) : kind === 'base' ? baseplate(p) : kind === 'rack' ? rack(p) : kind === 'vaso' ? pot(p) : kind === 'vite' ? screw(p) : kind === 'bullone' ? bolt(p) : kind === 'perno' ? pin(p) : cabinet(p);
@@ -948,9 +949,15 @@
           return cache.get(m);
         };
         for (const part of res.parts) {
-          part.mesh = get(part.m);
-          part.printMesh = part.print ? get(part.print) : part.mesh;
-          delete part.m; delete part.print;
+          // pezzi con una chiave (viti stampate): stesse misure, stessa mesh della generazione prima, senza ricalcolare i filetti
+          const old = part.key && MESHES.get(part.key);
+          if (old) { part.mesh = old.mesh; part.printMesh = old.printMesh; }
+          else {
+            part.mesh = get(part.m);
+            part.printMesh = part.print ? get(part.print) : part.mesh;
+            if (part.key) { if (MESHES.size > 12) MESHES.clear(); MESHES.set(part.key, { mesh: part.mesh, printMesh: part.printMesh }); }
+          }
+          delete part.m; delete part.print; delete part.key;
         }
         return res;
       } finally { cleanup(); }

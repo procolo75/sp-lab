@@ -818,9 +818,8 @@
         { sec: 'Moduli', id: 'mod4', label: 'Modulo 4', type: 'select', menu: true, def: 'nessuno', options: schedeMods() },
         { sec: 'Moduli', id: 'mod5', label: 'Modulo 5', type: 'select', menu: true, def: 'nessuno', options: schedeMods() },
         { sec: 'Processore', id: 'cpuPin', label: 'Piedini saldati', type: 'select', def: 'sotto', options: [['sotto', 'Dal lato opposto ai componenti (piedini in giù)'], ['sopra', 'Dal lato dei componenti (piedini in su)']],
-          help: 'Il processore sta sempre con i componenti in su, così il display guarda il coperchio. Piedini in giù: i dupont stanno sotto la scheda. Piedini in su: i dupont salgono verso il coperchio. La USB esce dalla parete sinistra all\'altezza della scheda.' },
-        { sec: 'Processore', id: 'cpuCav', label: 'Spazio sotto il processore', type: 'num', min: 8, max: 45, step: 1, def: 22, unit: 'mm', help: 'Quanto la scheda sta sopra il fondo, come per i moduli: con i piedini in giù ci vogliono header (2,5 mm), dupont (14 mm) e la curva dei fili.' },
-        { sec: 'Processore', id: 'cpuCop', label: 'Sotto il coperchio', type: 'select', def: 'no', options: [['no', 'No'], ['si', 'Sì']], help: 'Sì: la scheda sale fino a pochi mm dal coperchio (distanza in Torri dei moduli), così il display è sotto la sua finestra.' },
+          help: 'Serve solo a sapere dove sta la USB: la scheda resta sempre con i componenti in su e la USB esce dalla parete sinistra, all\'altezza della scheda.' },
+        { sec: 'Processore', id: 'cpuCav', label: 'Spazio sotto il processore', type: 'num', min: 0.8, max: 120, step: 0.1, def: 22, unit: 'mm', help: 'Quanto la scheda sta sopra il fondo: da 0,8 mm fino a sotto il coperchio (il massimo dipende dall\'altezza interna; oltre si ferma lì). Con i dupont sotto la scheda ci vogliono header (2,5 mm), dupont (14 mm) e la curva dei fili.' },
         { sec: 'Processore', id: 'cpuChiuso', label: 'Lato chiuso', type: 'select', def: 'destra', options: [['sinistra', 'A sinistra'], ['destra', 'A destra'], ['dietro', 'Dietro'], ['davanti', 'Davanti']],
           help: 'La culla ha un lato chiuso, con il muretto che aggancia la scheda, e tre lati aperti con i pilastrini per far passare i fili (vista dall\'alto).' },
         ...[1, 2, 3, 4, 5].flatMap(i => {
@@ -828,11 +827,9 @@
           return [
             { sec: 'Torri dei moduli', id: 'mod' + i + 'Chiuso', label: 'Modulo ' + i + ': lato chiuso', type: 'select', def: 'sinistra', options: [['sinistra', 'A sinistra'], ['destra', 'A destra'], ['dietro', 'Dietro'], ['davanti', 'Davanti']], show: on,
               help: i === 1 ? 'Ogni modulo sta su una torre con un lato chiuso, con il muretto che lo aggancia, e tre lati aperti con i pilastrini per far passare i fili (vista dall\'alto). Il modulo si gira da solo e mette i piedini dalla parte opposta. Piedini in giù: i dupont stanno sotto il modulo.' : undefined },
-            { sec: 'Torri dei moduli', id: 'mod' + i + 'Cav', label: 'Spazio sotto il modulo ' + i, type: 'num', min: 8, max: 45, step: 1, def: 22, unit: 'mm', show: on, help: i === 1 ? 'Spazio sotto il modulo per header (2,5 mm), dupont (14 mm) e curva dei fili. La scatola è alta quanto serve alla scheda più alta.' : undefined },
-            { sec: 'Torri dei moduli', id: 'mod' + i + 'Cop', label: 'Sotto il coperchio', type: 'select', def: 'no', options: [['no', 'No'], ['si', 'Sì']], show: on, help: i === 1 ? 'Sì: la torre porta il modulo a pochi mm dal coperchio (distanza qui sotto). Per lettori NFC/RFID e sensori di temperatura, CO₂, luce.' : undefined },
+            { sec: 'Torri dei moduli', id: 'mod' + i + 'Cav', label: 'Spazio sotto il modulo ' + i, type: 'num', min: 0.8, max: 120, step: 0.1, def: 22, unit: 'mm', show: on, help: i === 1 ? 'Da 0,8 mm fino a sotto il coperchio (il massimo dipende dall\'altezza interna; oltre si ferma lì). Per i dupont sotto il modulo: header (2,5 mm), dupont (14 mm) e curva dei fili.' : undefined },
           ];
         }),
-        { sec: 'Torri dei moduli', id: 'distCop', label: 'Distanza dal coperchio', type: 'num', min: 0.5, max: 8, step: 0.5, def: 1.5, unit: 'mm', show: p => p.cpuCop === 'si' || [1, 2, 3, 4, 5].some(i => p['mod' + i] && p['mod' + i] !== 'nessuno' && p['mod' + i + 'Cop'] === 'si'), help: 'Aria tra i componenti delle schede "sotto il coperchio" e il coperchio. Un RC522 legge le tessere anche con qualche mm in più.' },
         { sec: 'Processore', id: 'antenna', label: 'Antenna ESP32-CAM', type: 'select', def: 'interna', show: p => p.cpu === 'esp32cam' || p.cpu === 'esp32cammb', options: [['interna', 'Interna (sul circuito)'], ['esterna', 'Esterna (connettore SMA sulla parete)']],
           help: 'Esterna: foro nella parete sinistra per un connettore SMA da pannello, collegato al connettore IPEX con un cavo U.FL–SMA. Va anche spostata la resistenza da 0 Ω accanto al connettore.' },
         { sec: 'Posizione', id: 'cpuPos', label: 'Processore', type: 'pad', def: [0, 0],
@@ -859,6 +856,7 @@
           help: 'Esce il fondo da 1 mm (bordo, sotto le culle e una traversina per scheda), le culle e le torri alte come nella scatola vera e i pezzi di parete con le aperture (USB, antenna), nella stessa posizione. Si provano schede, altezze e dupont. Pochi grammi: serve a provare che le schede entrino e che la spina arrivi giusta prima di stampare tutta la scatola.' },
         { sec: 'Scatola', id: 'cavita', label: 'Spazio sotto le schede', type: 'num', min: 8, max: 45, step: 1, def: 22, unit: 'mm', show: () => false },
         { sec: 'Scatola', id: 'distanza', label: 'Distanza tra le schede', type: 'num', min: 5, max: 25, step: 0.5, def: 6, unit: 'mm', help: 'Tra una culla e l\'altra passano i fili. Sotto 5 mm le culle si toccano.' },
+        { sec: 'Scatola', id: 'altezza', label: 'Altezza interna', type: 'num', min: 5, max: 120, step: 0.5, def: 30, unit: 'mm', help: 'Dal fondo al coperchio, spessori esclusi. La scegli tu: le schede stanno alla quota del loro spazio sotto, al massimo fino a sotto il coperchio.' },
         { sec: 'Scatola', id: 'largMax', label: 'Larghezza massima interna', type: 'num', min: 50, max: 400, step: 5, def: 140, unit: 'mm', help: 'Superata questa larghezza le schede vanno a capo su una nuova fila.' },
         { sec: 'Scatola', id: 'gioco', label: 'Gioco attorno alle schede', type: 'num', min: 0.1, max: 1, step: 0.1, def: 0.3, unit: 'mm', help: 'Per lato. Le misure dei venditori hanno qualche decimo di errore: con 0,3 mm le schede entrano senza ballare.' },
         { sec: 'Scatola', id: 'passacavi', label: 'Passacavi dietro', type: 'int', min: 0, max: 3, def: 1, help: 'Fori sulla parete dietro, nel vano dei fili: per l\'alimentazione (ESP32-CAM e altre schede senza USB) o per sensori esterni.' },
@@ -1304,7 +1302,8 @@
     g.setAttribute('position', new THREE.BufferAttribute(mesh.pos, 3));
     g.setIndex(new THREE.BufferAttribute(mesh.tri, 1));
     const flat = g.toNonIndexed(); flat.computeVertexNormals(); g.dispose();
-    const edges = new THREE.EdgesGeometry(flat, 28);
+    // spigoli: sopra gli 80 000 triangoli (viti stampate, filetti) sarebbero solo un groviglio di linee e costano centinaia di ms
+    const edges = mesh.tri.length / 3 > 80000 ? new THREE.BufferGeometry() : new THREE.EdgesGeometry(flat, 28);
     const r = { flat, edges }; geoCache.set(mesh, r); return r;
   }
 

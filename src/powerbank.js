@@ -103,10 +103,14 @@
     }
     // guscio esterno: rettangolo arrotondato con i bordi sopra e sotto raccordati
     function shell(W, D, R, H0, rb, rt) {
-      const pts = [], k = 6;
+      // sul piatto (fondo, faccia di sopra del coperchio capovolto) il raccordo parte con uno smusso a 55°: i primi tratti di un quarto di cerchio vorrebbero i supporti
+      const pts = [], k = 6, a0 = 55 * Math.PI / 180;
       const sec = (inset, z) => pts.push(...rr(W - 2 * inset, D - 2 * inset, Math.max(0.3, R - inset), z, W / 2, D / 2));
-      for (let j = 0; j <= k; j++) { const a = j / k * Math.PI / 2; sec(rb * (1 - Math.sin(a)), rb * (1 - Math.cos(a))); }
-      for (let j = 0; j <= k; j++) { const a = j / k * Math.PI / 2; sec(rt * (1 - Math.cos(a)), H0 - rt + rt * Math.sin(a)); }
+      const foot = (r) => r * (1 - Math.sin(a0)) + r * (1 - Math.cos(a0)) / Math.tan(a0);
+      sec(foot(rb), 0);
+      for (let j = 0; j <= k; j++) { const a = a0 + j / k * (Math.PI / 2 - a0); sec(rb * (1 - Math.sin(a)), rb * (1 - Math.cos(a))); }
+      for (let j = 0; j <= k; j++) { const a = j / k * (Math.PI / 2 - a0); sec(rt * (1 - Math.cos(a)), H0 - rt + rt * Math.sin(a)); }
+      sec(foot(rt), H0);
       return hullPts(pts);
     }
 
@@ -315,6 +319,7 @@
         lidCuts.push(prism('z', bX + led[0] - 1, bY + led[1] - 0.8, bX + led[2] + 1, bY + led[3] + 0.8, 0.8, Zw - 4, Htot - 0.4));
       }
       const posts = [];
+      let cskPad = 0;
       if (viti) {
         const pr = vm ? prP : dv + 0.2;
         // colonnine attaccate alle pareti, nei canali alle teste delle celle (fianchi se parallele, davanti e dietro se perpendicolari)
@@ -335,15 +340,15 @@
         box0 = X(S, box(-1, -1, -1, Xo + 1, Yo + 1, Zw));
         box0 = sub(box0, U(cuts));
         const pp = posts.map(([x, y]) => cylZ(x, y, f - 0.01, vm ? Zw - bossLen - 0.2 : Zw - 6.2, pr, pr, 40));
+        // svasature sotto il fondo a 55° (a 45° esatti lo slicer ci mette i supporti); la testa a 90° resta a filo.
+        // Se il cono esce dalla colonnina (fondo sottile), sotto la colonnina c'è un rialzo pieno smussato a 45°: niente anelli sospesi
+        const t55 = Math.tan(55 * Math.PI / 180), rh = vm ? (vm.D + 0.8) / 2 : dv / 2 + 0.2, r0 = vm ? vm.D + 0.5 : dv * 0.95 + 0.1;
+        const rP = r0 + 0.8, zP = (rP - pr) * t55;
+        if (zP > f) { cskPad = zP - f; for (const [x, y] of posts) pp.push(cylZ(x, y, f - 0.01, zP, rP, rP, 40), cylZ(x, y, zP - 0.01, zP + rP - pr, rP, pr, 40)); }
         box0 = U([box0, ...adds, ...pp]);
         box0 = X(box0, S);   // con pareti sottili niente deve uscire dal guscio
         const holes = [];
-        for (const [x, y] of posts) {
-          if (vm) { const rh = (vm.D + 0.8) / 2, r0 = vm.D + 0.5; holes.push(cylZ(x, y, -1, Zw + 0.1, rh, rh, 32), cylZ(x, y, -0.01, r0 - rh, r0, rh, 40)); continue; }
-          holes.push(cylZ(x, y, -1, Zw, dv / 2 + 0.2, dv / 2 + 0.2, 24));
-          const r0 = dv * 0.95 + 0.1, r1 = dv / 2 + 0.2;   // svasatura a 90° sotto, la testa resta a filo
-          holes.push(cylZ(x, y, -0.01, r0 - r1, r0, r1, 32));
-        }
+        for (const [x, y] of posts) holes.push(cylZ(x, y, -1, vm ? Zw + 0.1 : Zw, rh, rh, vm ? 32 : 24), cylZ(x, y, -0.01, (r0 - rh) * t55, r0, rh, vm ? 40 : 32));
         box0 = sub(box0, U(holes));
         lid = X(S, box(-1, -1, Zw + 0.01, Xo + 1, Yo + 1, Htot + 1));
         const bosses = posts.map(([x, y]) => X(vm ? cylZ(x, y, Zw - bossLen, Zw + 0.02, pr, pr, 40) : cylZ(x, y, Zw - 6, Zw + 0.02, pr, pr, 40), cuts[0]));   // tagliate col vano: negli angoli arrotondati non toccano la parete
@@ -523,6 +528,7 @@
         info.push(['Viti stampate', `${p.viteM} (passo ${fmt(vm.P)} mm), testa svasata Ø ${fmt(2 * vm.D)} mm con taglio per il cacciavite, lunghe ${fmt(sc.L)} mm, ${nP} pezzi uguali. Gioco del filetto ${fmt(vg)} mm. Stampale in piedi con la testa sul piatto, strati sottili (0,12–0,16 mm), almeno 4 perimetri, PETG`]);
         notes.push(`~Viti stampate ${p.viteM}: con ugello da 0,4 mm la misura minima che viene è M6 (M8 è più robusta). Stampa prima una vite sola e provala nella boccola del coperchio: se è dura o balla cambia il gioco del filetto. Colonnine più grosse di quelle per M3: la scatola è un po' più larga`);
       }
+      if (cskPad > 0.01) notes.push(`~Viti: il fondo è più sottile della svasatura, quindi sotto le colonnine c'è un rialzo da ${fmt(cskPad)} mm (si stampa senza supporti)`);
       if (prova === 'nessuna' || prova === 'fronte') parts.push({ name: 'esempio', m: center(ghostM), role: 'ghost' });
 
       // ---- misure e note ----
