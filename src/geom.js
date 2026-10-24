@@ -892,7 +892,7 @@
     }
 
     // estensioni (altri file, es. natale.js): ricevono gli strumenti del motore e restituiscono { tipo: funzione }
-    // viti stampate per le scatole (schede ESP, powerbank): vite a testa svasata (punta a z = 0, testa in cima) e foro filettato per il coperchio.
+    // viti stampate per le scatole (powerbank): vite a testa svasata (punta a z = 0, testa in cima) e foro filettato per il coperchio.
     // Misure minime con ugello da 0,4: M6 al limite, M8 consigliata, M10 robusta (sotto M6 il filetto non viene).
     const VITI_STAMPA = ['M6', 'M8', 'M10'];
     const viteSpec = (m) => threadSpec({ misura: ISO[m] ? m : 'M6' });

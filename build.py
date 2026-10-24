@@ -23,7 +23,6 @@ parts = [
   rd('src/supporti.js'),
   rd('src/cover.js'),
   rd('src/powerbank.js'),
-  rd('src/schede.js'),
   rd('src/racchette.js'),
   rd('src/cassetti.js'),
   rd('src/app.js'),
