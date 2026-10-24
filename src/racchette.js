@@ -127,28 +127,31 @@
 
     // ============ TENNIS ============
     const SCHEMI = { '16x19': 12.5, '18x20': 10.5 };
+    // tassello che si incastra nello spazio tra due corde, nel piano x,z, centrato in xc. Le corde vanno da z = -g a z = 0:
+    // collo largo quanto lo spazio più la presa, sotto un dentino a gradino che scatta sotto le corde (il verme si stampa di fianco)
+    function plugProf(xc, w, g) {
+      const a = 0.8, hl = 2.2, z0 = -g, tip = Math.max(1.2, w - 1.2);
+      return U([RECT(xc - w / 2, z0 - 0.01, xc + w / 2, 0.01),
+        P2([[xc - w / 2, z0 + 0.01], [xc + w / 2, z0 + 0.01], [xc + w / 2 + a, z0 + 0.01], [xc + w / 2 + a, z0 - a - 0.3], [xc + tip / 2, z0 - hl], [xc - tip / 2, z0 - hl], [xc - w / 2 - a, z0 - a - 0.3], [xc - w / 2 - a, z0 + 0.01]])]);
+    }
     function tennis(p) {
       const S = p.schema === 'misura' ? +p.interasse : SCHEMI[p.schema] || 12.5;
-      const g = +p.calibro, dc = Math.max(0.6, g - (+p.presa || 0));   // canale più stretto della corda: la tiene ferma
+      const g = +p.calibro, gap = S - g, w = gap + (+p.presa || 0);   // tassello più largo dello spazio tra le corde: lo stringono
       const parts = [], info = [], notes = [], G = 'Antivibrazione';
-      let body, text = null, markM = null, drawn = [];
+      let body, text = null, markM = null, drawn = [], back = null;
       if (p.modello === 'verme') {
         const Lw = +p.lunghezza, hh = +p.altVerme, T = +p.spessore;
-        const dn = Math.min(4, hh * 0.42), n = Math.max(2, Math.floor((Lw - hh) / S) + 1);
-        // profilo nel piano x,z: striscia con le punte tonde e le tacche per le corde sul bordo di sotto
-        let prof = U([RECT(-Lw / 2 + hh / 2, 0, Lw / 2 - hh / 2, hh), C2(-Lw / 2 + hh / 2, hh / 2, hh / 2, 64), C2(Lw / 2 - hh / 2, hh / 2, hh / 2, 64)]);
-        const slots = [];
-        for (let i = 0; i < n; i++) {
-          const x = (i - (n - 1) / 2) * S;
-          slots.push(RECT(x - dc / 2, -1, x + dc / 2, dn - dc / 2), C2(x, dn - dc / 2, dc / 2, 24), P2([[x - dc / 2 - 0.8, -0.01], [x + dc / 2 + 0.8, -0.01], [x + dc / 2, 0.8], [x - dc / 2, 0.8]]));
-        }
-        prof = D(prof, U(slots));
+        // corde coperte, in numero pari: i tasselli vanno a spazi alterni (se no i dentini vicini si uniscono sotto la corda) e restano simmetrici
+        const n = Math.max(2, 2 * Math.floor((Math.floor((Lw - hh) / S) + 1) / 2)), np = n / 2;
+        // profilo nel piano x,z: striscia con le punte tonde appoggiata sopra le corde, un tassello ogni due spazi tra le corde
+        const bar = U([RECT(-Lw / 2 + hh / 2, 0, Lw / 2 - hh / 2, hh), C2(-Lw / 2 + hh / 2, hh / 2, hh / 2, 64), C2(Lw / 2 - hh / 2, hh / 2, hh / 2, 64)]);
+        const prof = U([bar, ...Array.from({ length: np }, (_, i) => plugProf((2 * i + 0.5 - (n - 1) / 2) * S, w, g))]);
         body = prismY(prof, T / 2, -T / 2);
         info.push(['Misure', `${fmt(Lw)} × ${fmt(hh)} mm, spessore ${fmt(T)} mm`]);
-        info.push(['Tacche', `${n}, ogni ${fmt(S)} mm, larghe ${fmt2(dc)} mm e profonde ${fmt(dn)} mm`]);
-        const tf = oneLine(p, { x: 0, y: dn + (hh - dn) / 2, w: Lw - hh, h: hh - dn - 1.6 }, notes);
+        info.push(['Tasselli', `${np}, a spazi alterni tra ${n} corde, larghi ${fmt2(w)} mm (spazio ${fmt2(gap)} mm), sporgono ${fmt(g + 2.2)} mm sotto`]);
+        const tf = oneLine(p, { x: 0, y: hh / 2, w: Lw - hh, h: hh - 1.6 }, notes);
         // la faccia davanti è y = -T/2: "fuori" è verso -y. Il marchio SP nell'angolo in basso, stesso stile della scritta
-        const faceV = OFF(D(prof, RECT(-Lw, -1, Lw, dn + 0.6)), -0.6), mk = H.decor.placeMark(faceV, p, notes, tf && tf.cs, 0.3);
+        const faceV = OFF(D(bar, RECT(-Lw, -1, Lw, 0.6)), -0.6), mk = H.decor.placeMark(faceV, p, notes, tf && tf.cs, 0.3);
         const extV = (c, a, b) => prismY(c, -T / 2 - a, -T / 2 - b);
         if (tf) { const r = applyText(body, I(tf.cs, faceV), extV, p); body = r.body; text = r.text; info.push(['Lettere', `${fmt(tf.cap)} mm, ${styleName(p)}, sul fianco`]); }
         if (mk) { const r = applyText(body, mk, extV, p); body = r.body; markM = r.text; info.push(['Logo SP', `${styleName(p)}, sul fianco`]); }
@@ -156,52 +159,84 @@
         parts.push(part('Verme', body, p.col1, G, { print: flat(body) }));
         if (text) parts.push(part('Verme · scritta', text, p.col2, G, { print: flat(text) }));
         if (markM) parts.push(part('Verme · logo SP', markM, p['col' + H.decor.markCol(p, 2)], G, { print: flat(markM) }));
-        info.push(['Montaggio', 'sotto l\'ultima corda orizzontale, infilando una tacca su ogni corda verticale']);
+        info.push(['Montaggio', 'sotto l\'ultima corda orizzontale, appoggiato sulle corde verticali: spingi ogni tassello nel suo spazio tra due corde finché il dentino scatta sotto']);
         info.push(['Stampa', 'sdraiato, scritta in alto']);
       } else {
         let L = +p.larghezza;
-        const Ht = +p.altezza, mouth = Math.max(0.5, 0.65 * g), zc = 0.8 + dc / 2;
-        if (L < S + dc + 4) { L = S + dc + 4; notes.push(`~Larghezza portata a ${fmt(L)} mm: deve coprire le due corde`); }
-        // la forma deve avere materiale fuori da tutti e due i canali: se non ce l'ha la allargo
-        const covers = (c) => [-1, 1].every(sg => { const a = S / 2 + dc / 2 + 0.2, st = I(c, sg > 0 ? RECT(a, -1e3, a + 1.4, 1e3) : RECT(-a - 1.4, -1e3, -a, 1e3)); return !empty(st) && st.area() > 5; });
+        if (L < S + g + 4) { L = S + g + 4; notes.push(`~Larghezza portata a ${fmt(L)} mm: deve coprire le due corde`); }
+        // la forma deve avere materiale sopra tutte e due le corde: se non ce l'ha la allargo
+        const covers = (c) => [-1, 1].every(sg => { const a = S / 2 + g / 2 + 0.2, st = I(c, sg > 0 ? RECT(a, -1e3, a + 1.4, 1e3) : RECT(-a - 1.4, -1e3, -a, 1e3)); return !empty(st) && st.area() > 5; });
         const L0 = L, shN = [];
         let sh = shapeOf(p, L, shN);
         while (!covers(sh.cs) && L < 1.35 * L0) { L += 1.5; shN.length = 0; sh = shapeOf(p, L, shN); }
         if (!covers(sh.cs)) {
-          // forma troppo stretta dove passano le corde: resta della sua misura e sotto le corde le aggiungo una fascia
+          // forma troppo stretta dove passano le corde: resta della sua misura e sopra le corde le aggiungo una fascia
           L = L0; shN.length = 0; sh = shapeOf(p, L, shN);
-          const xb = S / 2 + dc / 2 + 2.2;
+          const xb = S / 2 + g / 2 + 2.2;
           sh.cs = U([sh.cs, soft(RECT(-xb, -4, xb, 4), 2)]);
           shN.push('~Forma stretta dove passano le corde: aggiunta una fascia che le copre');
         } else if (L > L0) shN.push(`~Forma allargata a ${fmt(L)} mm: deve coprire le due corde`);
-        notes.push(...shN);
-        const cs = sh.cs, bb = cs.bounds(), rT = Math.min(1.4, Ht / 4);
-        body = roundExt(cs, 0, Ht, rT, 0.4);
-        // due canali passanti lungo y sotto il bottone: buco di serratura con imbocco svasato, la corda entra di scatto
-        const ch = [];
-        for (const x of [-S / 2, S / 2]) {
-          ch.push(C2(x, zc, dc / 2, 24), RECT(x - mouth / 2, -1, x + mouth / 2, zc), P2([[x - mouth / 2 - 0.7, -0.01], [x + mouth / 2 + 0.7, -0.01], [x + mouth / 2, 0.5], [x - mouth / 2, 0.5]]));
+        // come quelli in commercio: due dischi uguali, uno davanti e uno dietro le corde, uniti al centro da un blocchetto che
+        // si incastra nello spazio tra le due corde centrali. Simmetrico rispetto al piano delle corde (z = 0, corde tra
+        // z = -g/2 e g/2): ogni pezzo ha il suo disco e metà blocchetto. Dentro, il pezzo dietro ha il perno e quello
+        // davanti la sede in cui scatta: così si stampano piatti senza supporti, davanti a faccia in su, dietro a faccia in giù
+        const W = w + 1.6;
+        if (!(I(sh.cs, RECT(-W / 2, -1e3, W / 2, 1e3)) && I(sh.cs, RECT(-W / 2, -1e3, W / 2, 1e3)).area() > 4 * W)) {
+          sh.cs = U([sh.cs, soft(RECT(-W / 2 - 1, -4, W / 2 + 1, 4), 2)]);
+          shN.push('~Forma vuota al centro: aggiunta una fascia sopra il blocchetto');
         }
-        body = sub(body, prismY(U(ch), bb.max[1] + 1, bb.min[1] - 1));
-        info.push(['Misure', `${fmt(bb.max[0] - bb.min[0])} × ${fmt(bb.max[1] - bb.min[1])} mm, spessore ${fmt(Ht)} mm`]);
-        info.push(['Corde', `canali a ${fmt(S)} mm, Ø ${fmt2(dc)} mm per corda da ${fmt2(g)} mm, sporgono ${fmt(zc + dc / 2)} mm sotto`]);
-        const tf = oneLine(p, sh.box, notes), faceC = OFF(cs, -rT - 0.4), ext = (c, a, b) => EXT(c, Ht + a, Ht + b);
+        notes.push(...shN);
+        const cs = sh.cs, bb = cs.bounds(), hg = g / 2;
+        const strip = I(cs, RECT(-w / 2 - 1, -1e3, w / 2 + 1, 1e3)), sb = strip.bounds();
+        const Lp = Math.max(6, Math.min(12, 0.6 * (sb.max[1] - sb.min[1]))), yc = (sb.min[1] + sb.max[1]) / 2;
+        // perno: gambo, testa con i fianchi a 45° e punta smussata; la sede ha l'imbocco più stretto del gambo e il tetto conico
+        const ds = Math.max(2.4, Math.min(4, w - 2.4, Lp - 2.4)), dh = ds + 1.2, h1 = 1.2, hP = h1 + 1 + (dh - ds + 1) / 2;
+        const de = ds - 0.2, dc = dh + 0.1, zr = h1 + 1.05 + (dc - ds + 1) / 2;
+        const sk = 1 + (p.stileTesto !== 'rilievo' || (sh.g && p.coloriDisegno !== false) ? Math.max(0.4, +p.rilievoTesto || 0.6) : 0);   // pelle sopra la sede
+        let Ht = +p.altezza;
+        if (Ht < zr + sk - hg) { Ht = Math.ceil((zr + sk - hg) * 2) / 2; notes.push(`~Dischi portati a ${fmt(Ht)} mm: devono contenere la sede del perno`); }
+        // disco con lo smusso a 45° sul bordo di fuori (il dietro lo ha sul piatto: col tondo andrebbe a sbalzo) e 0,4 mm verso le corde
+        const cF = Math.min(1.2, Ht / 4);
+        const disc = (z0, z1, outTop) => {
+          const n = 4, out = [EXT(cs, z0 + (outTop ? 0.4 : cF), z1 - (outTop ? cF : 0.4))];
+          for (let k = 0; k < n; k++) {
+            const d = cF * (k + 1) / n, hc = cF / n;
+            out.push(outTop ? EXT(OFF(cs, -d), z1 - cF + k * hc - 0.01, z1 - cF + (k + 1) * hc) : EXT(OFF(cs, -d), z0 + cF - (k + 1) * hc, z0 + cF - k * hc + 0.01));
+          }
+          out.push(outTop ? EXT(OFF(cs, -0.3), z0, z0 + 0.41) : EXT(OFF(cs, -0.3), z1 - 0.41, z1));
+          return union(out.filter(Boolean));
+        };
+        const at = (m) => reg(m.translate([0, yc, 0]));
+        const peg = at(union([coneZ(ds / 2, ds / 2, -0.01, h1 + 0.01, 32), coneZ(ds / 2, dh / 2, h1, h1 + 0.6, 32), coneZ(dh / 2, dh / 2, h1 + 0.59, h1 + 1.01, 32), coneZ(dh / 2, (ds - 1) / 2, h1 + 1, hP, 32)]));
+        const socket = at(union([coneZ(de / 2, de / 2, -1, h1 + 0.01, 32), coneZ(de / 2, dc / 2, h1, h1 + 0.05 + (dc - de) / 2, 32), coneZ(dc / 2, dc / 2, h1 + 0.04 + (dc - de) / 2, h1 + 1.06, 32), coneZ(dc / 2, (ds - 1) / 2 + 0.05, h1 + 1.05, zr, 32)]));
+        // blocchetto tra le corde, alto quanto la corda e diviso a metà: le corde lo stringono di fianco e i dischi le chiudono
+        const bk = soft(RECT(-w / 2, yc - Lp / 2, w / 2, yc + Lp / 2), Math.min(1.5, w / 2 - 0.2));
+        back = union([disc(-hg - Ht, -hg, false), EXT(bk, -hg - 0.01, 0), peg]);
+        body = sub(union([disc(hg, hg + Ht, true), EXT(bk, 0, hg + 0.01)]), socket);
+        const top = hg + Ht;
+        info.push(['Misure', `${fmt(bb.max[0] - bb.min[0])} × ${fmt(bb.max[1] - bb.min[1])} mm, due dischi uguali da ${fmt(Ht)} mm, in tutto ${fmt(2 * Ht + g)} mm`]);
+        info.push(['Corde', `parte centrale larga ${fmt2(w)} mm e lunga ${fmt(Lp)} mm nello spazio di ${fmt2(gap)} mm tra corde da ${fmt2(g)} mm`]);
+        info.push(['Perno', `Ø ${fmt(ds)} mm con la testa da ${fmt(dh)} mm, dentro: scatta nella sede del disco davanti`]);
+        const tf = oneLine(p, sh.box, notes), faceC = OFF(cs, -cF - 0.4), ext = (c, a, b) => EXT(c, top + a, top + b);
         const mk = H.decor.placeMark(faceC, p, notes, tf && tf.cs, 0), tcs = U([tf ? I(tf.cs, faceC) : null, mk]);   // marchio SP: stesso stile della scritta, colore suo
         const dr = drawFace(p, sh, faceC, tcs, ext, body, notes);
         body = dr.body; drawn = dr.parts;
         if (tf) { const r = applyText(body, I(tf.cs, faceC), ext, p); body = r.body; text = r.text; info.push(['Lettere', `${fmt(tf.cap)} mm, ${styleName(p)}`]); }
         if (mk) { const r = applyText(body, mk, ext, p); body = r.body; markM = r.text; info.push(['Logo SP', `${styleName(p)}, sulla faccia`]); }
-        parts.push(part('Bottone', body, p.col1, G));
-        if (text) parts.push(part('Bottone · scritta', text, p.col2, G));
-        if (markM) parts.push(part('Bottone · logo SP', markM, p['col' + H.decor.markCol(p, 2)], G));
-        for (const [k, m] of drawn) parts.push(part(`Bottone · disegno colore ${k}`, m, p['col' + k], G));
-        info.push(['Montaggio', 'tra le due corde verticali centrali, sotto l\'ultima orizzontale: premi finché le corde scattano nei canali']);
-        info.push(['Stampa', 'canali sul piatto, scritta in alto, senza supporti']);
+        const GF = 'Antivibrazione · davanti', GB = 'Antivibrazione · dietro';
+        parts.push(part('Disco davanti', body, p.col1, GF));
+        if (text) parts.push(part('Disco davanti · scritta', text, p.col2, GF));
+        if (markM) parts.push(part('Disco davanti · logo SP', markM, p['col' + H.decor.markCol(p, 2)], GF));
+        for (const [k, m] of drawn) parts.push(part(`Disco davanti · disegno colore ${k}`, m, p['col' + k], GF));
+        parts.push(part('Disco dietro', back, p.col1, GB));
+        info.push(['Montaggio', 'tra le due corde verticali centrali, sotto l\'ultima orizzontale: da dietro infila la parte centrale nello spazio tra le corde, poi da davanti premi il disco con la scritta sul perno finché scatta']);
+        info.push(['Stampa', 'due pezzi piatti, senza supporti: il disco davanti con la scritta in alto, il disco dietro a faccia in giù con il perno in alto']);
       }
-      info.splice(1, 0, ['Peso', `circa ${fmt(grams([body, text, markM, ...drawn.map(d => d[1])]))} g in TPU`]);
-      const cols = new Set([...(text ? [2] : []), ...(markM ? [H.decor.markCol(p, 2)] : []), ...drawn.map(d => d[0])]), Ht0 = p.modello === 'verme' ? +p.spessore : +p.altezza;   // in stampa: faccia con la scritta in alto
+      info.splice(1, 0, ['Peso', `circa ${fmt(grams([body, back, text, markM, ...drawn.map(d => d[1])]))} g in TPU`]);
+      const cols = new Set([...(text ? [2] : []), ...(markM ? [H.decor.markCol(p, 2)] : []), ...drawn.map(d => d[0])]), Ht0 = p.modello === 'verme' ? +p.spessore : body.boundingBox().max[2];   // in stampa: faccia con la scritta in alto
+      const tc = Math.max(0.4, +p.rilievoTesto || 0.6);
       if (cols.size > 1) info.push(['Colori', `${cols.size + 1} filamenti: serve una stampante multicolore (AMS, MMU)`]);
-      else if (cols.size) info.push(['Stampante a un colore', `cambia filamento a ${fmt(p.stileTesto === 'rilievo' && text ? Ht0 : Ht0 - Math.max(0.4, +p.rilievoTesto || 0.6))} mm`]);
+      else if (cols.size) info.push(['Stampante a un colore', `cambia filamento a ${fmt(p.stileTesto === 'rilievo' && (text || markM) ? Ht0 : Ht0 - tc)} mm${p.modello === 'verme' ? '' : ' (solo il disco davanti)'}`]);
       info.push(['Materiale', 'TPU morbido (85A–95A) o TPE; più morbido smorza di più. Riempimento gyroid 30–50%, 3 pareti, 20 mm/s, brim']);
       info.push(['Regole', 'ITF: l\'antivibrazione va fuori dall\'incrocio delle corde']);
       for (const x of notes) info.push(['Nota', x]);
