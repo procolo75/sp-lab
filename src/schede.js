@@ -5,7 +5,8 @@
 // Le schede stanno con la faccia dei componenti in su e i piedini in giù (si usano i dupont senza saldare):
 // sotto ogni scheda c'è un vano libero per i connettori e per i fili. Tutte le schede arrivano alla stessa quota
 // sotto il coperchio, così display, fotocamera e sensore di luce sono vicini alla finestra.
-// Ogni scheda ha una "culla": sui bordi senza piedini un muretto che la regge da sotto e la tiene ferma di lato.
+// Ogni scheda ha una "culla": un lato chiuso (a scelta) con il muretto pieno che aggancia la scheda; sugli altri bordi senza
+// piedini dei pilastrini (agli angoli e al centro dei bordi lunghi) che la reggono da sotto. Tre lati aperti per far passare i fili.
 // Sui bordi con i piedini ci sono solo due dentini alle estremità, fuori dalla scheda.
 (function (root) {
   // connettori USB: larghezza, quote z dalla faccia superiore del circuito, ingombro della spina
@@ -269,7 +270,7 @@
         return Object.assign({}, b, { su: v === 'capovolta', capo: true, lidM: lidC || undefined, finestra: null, usb: b.usb ? Object.assign({}, b.usb, { y: b.W - b.usb.y }) : null,
           pines: b.pines.map(q => Object.assign({}, q, { lato: sw[q.lato] })) });
       };
-      // moduli: la torre è aperta solo dal lato dei piedini; per averlo a destra o a sinistra il modulo si gira (di 90° o 180°)
+      // moduli: i piedini vanno dalla parte opposta al lato chiuso; per portarli lì il modulo si gira (di 90° o 180°)
       const giraMod = (b, to) => {
         const e0 = b.pines && b.pines[0] && b.pines[0].lato;
         if (!e0 || e0 === to) return Object.assign({}, b, { giro: 0 });
@@ -287,9 +288,14 @@
         return Object.assign({}, b, { L: r.sw ? W : L, W: r.sw ? L : W, pines, finestra: fin, giro: r.deg });
       };
       const cavOf = (k) => Math.max(8, Math.min(45, +p[k + 'Cav'] || +p.cavita || 22));   // spazio sotto la scheda, per ogni scheda
-      const cpu = Object.assign(mount(get(p.cpu) || SCHEDE.d1mini, p.cpuPin), { cav: cavOf('cpu') });
+      // ogni culla ha un lato chiuso (vista dall'alto) con il muretto pieno che aggancia la scheda, gli altri tre aperti per i fili.
+      // I moduli si girano da soli per avere i piedini dalla parte opposta al lato chiuso
+      const LATO = { dietro: 'N', davanti: 'S', sinistra: 'W', destra: 'E' }, OPP = { S: 'N', N: 'S', W: 'E', E: 'W' };
+      // processore: sempre con i componenti in su (il display guarda il coperchio), piedini in giù o in su a seconda di come sono saldati.
+      // Sta all'altezza scelta (spazio sotto), oppure sotto il coperchio: sale sulla sua torre come i moduli e il display arriva alla finestra
+      const cpu = Object.assign(mount(get(p.cpu) || SCHEDE.d1mini, p.cpuPin === 'sopra' ? 'sopra' : 'sotto'), { cav: cavOf('cpu'), chiuso: LATO[p.cpuChiuso] || 'E' }, p.cpuCop === 'si' ? { lidM: true } : {});
       const mods = [];
-      for (let i = 1; i <= 5; i++) { const id = p['mod' + i]; if (id && id !== 'nessuno' && get(id)) mods.push(Object.assign(giraMod(get(id), ({ sx: 'W', su: 'N', giu: 'S' })[p['mod' + i + 'Apre']] || 'E'), { su: false, lidM: p['mod' + i + 'Cop'] === 'si' || undefined, slot: i, cav: cavOf('mod' + i) })); }   // moduli: sempre sulla torre, piedini in giù
+      for (let i = 1; i <= 5; i++) { const id = p['mod' + i]; if (!id || id === 'nessuno' || !get(id)) continue; const ch = LATO[p['mod' + i + 'Chiuso']] || 'W'; mods.push(Object.assign(giraMod(get(id), OPP[ch]), { su: false, lidM: p['mod' + i + 'Cop'] === 'si' || undefined, slot: i, cav: cavOf('mod' + i), chiuso: ch })); }   // moduli: sempre sulla torre, piedini in giù
       const items = [cpu, ...mods];
       const dupH = DUP.plastica + DUP.corpo;
 
@@ -334,7 +340,7 @@
       // piedini sotto: sotto la scheda il vano dei dupont; piedini sopra: i dupont salgono verso il coperchio (16,5 mm + 3 mm per la curva dei fili)
       const above = (it) => (it.capo ? (it.su ? dupH + 3 : 3) : it.su ? Math.max(it.hTop, dupH + 3) : it.hTop);   // capovolta con i piedini giù: sopra restano solo le punte saldate (3 mm)
       // capovolta: sotto il circuito ci stanno i componenti e la USB, più 1 mm d'aria
-      const under = (it) => (!it.su ? it.cav : it.capo ? Math.max(it.hTop, it.usb ? CONN[it.usb.tipo].z1 : 0) + 1.0 : 1.5);
+      const under = (it) => (!it.su || !it.capo ? it.cav : Math.max(it.hTop, it.usb ? CONN[it.usb.tipo].z1 : 0) + 1.0);   // piedini in su: lo spazio sotto lo scegli tu come con i piedini in giù
       const gapCop = Math.max(0.3, Math.min(8, +p.distCop || 1.5));
       const Hin = Math.max(...items.map(i => under(i) + i.pcb + above(i) + (i.lidM ? gapCop : 0.6)));
       const R = Math.min(p.raggio, w + 4.5), ri = Math.max(0.5, R - w);
@@ -359,10 +365,10 @@
         // vani dei connettori dupont: niente muretti dove stanno i piedini
         for (const q of (it.su ? [] : it.pines)) {
           const half = q.n * DUP.passo / 2 + 0.3, len = longOf(q.lato), c = (q.c === undefined ? 0.5 : q.c) * len, dep = q.off + 1.5;
-          if (q.lato === 'S') keeps.push(box(bx + c - half, by - gOut - ft - 1, f - 1, bx + c + half, by + dep, zb + 0.01));
-          if (q.lato === 'N') keeps.push(box(bx + c - half, by + Wd - dep, f - 1, bx + c + half, by + Wd + gOut + ft + 1, zb + 0.01));
-          if (q.lato === 'W') keeps.push(box(bx - gOut - ft - 1, by + c - half, f - 1, bx + dep, by + c + half, zb + 0.01));
-          if (q.lato === 'E') keeps.push(box(bx + L - dep, by + c - half, f - 1, bx + L + gOut + ft + 1, by + c + half, zb + 0.01));
+          if (q.lato === 'S') keeps.push(box(bx + c - half, by - gOut - ft - 1, f - 1, bx + c + half, by + dep, zb + it.pcb + 0.02));
+          if (q.lato === 'N') keeps.push(box(bx + c - half, by + Wd - dep, f - 1, bx + c + half, by + Wd + gOut + ft + 1, zb + it.pcb + 0.02));
+          if (q.lato === 'W') keeps.push(box(bx - gOut - ft - 1, by + c - half, f - 1, bx + dep, by + c + half, zb + it.pcb + 0.02));
+          if (q.lato === 'E') keeps.push(box(bx + L - dep, by + c - half, f - 1, bx + L + gOut + ft + 1, by + c + half, zb + it.pcb + 0.02));
         }
         const wall = (e, a0, a1, fence) => {
           if (e === 'S') { solids.push(box(bx + a0, by - gOut - ft, f - 0.01, bx + a1, by + lip, zb)); if (fence) solids.push(box(bx + a0, by - gOut - ft, zb - 0.01, bx + a1, by - gOut, zb + it.pcb)); }
@@ -370,18 +376,25 @@
           if (e === 'W') { solids.push(box(bx - gOut - ft, by + a0, f - 0.01, bx + lip, by + a1, zb)); if (fence) solids.push(box(bx - gOut - ft, by + a0, zb - 0.01, bx - gOut, by + a1, zb + it.pcb)); }
           if (e === 'E') { solids.push(box(bx + L - lip, by + a0, f - 0.01, bx + L + gOut + ft, by + a1, zb)); if (fence) solids.push(box(bx + L + gOut, by + a0, zb - 0.01, bx + L + gOut + ft, by + a1, zb + it.pcb)); }
         };
+        // muro fuori dalla scheda, dal fondo fino al circuito, sul bordo con i piedini: non tocca i dupont (non si taglia con i vani)
+        const outer = (e, a0, a1) => {
+          if (e === 'S') pegS.push(box(bx + a0, by - gOut - ft, f - 0.01, bx + a1, by - gOut, zb + it.pcb));
+          if (e === 'N') pegS.push(box(bx + a0, by + Wd + gOut, f - 0.01, bx + a1, by + Wd + gOut + ft, zb + it.pcb));
+          if (e === 'W') pegS.push(box(bx - gOut - ft, by + a0, f - 0.01, bx - gOut, by + a1, zb + it.pcb));
+          if (e === 'E') pegS.push(box(bx + L + gOut, by + a0, f - 0.01, bx + L + gOut + ft, by + a1, zb + it.pcb));
+        };
         for (const e of ['S', 'N', 'W', 'E']) {
           const len = longOf(e);
-          if (!pinEdges.has(e)) wall(e, 0, len, !(e === 'W' && it.usb));       // muretto sotto e contorno attorno alla scheda
-          else {                                                               // bordo con i piedini: due dentini fuori dalla scheda, alle estremità
+          if (e === it.chiuso && pinEdges.has(e)) outer(e, 0, len);       // lato chiuso sui piedini: muro pieno fuori dalla scheda, dal fondo
+          else if (e === it.chiuso) wall(e, 0, len, !(e === 'W' && it.usb));   // lato chiuso: muretto pieno che aggancia la scheda
+          else if (!pinEdges.has(e)) {
+            // gli altri lati sono aperti per i fili: solo pilastrini agli angoli (e al centro sui bordi lunghi)
+            const sl = Math.min(3, len / 4), fence = !(e === 'W' && it.usb);   // pilastrini da 3 mm: anche sui lati corti resta un varco largo
+            wall(e, 0, sl, fence); wall(e, len - sl, len, fence);
+            if (len > 36) wall(e, len / 2 - sl / 2, len / 2 + sl / 2, fence);
+          } else {                                                               // bordo con i piedini: due dentini fuori dalla scheda, alle estremità
             const pl5 = Math.min(5, len / 3);
-            const pegs = (a0, a1) => {
-              if (e === 'S') pegS.push(box(bx + a0, by - gOut - ft, f - 0.01, bx + a1, by - gOut, zb + it.pcb));
-              if (e === 'N') pegS.push(box(bx + a0, by + Wd + gOut, f - 0.01, bx + a1, by + Wd + gOut + ft, zb + it.pcb));
-              if (e === 'W') pegS.push(box(bx - gOut - ft, by + a0, f - 0.01, bx - gOut, by + a1, zb + it.pcb));
-              if (e === 'E') pegS.push(box(bx + L + gOut, by + a0, f - 0.01, bx + L + gOut + ft, by + a1, zb + it.pcb));
-            };
-            pegs(0.8, 0.8 + pl5); pegs(len - 0.8 - pl5, len - 0.8);
+            outer(e, 0.8, 0.8 + pl5); outer(e, len - 0.8 - pl5, len - 0.8);
           }
         }
         let cr = U(solids);
@@ -933,7 +946,7 @@
 
       // ---- misure e note ----
       info.push(['Esterno', `${fmt(Xo)} × ${fmt(Yo)} × ${fmt(Htot)} mm`]);
-      const mtxt = (it) => (it.slot ? `torre aperta ${({ W: 'a sinistra', E: 'a destra', N: 'in su (dietro)', S: 'in giù (davanti)' })[it.pines && it.pines[0] && it.pines[0].lato] || ''} (lato dei piedini${it.giro ? `, modulo girato di ${Math.abs(it.giro)}°` : ''}), ${fmt(it.cav)} mm sotto${it.lidM ? `, sotto il coperchio (${fmt(gapCop)} mm)` : ''}` : it.lidM ? (it.capo ? `sotto il coperchio, capovolta (torre dal fondo, retro della scheda a ${fmt(gapCop + 3)} mm dal coperchio, componenti e piedini in giù)` : `sotto il coperchio (torre dal fondo, componenti a ${fmt(gapCop)} mm dal coperchio, piedini in giù)`) : it.capo ? `capovolta (componenti in giù, piedini ${it.su ? 'in su' : 'in giù'})` : 'piedini ' + (it.su ? 'sopra' : 'sotto'));
+      const mtxt = (it) => (it.slot ? `torre chiusa ${({ W: 'a sinistra', E: 'a destra', N: 'dietro', S: 'davanti' })[it.chiuso]}, piedini dalla parte opposta${it.giro ? ` (modulo girato di ${Math.abs(it.giro)}°)` : ''}, ${fmt(it.cav)} mm sotto${it.lidM ? `, sotto il coperchio (${fmt(gapCop)} mm)` : ''}` : it.lidM ? (it.capo ? `sotto il coperchio, capovolta (torre dal fondo, retro della scheda a ${fmt(gapCop + 3)} mm dal coperchio, componenti e piedini in giù)` : (it.su ? `sotto il coperchio (torre dal fondo, piedini in su: i dupont arrivano a ${fmt(gapCop)} mm dal coperchio)` : `sotto il coperchio (torre dal fondo, componenti a ${fmt(gapCop)} mm dal coperchio, piedini in giù)`)) : it.capo ? `capovolta (componenti in giù, piedini ${it.su ? 'in su' : 'in giù'})` : 'piedini ' + (it.su ? 'sopra' : 'sotto'));
       info.push(['Processore', `${cpu.nome} · ${cpu.fonte} · ${mtxt(cpu)}`]);
       if (cpu.esphome) info.push(['ESPHome', cpu.esphome]);
       if (cpu.dove) info.push(['Dove si compra', cpu.dove]);
@@ -943,9 +956,9 @@
         if (esp) info.push(['ESPHome', esp]);
       });
       info.push(['Disposizione', place.map((q, i) => `${i === 0 ? 'processore' : 'modulo ' + i}: a ${fmt(q.px)} mm da sinistra, a ${fmt(q.py)} mm dal fronte`).join(' · ')]);
-      info.push(['Piedini e dupont', `componenti in su (tranne le schede capovolte). Piedini sotto: sotto ogni scheda resta il suo spazio (${items.filter(q => !q.su).map(q => fmt(q.cav)).join(', ') || '–'} mm) (header 2,5 mm + connettore dupont 14 mm + curva dei fili), i fili passano sotto le schede e tra una culla e l'altra. Piedini sopra: la scheda scende e i dupont salgono verso il coperchio (16,5 mm, più 3 mm per la curva dei fili). Il lato si sceglie per ogni scheda`]);
+      info.push(['Piedini e dupont', `componenti in su. Spazio sotto le schede: ${items.map(q => fmt(q.cav)).join(', ')} mm (con i piedini in giù: header 2,5 mm + dupont 14 mm + curva dei fili). Con i piedini in su i dupont salgono verso il coperchio (16,5 mm, più 3 mm per la curva dei fili). I fili passano dai tre lati aperti delle culle`]);
       for (const x of capoNotes) notes.push(x);
-      for (const it of mods) if (it.giro && it.finestra && it.finestra.tipo === 'display') notes.push(`${it.nome.split(' (')[0]}: per avere i piedini ${({ W: 'a sinistra', E: 'a destra', N: 'dietro', S: 'davanti' })[it.pines[0].lato]} il display è girato di ${Math.abs(it.giro)}°: in ESPHome metti ${Math.abs(it.giro) === 180 ? 'rotation: 180°' : 'rotation: 90° o 270° (prova quale lo raddrizza)'}, oppure scegli l'altra apertura`);
+      for (const it of mods) if (it.giro && it.finestra && it.finestra.tipo === 'display') notes.push(`${it.nome.split(' (')[0]}: per avere i piedini ${({ W: 'a sinistra', E: 'a destra', N: 'dietro', S: 'davanti' })[it.pines[0].lato]} il display è girato di ${Math.abs(it.giro)}°: in ESPHome metti ${Math.abs(it.giro) === 180 ? 'rotation: 180°' : 'rotation: 90° o 270° (prova quale lo raddrizza)'}, oppure cambia il lato chiuso`);
       for (const it of items) if (!it.su && !it.lidM && it.cav < dupH + 1) notes.push(`${it.nome.split(' (')[0]}: con ${fmt(it.cav)} mm sotto la scheda i dupont dritti (${fmt(dupH)} mm con l'header) non ci stanno: usa dupont a 90°, fili saldati o header corti, oppure almeno ${fmt(Math.ceil(dupH + 3))} mm`);
       for (const pl of place) { const it = pl.it; if (!it.finestra || it.lidM) continue; const d = Zw - (zbOf(it) + it.pcb + it.hTop); if (d > 2.5) notes.push(`${it.nome.split(' (')[0]}: i componenti stanno ${fmt(d)} mm sotto il coperchio, lontano dalla finestra. Aumenta il suo spazio sotto o scegli "Sotto il coperchio"`); }
       if (items.some(it => it.lidM)) info.push(['Sotto il coperchio', `${items.filter(it => it.lidM).map(it => it.nome.split(' (')[0]).join(', ')}: sulla sua culla-torre che parte dal fondo (anche con base + campana: la torre è sulla base), con i componenti a ${fmt(gapCop)} mm dal coperchio (capovolta: il retro della scheda, con le punte saldate dei piedini a ${fmt(gapCop)} mm) e i piedini in giù. Si appoggia e si collega con la scatola aperta; il coperchio la tiene ferma dall'alto. ${mods.some(it => it.lidM && it.id === 'rc522') ? `L'RC522 legge attraverso ${fmt(tl)} mm di coperchio più ${fmt((m => m.capo ? 3 + gapCop : m.hTop + gapCop)(mods.find(it => it.id === 'rc522')))} mm (${mods.find(it => it.id === 'rc522').capo ? 'punte saldate' : 'componenti'} e aria): con pochi mm le tessere si leggono bene. ` : ''}I dupont stanno nel vano sotto la scheda`]);
@@ -962,7 +975,7 @@
       }
       if (supN.length) info.push(['Supporto', supN.join(' · ')]);
       if (vm && !campana) { const iC = info.findIndex(r => r[0] === 'Coperchio'); if (iC >= 0) info[iC][1] = `4 viti ${p.viteM} stampate dal basso, a filo sotto il fondo, che si avvitano in boccole filettate sotto il coperchio: sopra non si vede niente`; }
-      info.push(['Culle', `ogni scheda ha un muretto sotto i bordi senza piedini (${fmt(lip0)} mm sotto la scheda) e un contorno alto quanto il circuito; sui bordi con i piedini solo due dentini; gioco ${fmt(g)} mm per lato`]);
+      info.push(['Culle', `un lato chiuso con il muretto pieno che aggancia la scheda (${items.map(it => (it.slot ? 'modulo ' + it.slot : 'processore') + ' ' + ({ N: 'dietro', S: 'davanti', W: 'a sinistra', E: 'a destra' })[it.chiuso]).join(', ')}), gli altri tre aperti per i fili: sui bordi senza piedini solo dei pilastrini agli angoli e al centro dei bordi lunghi, che entrano ${fmt(lip0)} mm sotto la scheda e salgono di fianco quanto il circuito; sui bordi con i piedini solo due dentini; gioco ${fmt(g)} mm per lato`]);
       info.push(['Altezza', `tutte le schede arrivano a 0,6 mm dal coperchio, così display, fotocamera e sensori sono vicini alle finestre`]);
       if (!campana) info.push(['Coperchio', `4 viti ${p.vite} a testa svasata dall'alto, in colonnine agli angoli (pre-foro ${dv === 3 ? '2,6' : '2,1'} mm, per viti autofilettanti o da avvitare nel PETG)`]);
       if (nLed && !ledOnLid) info.push(['LED', `${nLed} × ${LT.nome} sulla parete ${ledSide}, a ${fmt(ledWallZ - f)} mm dal fondo: ${LT.pelle ? `da dentro resta una pelle da ${LT.pelle} mm, la luce passa (meglio se la scatola è chiara)` : `foro Ø ${fmt(2 * LT.r)} mm a goccia (si stampa senza supporti): infila il LED da dentro, il collarino batte contro la parete; fermalo con una goccia di colla`}. Dietro ai LED restano liberi ${fmt(ledDepth)} mm per gambe e dupont`]);
@@ -992,7 +1005,7 @@
       if (DEC) { for (const x of DEC.NOTES) info.push(['Nota', x]); DEC.NOTES.clear(); }
 
       // ---- pezzo di prova: solo la base con le culle e le aperture delle pareti (USB, antenna) ----
-      // con i piedini in giù la culla si accorcia: sotto la scheda restano 11 mm (header + punte), il resto si toglie e la culla si abbassa
+      // pezzo di prova: fondo sottile, culle e torri alte come nella scatola vera (così si provano anche le altezze), pezzi di parete con le aperture
       if (p.prova === 'culle') {
         parts.length = 0;
         const fp = Math.min(1.0, f), mar = gOut + ft + 0.6, zF = f - fp;   // fondo di prova 1 mm
@@ -1000,11 +1013,10 @@
         const rim = 5, fl = (x0, y0, x1, y1) => box(x0, y0, zF, x1, y1, f + 0.01);
         const regF = [fl(-1, -1, Xo + 1, w + rim), fl(-1, Yo - w - rim, Xo + 1, Yo + 1), fl(-1, -1, w + rim, Yo + 1), fl(Xo - w - rim, -1, Xo + 1, Yo + 1)];
         const holesF = [], ups = [], ghs = [];
-        let zMax = f + 1, corte = 0;
+        let zMax = f + 1;
         for (const pl of place) {
           const it = pl.it, bx = ox + pl.px + g, by = oy + pl.py + g, zb = zbOf(it), zt = zb + it.pcb;
-          const drop = it.su ? 0 : Math.max(0, zb - 11 - f), zc = f + drop;
-          if (drop > 0) corte++;
+          const drop = 0, zc = f;   // altezze vere, niente accorciamenti
           const regB = [box(bx - mar, by - mar, zc, bx + it.L + mar, by + it.W + mar, zt + 1.0)];
           regF.push(fl(bx - mar, by - mar, bx + it.L + mar, by + it.W + mar));
           const xm = bx + it.L / 2; regF.push(fl(xm - 2.5, -1, xm + 2.5, Yo + 1));
@@ -1032,7 +1044,7 @@
         parts.push({ name: 'Prova: base con culle e prese', m: center(pc), role: 'body' });
         parts.push({ name: 'esempio', m: center(X(reg(U(ghs).translate([0, 0, -zF])), box(-50, -50, 0.01, Xo + 50, Yo + 50, Htot + 5))), role: 'ghost' });   // i dupont sotto non si provano
         const peso = Math.round(pc.volume() * 1.24 / 100) / 10, pesoTot = Math.round((box0.volume() + lid.volume()) * 1.24 / 100) / 10;
-        info.splice(1, 0, ['Prova', `solo la base (fondo di 1 mm: un bordo lungo il contorno, il fondo sotto le culle e una traversina per scheda), le culle e i pezzi di parete con le aperture (${[cpu.usb ? 'USB' : null, /esp32cam/.test(cpu.id || '') && p.antenna === 'esterna' ? 'antenna' : null].filter(Boolean).join(' e ') || 'nessuna'}), alto ${fmt(pc.boundingBox().max[2])} mm: circa ${fmt(peso)} g di PLA invece di ${fmt(pesoTot)} g.${corte ? ` Con i piedini in giù la culla è accorciata a 11 mm sotto la scheda (invece del suo spazio sotto): prova senza i dupont attaccati.` : ''} Appoggia le schede, controlla il gioco delle culle${cpu.usb ? ' e infila la spina USB' : ''}; poi stampa la scatola intera`]);
+        info.splice(1, 0, ['Prova', `fondo di 1 mm (un bordo lungo il contorno, il fondo sotto le culle e una traversina per scheda), le culle e le torri alte come nella scatola e i pezzi di parete con le aperture (${[cpu.usb ? 'USB' : null, /esp32cam/.test(cpu.id || '') && p.antenna === 'esterna' ? 'antenna' : null].filter(Boolean).join(' e ') || 'nessuna'}), alto ${fmt(pc.boundingBox().max[2])} mm: circa ${fmt(peso)} g di PLA invece di ${fmt(pesoTot)} g. Culle e torri sono alte come nella scatola vera: appoggia le schede con i dupont attaccati, controlla altezze e gioco delle culle${cpu.usb ? ' e infila la spina USB' : ''}; poi stampa la scatola intera`]);
       }
 
       const res = { parts, info, view: [0.55, -0.95, 0.8] };

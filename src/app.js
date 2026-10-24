@@ -817,20 +817,23 @@
         { sec: 'Moduli', id: 'mod3', label: 'Modulo 3', type: 'select', menu: true, def: 'nessuno', options: schedeMods() },
         { sec: 'Moduli', id: 'mod4', label: 'Modulo 4', type: 'select', menu: true, def: 'nessuno', options: schedeMods() },
         { sec: 'Moduli', id: 'mod5', label: 'Modulo 5', type: 'select', menu: true, def: 'nessuno', options: schedeMods() },
-        { sec: 'Piedini saldati', id: 'cpuPin', label: 'Processore', type: 'select', def: 'sotto', options: PIN_OPTS,
-          help: 'Da che lato hai saldato i piedini (la plastica dell\'header). Sotto: dal lato opposto ai componenti, come nelle schede da breadboard. Sopra: dal lato dei componenti. Capovolta: la scheda è montata al contrario, con i componenti verso il fondo (la USB esce sotto il circuito, niente finestra nel coperchio). Sotto · capovolta: i piedini puntano in su e i dupont salgono verso il coperchio. Sopra · capovolta: i piedini puntano in giù e i dupont stanno nel vano sotto la scheda. I moduli invece stanno sempre su una torre (sezione Torri dei moduli).' },
-        { sec: 'Piedini saldati', id: 'cpuCav', label: 'Spazio sotto il processore', type: 'num', min: 8, max: 45, step: 1, def: 22, unit: 'mm', show: p => ['sotto', 'capovoltaSopra', 'coperchio', 'coperchioCapo'].includes(p.cpuPin || 'sotto'), help: 'Spazio libero sotto questa scheda per l\'header (2,5 mm), il connettore dupont (14 mm) e la curva dei fili. Vale per le schede con i piedini in giù; ogni scheda ha il suo. La scatola è alta quanto serve alla scheda più alta.' },
+        { sec: 'Processore', id: 'cpuPin', label: 'Piedini saldati', type: 'select', def: 'sotto', options: [['sotto', 'Dal lato opposto ai componenti (piedini in giù)'], ['sopra', 'Dal lato dei componenti (piedini in su)']],
+          help: 'Il processore sta sempre con i componenti in su, così il display guarda il coperchio. Piedini in giù: i dupont stanno sotto la scheda. Piedini in su: i dupont salgono verso il coperchio. La USB esce dalla parete sinistra all\'altezza della scheda.' },
+        { sec: 'Processore', id: 'cpuCav', label: 'Spazio sotto il processore', type: 'num', min: 8, max: 45, step: 1, def: 22, unit: 'mm', help: 'Quanto la scheda sta sopra il fondo, come per i moduli: con i piedini in giù ci vogliono header (2,5 mm), dupont (14 mm) e la curva dei fili.' },
+        { sec: 'Processore', id: 'cpuCop', label: 'Sotto il coperchio', type: 'select', def: 'no', options: [['no', 'No'], ['si', 'Sì']], help: 'Sì: la scheda sale fino a pochi mm dal coperchio (distanza in Torri dei moduli), così il display è sotto la sua finestra.' },
+        { sec: 'Processore', id: 'cpuChiuso', label: 'Lato chiuso', type: 'select', def: 'destra', options: [['sinistra', 'A sinistra'], ['destra', 'A destra'], ['dietro', 'Dietro'], ['davanti', 'Davanti']],
+          help: 'La culla ha un lato chiuso, con il muretto che aggancia la scheda, e tre lati aperti con i pilastrini per far passare i fili (vista dall\'alto).' },
         ...[1, 2, 3, 4, 5].flatMap(i => {
           const on = p => p['mod' + i] && p['mod' + i] !== 'nessuno';
           return [
-            { sec: 'Torri dei moduli', id: 'mod' + i + 'Apre', label: 'Modulo ' + i + ': apertura', type: 'select', def: 'dx', options: [['dx', 'A destra'], ['sx', 'A sinistra'], ['su', 'In su (dietro)'], ['giu', 'In giù (davanti)']], show: on,
-              help: i === 1 ? 'Ogni modulo sta su una torre con il muretto su tre lati: il lato aperto è quello dei piedini, da cui escono i fili. Scegli da che parte deve guardare (vista dall\'alto): il modulo si gira per portarci i piedini. I piedini vanno in giù (header saldato dal lato opposto ai componenti) e i dupont stanno sotto il modulo.' : undefined },
+            { sec: 'Torri dei moduli', id: 'mod' + i + 'Chiuso', label: 'Modulo ' + i + ': lato chiuso', type: 'select', def: 'sinistra', options: [['sinistra', 'A sinistra'], ['destra', 'A destra'], ['dietro', 'Dietro'], ['davanti', 'Davanti']], show: on,
+              help: i === 1 ? 'Ogni modulo sta su una torre con un lato chiuso, con il muretto che lo aggancia, e tre lati aperti con i pilastrini per far passare i fili (vista dall\'alto). Il modulo si gira da solo e mette i piedini dalla parte opposta. Piedini in giù: i dupont stanno sotto il modulo.' : undefined },
             { sec: 'Torri dei moduli', id: 'mod' + i + 'Cav', label: 'Spazio sotto il modulo ' + i, type: 'num', min: 8, max: 45, step: 1, def: 22, unit: 'mm', show: on, help: i === 1 ? 'Spazio sotto il modulo per header (2,5 mm), dupont (14 mm) e curva dei fili. La scatola è alta quanto serve alla scheda più alta.' : undefined },
             { sec: 'Torri dei moduli', id: 'mod' + i + 'Cop', label: 'Sotto il coperchio', type: 'select', def: 'no', options: [['no', 'No'], ['si', 'Sì']], show: on, help: i === 1 ? 'Sì: la torre porta il modulo a pochi mm dal coperchio (distanza qui sotto). Per lettori NFC/RFID e sensori di temperatura, CO₂, luce.' : undefined },
           ];
         }),
-        { sec: 'Torri dei moduli', id: 'distCop', label: 'Distanza dal coperchio', type: 'num', min: 0.5, max: 8, step: 0.5, def: 1.5, unit: 'mm', show: p => [1, 2, 3, 4, 5].some(i => p['mod' + i] && p['mod' + i] !== 'nessuno' && p['mod' + i + 'Cop'] === 'si'), help: 'Aria tra i componenti dei moduli "sotto il coperchio" e il coperchio. Un RC522 legge le tessere anche con qualche mm in più.' },
-        { sec: 'Piedini saldati', id: 'antenna', label: 'Antenna ESP32-CAM', type: 'select', def: 'interna', show: p => p.cpu === 'esp32cam' || p.cpu === 'esp32cammb', options: [['interna', 'Interna (sul circuito)'], ['esterna', 'Esterna (connettore SMA sulla parete)']],
+        { sec: 'Torri dei moduli', id: 'distCop', label: 'Distanza dal coperchio', type: 'num', min: 0.5, max: 8, step: 0.5, def: 1.5, unit: 'mm', show: p => p.cpuCop === 'si' || [1, 2, 3, 4, 5].some(i => p['mod' + i] && p['mod' + i] !== 'nessuno' && p['mod' + i + 'Cop'] === 'si'), help: 'Aria tra i componenti delle schede "sotto il coperchio" e il coperchio. Un RC522 legge le tessere anche con qualche mm in più.' },
+        { sec: 'Processore', id: 'antenna', label: 'Antenna ESP32-CAM', type: 'select', def: 'interna', show: p => p.cpu === 'esp32cam' || p.cpu === 'esp32cammb', options: [['interna', 'Interna (sul circuito)'], ['esterna', 'Esterna (connettore SMA sulla parete)']],
           help: 'Esterna: foro nella parete sinistra per un connettore SMA da pannello, collegato al connettore IPEX con un cavo U.FL–SMA. Va anche spostata la resistenza da 0 Ω accanto al connettore.' },
         { sec: 'Posizione', id: 'cpuPos', label: 'Processore', type: 'pad', def: [0, 0],
           help: 'Le schede partono in fila e la scatola si allarga da sola. Le frecce le spostano del passo scelto sotto la croce (0,5 · 1 · 5 · 10 mm; 0,2 mm con Maiusc): su = verso il retro, giù = verso il davanti; il centro rimette la posizione automatica. A sinistra e davanti non si esce dal bordo. Il riquadro misure avvisa se due schede si toccano.' },
@@ -852,8 +855,8 @@
         { sec: 'LED', id: 'pannelloFin', label: 'Finestra del pannello LED', type: 'select', def: 'diffusore', options: [['diffusore', 'Diffusore (pelle da 0,6 mm)'], ['aperto', 'Aperta']],
           show: p => [p.mod1, p.mod2, p.mod3, p.mod4, p.mod5].some(k => /^ws/.test(k)),
           help: 'Diffusore: i pixel si vedono solo accesi, la luce passa attraverso 0,6 mm di coperchio (meglio chiaro). Aperta: si vedono i LED.' },
-        { sec: 'Stampa', id: 'prova', label: 'Pezzo di prova', type: 'select', def: 'nessuna', options: [['nessuna', 'Nessuno: scatola intera'], ['culle', 'Solo base, culle e prese delle pareti']],
-          help: 'Esce un pezzo basso: il fondo da 1 mm (bordo, sotto le culle e una traversina per scheda), le culle e i pezzi di parete con le aperture (USB, antenna), nella stessa posizione della scatola vera. Con i piedini in giù la culla è accorciata a 11 mm sotto la scheda: prova senza i dupont. Pochi grammi: serve a provare che le schede entrino e che la spina arrivi giusta prima di stampare tutta la scatola.' },
+        { sec: 'Stampa', id: 'prova', label: 'Pezzo di prova', type: 'select', def: 'nessuna', options: [['nessuna', 'Nessuno: scatola intera'], ['culle', 'Fondo, culle e torri (altezze vere) e prese delle pareti']],
+          help: 'Esce il fondo da 1 mm (bordo, sotto le culle e una traversina per scheda), le culle e le torri alte come nella scatola vera e i pezzi di parete con le aperture (USB, antenna), nella stessa posizione. Si provano schede, altezze e dupont. Pochi grammi: serve a provare che le schede entrino e che la spina arrivi giusta prima di stampare tutta la scatola.' },
         { sec: 'Scatola', id: 'cavita', label: 'Spazio sotto le schede', type: 'num', min: 8, max: 45, step: 1, def: 22, unit: 'mm', show: () => false },
         { sec: 'Scatola', id: 'distanza', label: 'Distanza tra le schede', type: 'num', min: 5, max: 25, step: 0.5, def: 6, unit: 'mm', help: 'Tra una culla e l\'altra passano i fili. Sotto 5 mm le culle si toccano.' },
         { sec: 'Scatola', id: 'largMax', label: 'Larghezza massima interna', type: 'num', min: 50, max: 400, step: 5, def: 140, unit: 'mm', help: 'Superata questa larghezza le schede vanno a capo su una nuova fila.' },
@@ -883,12 +886,10 @@
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
           help: 'Il coperchio si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato. Traforato: passa da parte a parte.' },
         layerP({ sec: 'Coperchio decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.2, show: p => p.stileCop !== 'traforata' }),
-        ...withRot(linesP('Scritta sul coperchio', '', '', 8, null, 60, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
-        { sec: 'Scritta sul coperchio', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
-        Object.assign(nozzleP('Scritta sul coperchio'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
-        ...markP(true),
+        Object.assign(nozzleP('Coperchio decorato'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
+        ...markP(true).filter(q => q.id !== 'colMarchio'),   // niente scritte: il colore del logo è quello qui sotto
         ...colorsP(['Colore 1 · coperchio', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
-        { sec: 'Colori', id: 'colTesto', label: 'Colore della scritta', type: 'select', def: 'auto', options: [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4']], help: 'Solo con lo stile a filo. Auto: il colore che si legge meglio sul coperchio.' },
+        { sec: 'Logo SP', id: 'colTesto', label: 'Colore', type: 'select', def: 'auto', options: [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4']], show: p => !!p.marchio, help: 'Il filamento del logo SP (a filo). Auto: il colore che si legge meglio sul coperchio.' },
         { sec: 'Coperchio', id: 'margineFin', label: 'Margine delle finestre', type: 'num', min: 0, max: 4, step: 0.5, def: 1.5, unit: 'mm', help: 'Quanto le finestre dei display e dei sensori sono più grandi dell\'area attiva. La posizione sul modulo è presa in scala dalle foto: stampa prima il coperchio per controllarla.' },
         { sec: 'Coperchio', id: 'finLuce', label: 'Finestra del sensore di luce', type: 'select', def: 'foro', show: p => [p.mod1, p.mod2, p.mod3, p.mod4, p.mod5].includes('veml7700'), options: [['foro', 'Foro'], ['sottile', 'Pelle da 0,6 mm']],
           help: 'Foro: il sensore vede tutta la luce. Pelle sottile: il coperchio resta chiuso (misura un po\' meno luce; correggila con il fattore di vetro di ESPHome).' },
@@ -1058,6 +1059,7 @@
             <label class="btn${cur && cur.name ? '' : ' primary'}" for="${idAttr}">${cur && cur.name ? 'Cambia file…' : 'Carica SVG…'}</label>
             ${cur && cur.name && !using ? '<button type="button" class="btn primary use">Usa questo</button>' : ''}
             ${using ? '<button type="button" class="btn unuse">Usa la libreria</button>' : ''}
+            ${cur && cur.name ? '<button type="button" class="btn clear">Togli</button>' : ''}
           </div>
           <input id="${idAttr}" type="file" accept=".svg,image/svg+xml" hidden>
           <p class="help">Il tuo disegno vettoriale al posto di quelli della libreria: i colori vanno sui tuoi filamenti, i tratti diventano linee piene.</p>
@@ -1088,6 +1090,7 @@
         card.addEventListener('drop', (e) => { e.preventDefault(); card.classList.remove('drag'); load(e.dataTransfer.files && e.dataTransfer.files[0]); });
         const u = row.querySelector('.use'); if (u) u.addEventListener('click', () => apply(cur, p.use));
         const n = row.querySelector('.unuse'); if (n) n.addEventListener('click', () => apply(cur, p.unuse));
+        const cl = row.querySelector('.clear'); if (cl) cl.addEventListener('click', () => apply(null, p.unuse));   // via il file: si torna al disegno di prima
       } else if (p.type === 'pad') {
         // croce di frecce per spostare la scritta: 1 mm a clic (0,2 mm tenendo premuto Maiusc), il centro la rimette al centro.
         // Con move/center (pallina) le frecce cambiano altri valori, per esempio lato e altezza sulla sfera
