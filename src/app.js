@@ -258,6 +258,9 @@
       usbL: t.usb[1], usbA: t.usb[2], fondoL: r2(2 * Math.max(Math.abs(sp[0] - half), Math.abs(sp[1] - half)) + 2) };
   }
 
+  // processori e moduli (misure in dati/schede-misure.js)
+  const SCHEDE_DB = (window.SCHEDE_MISURE && window.SCHEDE_MISURE.SCHEDE) || {};
+  const schedeOpts = (ruolo) => Object.entries(SCHEDE_DB).filter(([, v]) => v.ruolo === ruolo).map(([k, v]) => [k, `${v.nome} · ${String(v.L).replace('.', ',')} × ${String(v.W).replace('.', ',')} mm`]);
   const MODES = {
     bin: {
       label: 'Contenitore',
@@ -798,6 +801,49 @@
           help: 'Pezzi piccoli che si stampano in pochi minuti prima della scatola intera. Fronte: la parete con porte e pulsante, per vedere se la scheda combacia. Chiusura: con la slitta un tratto di guida e un pezzo di coperchio da far scorrere; con le viti un angolo con la colonnina e il suo pezzo di coperchio da avvitare.' },
       ],
     },
+    schede: {
+      label: 'Box schede ESP',
+      params: [
+        { sec: 'Processore', id: 'cpu', label: 'Processore', type: 'select', menu: true, def: 'd1mini', options: schedeOpts('cpu'),
+          help: 'Sta sul fondo, contro la parete sinistra da cui esce la USB, con i piedini in su.' },
+        { sec: 'Processore', id: 'cpuAria', label: 'Prese d\'aria nel coperchio', type: 'select', def: 'no', options: [['no', 'No'], ['si', 'Sì']], help: 'Fessure da 2 mm nel coperchio sopra la scheda.' },
+        { sec: 'Processore', id: 'cpuPin', label: 'Piedini saldati', type: 'select', def: 'componenti', options: [['componenti', 'Dal lato dei componenti'], ['sotto', 'Dal lato opposto (scheda capovolta)']],
+          help: 'I piedini stanno sempre in su. Dal lato dei componenti: la scheda sta dritta. Dal lato opposto: la scheda è capovolta, i componenti e la USB stanno sotto. In tutti e due i casi il circuito poggia su un gradino. Serve anche a mettere la porta USB all\'altezza giusta.' },
+        ...[1, 2, 3, 4, 5].flatMap(i => [
+          { sec: 'Moduli', id: 'mod' + i, label: 'Modulo ' + i, type: 'select', menu: true, def: i === 1 ? 'mpu6050' : 'nessuno', options: [['nessuno', 'Nessuno'], ...schedeOpts('mod')],
+            help: i === 1 ? 'In fila a destra del processore, sul fondo, componenti e piedini in su.' : undefined },
+          { sec: 'Moduli', id: 'mod' + i + 'Aria', label: 'Modulo ' + i + ': prese d\'aria nel coperchio', type: 'select', def: 'no', options: [['no', 'No'], ['si', 'Sì']], show: p => p['mod' + i] && p['mod' + i] !== 'nessuno',
+            help: i === 1 ? 'Fessure da 2 mm nel coperchio sopra il modulo (per esempio per l\'ENS160).' : undefined },
+          { sec: 'Moduli', id: 'mod' + i + 'Rot', label: 'Modulo ' + i + ': rotazione', type: 'select', def: '0', options: [['0', '0°'], ['90', '90°'], ['180', '180°'], ['270', '270°']], show: p => p['mod' + i] && p['mod' + i] !== 'nessuno',
+            help: i === 1 ? 'Gira l\'alloggio del modulo, visto dall\'alto in senso antiorario (con lui girano i piedini).' : undefined },
+        ]),
+        ...[1, 2, 3, 4].flatMap(i => [
+          { sec: 'LED', id: 'led' + i, label: 'LED ' + i, type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['davanti', 'Parete davanti'], ['dietro', 'Parete dietro'], ['sinistra', 'Parete sinistra (USB)'], ['destra', 'Parete destra']],
+            help: i === 1 ? 'Foro nella parete e, dentro, una culla che parte dal fondo e regge il LED con le saldature e i dupont. Il LED si infila da dentro con il collarino contro la parete.' : undefined },
+          { sec: 'LED', id: 'led' + i + 'D', label: 'LED ' + i + ': diametro', type: 'select', def: '5', options: [['3', '3 mm'], ['5', '5 mm']], show: p => p['led' + i] && p['led' + i] !== 'nessuno' },
+          { sec: 'LED', id: 'led' + i + 'Pos', label: 'LED ' + i + ': posizione lungo la parete', type: 'num', min: -150, max: 150, step: 0.5, def: 0, unit: 'mm', show: p => p['led' + i] && p['led' + i] !== 'nessuno',
+            help: i === 1 ? 'Distanza del centro del LED dal centro della parete: positiva verso destra, guardando la parete da fuori.' : undefined },
+          { sec: 'LED', id: 'led' + i + 'Z', label: 'LED ' + i + ': altezza', type: 'num', min: 0, max: 120, step: 0.5, def: 10, unit: 'mm', show: p => p['led' + i] && p['led' + i] !== 'nessuno',
+            help: i === 1 ? 'Dal fondo interno al centro del LED. Se è troppo in basso o troppo in alto (sotto il bordino del coperchio) si ferma al limite.' : undefined },
+        ]),
+        { sec: 'LED', id: 'ledSpazio', label: 'Spazio dietro i LED', type: 'num', min: 5, max: 80, step: 0.5, def: 25, unit: 'mm', show: p => [1, 2, 3, 4].some(i => p['led' + i] && p['led' + i] !== 'nessuno'),
+          help: 'Quanto serve dentro la scatola per LED, saldature e dupont, misurato dalla parete. La culla sotto è lunga così.' },
+        { sec: 'Viti', id: 'viteM', label: 'Viti stampate', type: 'select', def: 'M6', options: [['M6', 'M6'], ['M8', 'M8'], ['M10', 'M10']],
+          help: 'Il coperchio si chiude con 4 viti stampate a testa svasata: entrano da sotto il fondo, a filo, e si avvitano nelle boccole filettate sotto il coperchio.' },
+        { sec: 'Viti', id: 'viteGioco', label: 'Gioco del filetto', type: 'num', min: 0.1, max: 0.6, step: 0.05, def: 0.3, unit: 'mm', help: 'Se la vite è dura aumentalo, se balla diminuiscilo.' },
+        { sec: 'Scatola', id: 'altezza', label: 'Altezza interna', type: 'num', min: 5, max: 120, step: 0.5, def: 25, unit: 'mm', help: 'Dal fondo al coperchio, spessori esclusi. Sopra i piedini ci vogliono circa 20 mm per i dupont e la curva dei fili.' },
+        { sec: 'Scatola', id: 'margine', label: 'Spazio attorno agli alloggi', type: 'num', min: 0, max: 40, step: 0.5, def: 3, unit: 'mm', help: 'Davanti, dietro e a destra (a sinistra il processore sta contro la parete).' },
+        { sec: 'Scatola', id: 'distanza', label: 'Distanza tra gli alloggi', type: 'num', min: 0, max: 30, step: 0.5, def: 3, unit: 'mm' },
+        { sec: 'Scatola', id: 'pareteAll', label: 'Pareti degli alloggi', type: 'num', min: 0.8, max: 3, step: 0.4, def: 1.2, unit: 'mm', help: 'Pareti piene attorno a ogni scheda, alte fino alla faccia di sopra del circuito.' },
+        { sec: 'Scatola', id: 'gradinoH', label: 'Altezza del gradino', type: 'num', min: 0.6, max: 8, step: 0.1, def: 2.5, unit: 'mm', help: 'Dentro ogni alloggio il circuito poggia su un gradino lungo il bordo e sotto resta vuoto, per le punte dei piedini saldati e i componenti di sotto. Se la scheda è capovolta il gradino si alza da solo sopra i componenti.' },
+        { sec: 'Scatola', id: 'gradinoL', label: 'Larghezza del gradino', type: 'num', min: 0.6, max: 3, step: 0.2, def: 1, unit: 'mm', help: 'Quanto il gradino entra sotto il bordo della scheda. Sotto le file di piedini si interrompe.' },
+        { sec: 'Scatola', id: 'gioco', label: 'Gioco attorno alle schede', type: 'num', min: 0.1, max: 1, step: 0.1, def: 0.3, unit: 'mm', help: 'Per lato.' },
+        { sec: 'Scatola', id: 'pareti', label: 'Spessore pareti', type: 'num', min: 0.8, max: 3.2, step: 0.4, def: 2, unit: 'mm' },
+        { sec: 'Scatola', id: 'fondo', label: 'Spessore fondo', type: 'num', min: 0.8, max: 3, step: 0.2, def: 1.6, unit: 'mm' },
+        { sec: 'Scatola', id: 'spCoperchio', label: 'Spessore coperchio', type: 'num', min: 1, max: 4, step: 0.2, def: 2, unit: 'mm' },
+        { sec: 'Scatola', id: 'raggio', label: 'Raggio angoli', type: 'num', min: 1, max: 10, step: 0.5, def: 4, unit: 'mm' },
+      ],
+    },
     tennis: {
       label: 'Tennis',
       params: [
@@ -850,6 +896,7 @@
     { id: 'vasi', title: 'Vasi', cat: 'Casa e giardino', desc: 'Vasi e fioriere per aromatiche, normali con sottovaso o autoirriganti.', modes: ['vaso'], thumb: 'vaso' },
     { id: 'supporti', title: 'Reggimensole e ganci', cat: 'Casa e giardino', desc: 'Squadre per mensole con rinforzo e viti, ganci a muro, appendiabiti, ganci sopra porta, per tubi e a S.', modes: ['mensola', 'gancio'], thumb: 'gancio' },
     { id: 'powerbank', title: 'Powerbank', cat: 'Elettronica', desc: 'Scatola per un powerbank fai-da-te: celle 18650 con contatti a molla come le pile, quattro schede di ricarica con le porte già al loro posto, coperchio a slitta o a viti nascoste.', modes: ['powerbank'], thumb: 'powerbank' },
+    { id: 'schede', title: 'Box schede ESP', cat: 'Elettronica', desc: 'Scatola per un processore ESP e i suoi moduli, in fila sul fondo nei loro alloggi, piedini in su, USB che esce dalla parete. In costruzione, un passo alla volta.', modes: ['schede'], thumb: 'schede' },
     { id: 'racchette', title: 'Antivibrazione', cat: 'Sport', desc: 'Antivibrazione con il tuo nome per racchette da tennis (bottone o verme, per corde 16×19 e 18×20) e da padel (tappo o passante per i fori della racchetta). Da stampare in TPU.', modes: ['tennis', 'padel'], thumb: 'tennis' },
     { id: 'viteria', title: 'Viti e bulloni', cat: 'Meccanica', desc: 'Viti e bulloni con filetto metrico ISO, dadi, rondelle e perni a scatto.', modes: ['vite', 'bullone', 'perno'], thumb: 'bullone' },
   ];
@@ -1458,6 +1505,7 @@ ${build}</build>
     if (state.mode === 'lego') return `cassetto-modulare_${v.larghezza}x${v.profondita}_${v.unita}mm_h${v.altezza}`;
     if (state.mode === 'cover') { const nm = String(v.scritta || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24); return `cover_${v.modello}_${v.materiale}${v.tipo === 'cavalletto' ? '_cavalletto' : ''}${v.prova !== 'nessuna' ? '_prova-' + v.prova : ''}${nm ? '_' + nm : ''}`; }
     if (state.mode === 'powerbank') return `powerbank_${v.scheda}_${v.contatti === 'portapile' ? v.ppN * v.ppCelle : v.celle}celle_${v.coperchio}${v.prova && v.prova !== 'nessuna' ? '_prova-' + v.prova : ''}`;
+    if (state.mode === 'schede') return `box_${v.cpu}${[1, 2, 3, 4, 5].map(i => v['mod' + i]).filter(k => k && k !== 'nessuno').map(k => '_' + k).join('')}`;
     if (s) return s;
     const slug = (x) => String(x || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24);
     const nm = slug(v.scritta) ? '_' + slug(v.scritta) : '';

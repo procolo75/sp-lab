@@ -1,5 +1,4 @@
-// Misure delle schede ESP (processori e moduli) raccolte per il vecchio Box schede, tolto dall'app.
-// Solo dati: non è caricato da build.py. Unità: mm.
+// Misure delle schede ESP (processori e moduli) e dei LED per il Box schede (src/schede.js). Unità: mm.
 (function (root) {
   // connettori USB: larghezza, quote z dalla faccia superiore del circuito, ingombro della spina
   const CONN = {
@@ -8,6 +7,8 @@
   };
   // connettore dupont femmina su un header maschio: plastica dell'header 2,5 mm + corpo del connettore 14 mm
   const DUP = { plastica: 2.5, perno: 6.0, corpo: 14.0, passo: 2.54 };
+  // LED rotondi: diametro del corpo, del collarino alla base (spesso 1 mm), altezza dal collarino alla punta
+  const LED = { 3: { d: 3.0, fl: 3.8, flH: 1.0, h: 5.3 }, 5: { d: 5.0, fl: 5.8, flH: 1.0, h: 8.6 } };
 
   // Schede. Sistema di riferimento della scheda: x lungo il lato lungo (L), y lungo il lato corto (W), origine nell'angolo davanti a sinistra.
   // Lati: S = davanti (y = 0), N = dietro (y = W), W = sinistra (x = 0, dove esce la USB), E = destra (x = L).
@@ -120,10 +121,10 @@
     },
     ens160: {
       ruolo: 'mod', nome: 'ENS160 + AHT21 qualità dell\'aria, temperatura e umidità',
-      L: 16, W: 11, pcb: 1.2, hTop: 1.8, pines: [{ lato: 'S', n: 4, off: 1.3 }], i2c: ['0x52', '0x53', '0x38'],
+      L: 24, W: 19, pcb: 1.2, hTop: 1.8, pines: [{ lato: 'S', n: 4, off: 1.3 }], i2c: ['0x52', '0x53', '0x38'],
       finestra: { tipo: 'aria', cx: 8, cy: 6, w: 9, h: 6 },
-      fonte: '16 × 11 mm con 4 contatti a passo 2,54 (domoticx)',
-      stima: 'la misura (altri moduli ENS160 sono più grandi: controllala col calibro) e la posizione del sensore. Il sensore di gas ha bisogno d\'aria: il coperchio ha delle fessure. L\'AHT21 misura la temperatura vicino al processore, che scalda: i valori risultano più alti del vero',
+      fonte: '24 × 19 mm (misurato dall\'utente), 4 contatti a passo 2,54',
+      stima: 'la posizione del sensore e dei contatti. Il sensore di gas ha bisogno d\'aria: il coperchio ha delle fessure. L\'AHT21 misura la temperatura vicino al processore, che scalda: i valori risultano più alti del vero',
       dove: 'Amazon e AliExpress: "ENS160 AHT21 sensore qualità aria"',
       esphome: 'sensor: platform: ens160_i2c · I²C 0x52 (0x53) · compensation con un sensore di temperatura e umidità (AHT21: componente aht10)',
     },
@@ -175,6 +176,6 @@
       esphome: 'light: platform: esp32_rmt_led_strip (ESP32) oppure neopixelbus (ESP8266) · chipset WS2812',
     },
   };
-  root.SCHEDE_MISURE = { SCHEDE, CONN, DUP };
-  if (typeof module !== 'undefined' && module.exports) module.exports = { SCHEDE, CONN, DUP };
+  root.SCHEDE_MISURE = { SCHEDE, CONN, DUP, LED };
+  if (typeof module !== 'undefined' && module.exports) module.exports = { SCHEDE, CONN, DUP, LED };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
