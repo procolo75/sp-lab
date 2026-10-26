@@ -1923,7 +1923,9 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       sx: [vol(54.82, 9.54)], dx: [mute(44.45, 4.33), side(65.57, 5.79)], w: 2.6,               // mute = Alert Slider (sempre aperto)
       // isola verticale a pillola con 4 lenti; flash doppio fuori dall'isola, a destra guardando il retro. Sporgenza: stima
       cam: { r: [7.44, 6.25, 19.49, 47.61, 6.0], h: 1.2, v: 1.2, fori: [[22.80, 12.40, 6.2]] },   // flash: foto (y 10,3–15,4) e cover di riferimento (y 7,5–16,2)
-      usb: [36.65, 12.45, 6.60, 3.25], sp: [25.6, 64.6], cima: [[42.8, 3.1]], piano: 1.0 },   // fondo come la cover di riferimento: microfono e USB, altoparlante
+      // microfono in cima: verso il lato della fotocamera, 40–42,5 mm dal fianco sinistro nella foto del bordo (gsmarena, in
+      // prospettiva), 42,8 nella cover di riferimento. Asola larga che li comprende tutti e due
+      usb: [36.65, 12.45, 6.60, 3.25], sp: [25.6, 64.6], cima: [[41.6, 5]], piano: 1.0 },   // fondo come la cover di riferimento: microfono e USB, altoparlante
   ];
   // lenti, flash, microfono e sensore sul retro [x, y, Ø] (quote del disegno del retro): i fori della copertura della fotocamera
   const L16 = [[13.62, 13.62, 16.00], [13.62, 31.34, 16.00], [30.01, 22.48, 6.28], [20.54, 22.48, 1.00]];
@@ -1951,6 +1953,8 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
     'iphone-12-pro': [[12.16, 12.16, 12.45], [12.16, 27.58, 12.45], [25.51, 19.87, 12.45], [25.51, 9.17, 6.28], [30.23, 27.38, 1.15]],
     'iphone-12': [[12.73, 12.73, 12.10], [12.73, 27.01, 12.10], [25.28, 12.28, 2.40], [25.28, 19.87, 5.66]],
     'iphone-12-mini': [[10.67, 10.67, 12.10], [10.67, 24.95, 12.10], [22.21, 10.22, 2.40], [22.21, 17.81, 5.66]],
+    // in scala sulla foto ufficiale del retro, rispetto all'isola (±0,3 mm): diametro dell'anello attorno al vetro; flash a pillola 2,7 × 5,5
+    'oneplus-nord': [[13.47, 12.55, 5.4], [13.47, 23.75, 6.0], [13.47, 34.5, 4.0], [13.47, 41.65, 4.0], [22.80, 12.40, 5.8]],
   };
   for (const t of T) if (LENTI[t.id]) t.lenti = LENTI[t.id];
   root.SP_TELEFONI = T;
@@ -5234,7 +5238,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       if (t.fonte && tb > 2.1) notes.push(`Retro di ${fmt(tb)} mm: Apple indica al massimo 2,1 mm perché la ricarica MagSafe funzioni sempre: riduci lo spessore del retro`);
       if (!tpu && lip > 0.8) notes.push(`Bordo sul vetro di ${fmt(lip)} mm: con PLA o PETG il telefono rischia di non entrare o di rompere la cover. Meglio 0,6 mm o meno`);
       if (t.piano && lip > t.piano + 0.6) notes.push(`Il bordo arriva ${fmt(lip - t.piano)} mm dentro la parte piatta dello schermo: riduci il bordo sul vetro`);
-      if (t.misure) notes.push('~Misure non da un disegno ufficiale: stampa prima la striscia di prova (cima e fondo) per controllare fotocamera, tasti e gioco');
+      if (t.misure) notes.push('~Misure non da un disegno ufficiale: stampa prima la striscia di prova (cima e fondo) per controllare fotocamera, tasti e gioco. Se il telefono balla anche con gioco 0, prova −0,1 e poi −0,2' + (tpu ? '' : '; con PLA o PETG tiene meglio anche un bordo sul vetro di 0,8 mm'));
       for (const n of notes) info.push(['Nota', n]);
       if (DEC) { for (const n of DEC.NOTES) info.push(['Nota', n]); DEC.NOTES.clear(); }
       return { parts: parts.filter(Boolean), info, view: [0.55, -0.9, 0.75] };
@@ -6741,6 +6745,109 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
 
 </script>
 <script>
+// Supporti per tablet (schermi Home Assistant): cornice che abbraccia il tablet senza custodia, appoggiata su due piedini.
+// Si aggancia al motore di geom.js tramite SPRECOLO_EXT. Coordinate in mm: x larghezza, y profondità (schermo verso -y), z altezza.
+// - la cornice ha un labbro davanti che copre solo il bordo nero; un lato è tutto aperto: da lì entra il tablet e lì
+//   restano libere presa e tasti (sui Fire stanno tutti su un lato). Si stampa sulla schiena, senza supporti;
+// - se è più grande del piatto si divide in due metà unite da code di rondine nella schiena (incastro a puzzle);
+// - i piedini sono il blocco a cui si toglie la cornice inclinata: la cornice ci entra con il gioco.
+(function (root) {
+  (root.SPRECOLO_EXT = root.SPRECOLO_EXT || []).push(function tablet(H) {
+    const { Manifold, CrossSection, reg, union, sub, box, fmt } = H;
+    // misure ufficiali: larghezza × altezza × spessore, tenuto in orizzontale
+    const TABLETS = {
+      fire10_2021: { name: 'Fire HD 10 (11ª gen., 2021)', W: 247, H: 166, T: 9.2 },
+      fire8_2018: { name: 'Fire HD 8 (8ª gen., 2018)', W: 214, H: 128, T: 9.7 },
+      fire7_2017: { name: 'Fire 7 (7ª gen., 2017)', W: 192, H: 115, T: 9.6 },
+    };
+    const WALL = 2.5, LIP = 2, RR = 4, BAND = 25, FOOT_W = 30, FLOOR = 3, DOVE_G = 0.15;
+    const rrect = (x0, z0, x1, z1, r) => reg(reg(reg(CrossSection.square([x1 - x0 - 2 * r, z1 - z0 - 2 * r])).translate([x0 + r, z0 + r])).offset(r, 'Round', 2, 32));
+    const slab = (cs, y0, y1) => reg(reg(reg(cs.extrude(y1 - y0)).rotate([90, 0, 0])).translate([0, y1, 0]));   // profilo nel piano (x, z), y fra y0 e y1
+
+    function tablet(p) {
+      const tb = p.modello === 'misura' ? { name: 'Misure tue', W: +p.larghezza, H: +p.altezza, T: +p.spessore } : TABLETS[p.modello] || TABLETS.fire10_2021;
+      const notes = [];
+      const g = +p.gioco, tilt = +p.inclinazione, bed = +p.piatto;
+      const vert = p.orientamento === 'verticale';
+      // la cornice si costruisce sempre col lato lungo su x; in verticale poi si gira di 90° (in alto va il lato sinistro)
+      const A = Math.max(tb.W, tb.H), B = Math.min(tb.W, tb.H), T = tb.T;
+      const w = A + 2 * g, h = B + 2 * g, t = T + 2 * g, X = w / 2 + WALL, Ztop = 2 * WALL + h;
+      const split = Math.max(2 * X, Ztop) > bed;
+      const bk = split ? 3 : 2;            // schiena: più spessa quando ci sono le code di rondine
+      // lato aperto, nella cornice costruita in orizzontale
+      const use = p.latoAperto;
+      const open = !vert ? use : { sopra: 'sinistra', destra: 'sopra', sinistra: 'sotto' }[use];
+      const ext = (x0, z0, x1, z1, e) => open === 'sopra' ? [x0, z0, x1, z1 + e] : open === 'destra' ? [x0, z0, x1 + e, z1] : open === 'sinistra' ? [x0 - e, z0, x1, z1] : [x0, z0 - e, x1, z1];
+
+      let fr = slab(rrect(-X, 0, X, Ztop, RR), -LIP, t + bk);
+      const [px0, pz0, px1, pz1] = ext(-w / 2, WALL, w / 2, WALL + h, 20);
+      fr = sub(fr, box(px0, 0, pz0, px1, t, pz1));                                                  // tasca del tablet
+      // labbri, lato per lato come si vede il tablet in uso; in verticale: sopra = sinistra della cornice costruita, destra = sopra, sotto = destra, sinistra = sotto
+      const lb = (k) => Math.max(0, +p['bordo' + k] || 0);
+      const ov = vert ? { L: lb('Sopra'), T: lb('Destra'), R: lb('Sotto'), B: lb('Sinistra') } : { L: lb('Sinistra'), T: lb('Sopra'), R: lb('Destra'), B: lb('Sotto') };
+      const [sx0, sz0, sx1, sz1] = ext(-w / 2 + ov.L, WALL + ov.B, w / 2 - ov.R, WALL + h - ov.T, 20);
+      fr = sub(fr, slab(rrect(sx0, sz0, sx1, sz1, Math.min(3, ...Object.values(ov).filter(v => v > 0))), -LIP - 1, 0.01));                              // finestra dello schermo
+      const bw = Math.min(BAND, h / 4);
+      fr = sub(fr, slab(rrect(-w / 2 + bw, WALL + bw, w / 2 - bw, WALL + h - bw, 10), t - 0.01, t + bk + 1));   // finestra sul retro
+
+      // ---- divisione in due metà: taglio a x = 0, una coda di rondine nella fascia sotto e una in quella sopra ----
+      let frames = [fr];
+      if (split) {
+        const dove = (zc) => CrossSection.ofPolygons([[[-1, zc - 4], [0, zc - 4], [10, zc - 7], [10, zc + 7], [0, zc + 4], [-1, zc + 4]]]);
+        const tabs = reg(CrossSection.union([dove((WALL + bw) / 2 + 1), dove(Ztop - bw / 2)]));
+        const left = union([reg(fr.intersect(box(-X - 1, -50, -10, 0, 50, Ztop + 10))), reg(fr.intersect(slab(tabs, t, t + bk)))]);
+        const right = sub(reg(fr.intersect(box(0, -50, -10, X + 1, 50, Ztop + 10))), slab(reg(tabs.offset(DOVE_G, 'Miter')), t - 0.5, t + bk + 1));
+        frames = [left, right];
+        if (2 * X / 2 + 10 > bed) notes.push('~Anche le metà sono più grandi del piatto');
+      }
+
+      // tablet di esempio (solo per vederlo), stessa costruzione
+      const ghost = union([box(-A / 2, g, WALL + g, A / 2, g + T, WALL + g + B), box(-A / 2 + 12, g - 0.3, WALL + g + 12, A / 2 - 12, g, WALL + g + B - 12)]);
+
+      // ---- da cornice in orizzontale a cornice in uso: girata se verticale, inclinata all'indietro, appoggiata sui piedini ----
+      const turn = (m) => (vert ? reg(reg(m.rotate([0, 90, 0])).translate([0, 0, X])) : m);   // in verticale: lato lungo su z, sinistra in alto
+      const lean = (m) => reg(reg(m.translate([0, LIP, 0])).rotate([-tilt, 0, 0]));
+      const z0 = lean(turn(fr)).boundingBox().min[2];
+      const place = (m) => reg(lean(turn(m)).translate([0, 0, FLOOR - z0]));
+      const Xu = vert ? Ztop / 2 : X;                                                           // mezza larghezza in uso
+      const shift = vert ? -Ztop / 2 : 0;                                                       // in verticale la cornice va centrata su x
+      const at = (m) => reg(place(m).translate([shift, 0, 0]));
+
+      // piedini: blocco col profilo, meno la cornice (con gioco) inclinata; davanti restano sotto lo schermo
+      const th = LIP + t + bk, fg = 0.25;
+      const prof = reg(CrossSection.ofPolygons([[[-12, 0], [75, 0], [75, 4], [38, 50], [18, 50], [6, 8], [-12, 8]]]));
+      const outerU = vert ? [Ztop, 2 * X] : [2 * X, Ztop];
+      const cutter = reg(reg(reg(Manifold.cube([outerU[0] + 2, th + 2 * fg, 600])).translate([-outerU[0] / 2 - 1, -fg, -fg])).rotate([-tilt, 0, 0]));
+      const foot = sub(reg(reg(reg(prof.extrude(FOOT_W)).rotate([90, 0, 90])).translate([-FOOT_W / 2, 0, 0])), reg(cutter.translate([0, 0, FLOOR - z0])));
+      const fx = Math.min(Xu - FOOT_W / 2 - 10, Math.max(Xu * 0.6, FOOT_W));
+
+      const parts = [];
+      const flat = (m) => reg(m.rotate([-90, 0, 0]));                                           // sulla schiena
+      if (frames.length === 1) parts.push({ name: 'Cornice', m: at(fr), role: 'body', print: flat(fr) });
+      else frames.forEach((f, i) => parts.push({ name: `Cornice ${vert ? (i ? 'sotto' : 'sopra') : (i ? 'destra' : 'sinistra')}`, m: at(f), role: 'body', print: flat(f) }));
+      const footPrint = reg(foot.rotate([0, 90, 0]));                                          // sul fianco: il profilo sta sul piatto
+      for (const sx of [-1, 1]) parts.push({ name: `Piedino ${sx < 0 ? 'sinistro' : 'destro'}`, m: reg(foot.translate([sx * fx, 0, 0])), role: 'pin', print: footPrint });
+      parts.push({ name: 'esempio', m: at(ghost), role: 'ghost' });
+
+      const lato = { sopra: 'in alto', destra: 'a destra', sinistra: 'a sinistra' }[use];
+      const info = [
+        ['Tablet', `${tb.name}: ${fmt(tb.W)} × ${fmt(tb.H)} × ${fmt(tb.T)} mm, ${vert ? 'in verticale' : 'in orizzontale'}`],
+        ['Cornice', `${fmt(outerU[0])} × ${fmt(outerU[1])} × ${fmt(th)} mm, gioco ${fmt(g)} mm per lato; labbri: ${['Sotto', 'Sopra', 'Sinistra', 'Destra'].filter(k => k.toLowerCase() !== use).map(k => `${k.toLowerCase()} ${fmt(lb(k))}`).join(', ')} mm`],
+        ['Lato aperto', `${lato}: il tablet entra da lì e presa e tasti restano liberi. Mettilo dove il tuo tablet ha la presa di ricarica.`],
+        ['Base', `due piedini larghi ${fmt(FOOT_W)} mm, inclinazione ${fmt(tilt)}°; la cornice ci entra con ${fmt(fg)} mm di gioco`],
+      ];
+      if (split) info.push(['Divisa in due', `la cornice (${fmt(Math.max(2 * X, Ztop))} mm) è più grande del piatto (${fmt(bed)} mm): due metà con due code di rondine nella schiena, gioco ${DOVE_G.toString().replace('.', ',')} mm. Si uniscono premendo; una goccia di colla se vuoi.`]);
+      info.push(['Stampa', `cornice sulla schiena, piedini sul fianco: niente supporti`]);
+      for (const n of notes) info.push(['Nota', n]);
+      return { parts, info, view: [0.45, -1, 0.45] };
+    }
+
+    return { tablet };
+  });
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+</script>
+<script>
 (function () {
   'use strict';
   // ================= PARAMETRI =================
@@ -7107,8 +7214,8 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Materiale e gioco', id: 'materiale', label: 'Materiale', type: 'select', def: 'tpu', options: [['tpu', 'TPU (flessibile)'], ['pla', 'PLA o PETG (rigido)']],
           onSet: (k) => (k === 'tpu' ? { gioco: 0.15, giocoZ: 0.2, sporgenza: 1 } : { gioco: 0.3, giocoZ: 0.3, sporgenza: 0.6 }),
           help: 'TPU: il telefono entra a scatto sotto il bordo, come una cover comprata. PLA o PETG sono rigidi: il bordo sul vetro è più stretto e il telefono entra inclinato, prima la cima e poi il fondo, mentre le pareti si piegano un poco. Il PETG si piega meglio del PLA.' },
-        { sec: 'Materiale e gioco', id: 'gioco', label: 'Gioco sui lati', type: 'num', min: 0, max: 1, step: 0.05, def: 0.15, unit: 'mm', help: 'Spazio tra telefono e pareti. Stampa la striscia di prova: se entra stretto aumentalo, se balla diminuiscilo.' },
-        { sec: 'Materiale e gioco', id: 'giocoZ', label: 'Gioco sullo spessore', type: 'num', min: 0, max: 1, step: 0.05, def: 0.2, unit: 'mm' },
+        { sec: 'Materiale e gioco', id: 'gioco', label: 'Gioco sui lati', type: 'num', min: -0.4, max: 1, step: 0.05, def: 0.15, unit: 'mm', help: 'Spazio tra telefono e pareti. Stampa la striscia di prova: se entra stretto aumentalo, se balla diminuiscilo. Se balla anche a 0 scendi sotto zero: il telefono è un po\' più piccolo delle misure dichiarate.' },
+        { sec: 'Materiale e gioco', id: 'giocoZ', label: 'Gioco sullo spessore', type: 'num', min: -0.4, max: 1, step: 0.05, def: 0.2, unit: 'mm', help: 'Sotto zero se il telefono balla avanti e indietro anche a 0.' },
         { sec: 'Materiale e gioco', id: 'giocoTasti', label: 'Gioco attorno ai fori', type: 'num', min: 0.2, max: 2, step: 0.1, def: 0.5, unit: 'mm', help: 'Margine attorno a tasti, connettore e altoparlanti.' },
         { sec: 'Materiale e gioco', id: 'giocoCam', label: 'Gioco attorno alla fotocamera', type: 'num', min: 0, max: 3, step: 0.1, def: 0.6, unit: 'mm' },
         { sec: 'Bordi', id: 'pareti', label: 'Spessore pareti', type: 'num', min: 1, max: 3, step: 0.1, def: 1.6, unit: 'mm' },
@@ -7544,6 +7651,24 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           help: 'Pezzi piccoli che si stampano in pochi minuti prima della scatola intera. Fronte: la parete con porte e pulsante, per vedere se la scheda combacia. Chiusura: con la slitta un tratto di guida e un pezzo di coperchio da far scorrere; con le viti un angolo con la colonnina e il suo pezzo di coperchio da avvitare.' },
       ],
     },
+    tablet: {
+      label: 'Supporto tablet',
+      params: [
+        { sec: 'Tablet', id: 'modello', label: 'Modello', type: 'select', def: 'fire10_2021', options: [['fire10_2021', 'Fire HD 10 (11ª gen., 2021)'], ['fire8_2018', 'Fire HD 8 (8ª gen., 2018)'], ['fire7_2017', 'Fire 7 (7ª gen., 2017)'], ['misura', 'Misure mie']],
+          help: 'Il modello è in Impostazioni → Opzioni dispositivo → Informazioni sul Fire Tablet. Misure ufficiali, senza custodia.' },
+        { sec: 'Tablet', id: 'larghezza', label: 'Lato lungo', type: 'num', min: 80, max: 400, step: 0.1, def: 247, unit: 'mm', show: p => p.modello === 'misura' },
+        { sec: 'Tablet', id: 'altezza', label: 'Lato corto', type: 'num', min: 60, max: 300, step: 0.1, def: 166, unit: 'mm', show: p => p.modello === 'misura' },
+        { sec: 'Tablet', id: 'spessore', label: 'Spessore', type: 'num', min: 4, max: 20, step: 0.1, def: 9.2, unit: 'mm', show: p => p.modello === 'misura' },
+        { sec: 'Posizione', id: 'orientamento', label: 'Orientamento', type: 'select', def: 'orizzontale', options: [['orizzontale', 'Orizzontale'], ['verticale', 'Verticale']] },
+        { sec: 'Posizione', id: 'latoAperto', label: 'Lato aperto', type: 'select', def: 'destra', options: [['destra', 'Destra'], ['sinistra', 'Sinistra'], ['sopra', 'Sopra']],
+          help: 'Da qui entra il tablet, e qui restano liberi presa di ricarica e tasti: mettilo dal lato dove il tuo tablet ha la presa (guardandolo da davanti, come lo userai).' },
+        { sec: 'Posizione', id: 'inclinazione', label: 'Inclinazione', type: 'num', min: 5, max: 40, step: 1, def: 20, unit: '°', help: 'Quanto è piegato all\'indietro rispetto alla verticale.' },
+        ...[['Sotto', 'sotto'], ['Sopra', 'sopra'], ['Sinistra', 'sinistra'], ['Destra', 'destra']].map(([n, k]) => ({ sec: 'Cornice', id: 'bordo' + n, label: 'Labbro ' + k, type: 'num', min: 0, max: 15, step: 0.5, def: 3.5, unit: 'mm', show: p => p.latoAperto !== k,
+          help: k === 'sotto' ? 'Quanto ogni labbro copre il bordo nero attorno allo schermo, lato per lato, guardando il tablet da davanti come lo userai. Non deve arrivare sullo schermo. 0 = niente labbro.' : undefined })),
+        { sec: 'Cornice', id: 'gioco', label: 'Gioco', type: 'num', min: 0, max: 1, step: 0.05, def: 0.3, unit: 'mm', help: 'Spazio attorno al tablet, per lato. Se non entra aumentalo, se balla diminuiscilo.' },
+        { sec: 'Stampa', id: 'piatto', label: 'Lato del piatto', type: 'num', min: 150, max: 400, step: 1, def: 250, unit: 'mm', help: 'Anycubic Kobra S1: 250 mm. Se la cornice è più grande si divide in due metà con gli incastri.' },
+      ],
+    },
     schede: {
       label: 'Box schede ESP',
       params: [
@@ -7640,6 +7765,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
     { id: 'supporti', title: 'Reggimensole e ganci', cat: 'Casa e giardino', desc: 'Squadre per mensole con rinforzo e viti, ganci a muro, appendiabiti, ganci sopra porta, per tubi e a S.', modes: ['mensola', 'gancio'], thumb: 'gancio' },
     { id: 'powerbank', title: 'Powerbank', cat: 'Elettronica', desc: 'Scatola per un powerbank fai-da-te: celle 18650 con contatti a molla come le pile, quattro schede di ricarica con le porte già al loro posto, coperchio a slitta o a viti nascoste.', modes: ['powerbank'], thumb: 'powerbank' },
     { id: 'schede', title: 'Box schede ESP', cat: 'Elettronica', desc: 'Scatola per un processore ESP e i suoi moduli, in fila sul fondo nei loro alloggi, piedini in su, USB che esce dalla parete. In costruzione, un passo alla volta.', modes: ['schede'], thumb: 'schede' },
+    { id: 'tablet', title: 'Supporto tablet', cat: 'Elettronica', desc: 'Cornice con base per usare un tablet senza custodia come schermo di Home Assistant: Fire HD 10, HD 8, Fire 7 o misure tue, orizzontale o verticale, lato aperto per presa e tasti. Se non entra nel piatto si divide in due con gli incastri.', modes: ['tablet'], thumb: 'tablet' },
     { id: 'racchette', title: 'Antivibrazione', cat: 'Sport', desc: 'Antivibrazione con il tuo nome per racchette da tennis (bottone o verme, per corde 16×19 e 18×20) e da padel (tappo o passante per i fori della racchetta). Da stampare in TPU.', modes: ['tennis', 'padel'], thumb: 'tennis' },
     { id: 'viteria', title: 'Viti e bulloni', cat: 'Meccanica', desc: 'Viti e bulloni con filetto metrico ISO, dadi, rondelle e perni a scatto.', modes: ['vite', 'bullone', 'perno'], thumb: 'bullone' },
   ];
@@ -8248,6 +8374,7 @@ ${build}</build>
     if (state.mode === 'lego') return `cassetto-modulare_${v.larghezza}x${v.profondita}_${v.unita}mm_h${v.altezza}`;
     if (state.mode === 'cover') { const nm = String(v.scritta || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24); return `cover_${v.modello}_${v.materiale}${v.tipo === 'cavalletto' ? '_cavalletto' : ''}${v.prova !== 'nessuna' ? '_prova-' + v.prova : ''}${nm ? '_' + nm : ''}`; }
     if (state.mode === 'powerbank') return `powerbank_${v.scheda}_${v.contatti === 'portapile' ? v.ppN * v.ppCelle : v.celle}celle_${v.coperchio}${v.prova && v.prova !== 'nessuna' ? '_prova-' + v.prova : ''}`;
+    if (state.mode === 'tablet') return `supporto-tablet_${v.modello === 'misura' ? Math.round(v.larghezza) + 'x' + Math.round(v.altezza) : v.modello}_${v.orientamento}`;
     if (state.mode === 'schede') return `box_${v.cpu}${[1, 2, 3, 4, 5].map(i => v['mod' + i]).filter(k => k && k !== 'nessuno').map(k => '_' + k).join('')}`;
     if (s) return s;
     const slug = (x) => String(x || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24);

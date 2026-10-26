@@ -364,8 +364,8 @@
         { sec: 'Materiale e gioco', id: 'materiale', label: 'Materiale', type: 'select', def: 'tpu', options: [['tpu', 'TPU (flessibile)'], ['pla', 'PLA o PETG (rigido)']],
           onSet: (k) => (k === 'tpu' ? { gioco: 0.15, giocoZ: 0.2, sporgenza: 1 } : { gioco: 0.3, giocoZ: 0.3, sporgenza: 0.6 }),
           help: 'TPU: il telefono entra a scatto sotto il bordo, come una cover comprata. PLA o PETG sono rigidi: il bordo sul vetro è più stretto e il telefono entra inclinato, prima la cima e poi il fondo, mentre le pareti si piegano un poco. Il PETG si piega meglio del PLA.' },
-        { sec: 'Materiale e gioco', id: 'gioco', label: 'Gioco sui lati', type: 'num', min: 0, max: 1, step: 0.05, def: 0.15, unit: 'mm', help: 'Spazio tra telefono e pareti. Stampa la striscia di prova: se entra stretto aumentalo, se balla diminuiscilo.' },
-        { sec: 'Materiale e gioco', id: 'giocoZ', label: 'Gioco sullo spessore', type: 'num', min: 0, max: 1, step: 0.05, def: 0.2, unit: 'mm' },
+        { sec: 'Materiale e gioco', id: 'gioco', label: 'Gioco sui lati', type: 'num', min: -0.4, max: 1, step: 0.05, def: 0.15, unit: 'mm', help: 'Spazio tra telefono e pareti. Stampa la striscia di prova: se entra stretto aumentalo, se balla diminuiscilo. Se balla anche a 0 scendi sotto zero: il telefono è un po\' più piccolo delle misure dichiarate.' },
+        { sec: 'Materiale e gioco', id: 'giocoZ', label: 'Gioco sullo spessore', type: 'num', min: -0.4, max: 1, step: 0.05, def: 0.2, unit: 'mm', help: 'Sotto zero se il telefono balla avanti e indietro anche a 0.' },
         { sec: 'Materiale e gioco', id: 'giocoTasti', label: 'Gioco attorno ai fori', type: 'num', min: 0.2, max: 2, step: 0.1, def: 0.5, unit: 'mm', help: 'Margine attorno a tasti, connettore e altoparlanti.' },
         { sec: 'Materiale e gioco', id: 'giocoCam', label: 'Gioco attorno alla fotocamera', type: 'num', min: 0, max: 3, step: 0.1, def: 0.6, unit: 'mm' },
         { sec: 'Bordi', id: 'pareti', label: 'Spessore pareti', type: 'num', min: 1, max: 3, step: 0.1, def: 1.6, unit: 'mm' },
@@ -801,6 +801,24 @@
           help: 'Pezzi piccoli che si stampano in pochi minuti prima della scatola intera. Fronte: la parete con porte e pulsante, per vedere se la scheda combacia. Chiusura: con la slitta un tratto di guida e un pezzo di coperchio da far scorrere; con le viti un angolo con la colonnina e il suo pezzo di coperchio da avvitare.' },
       ],
     },
+    tablet: {
+      label: 'Supporto tablet',
+      params: [
+        { sec: 'Tablet', id: 'modello', label: 'Modello', type: 'select', def: 'fire10_2021', options: [['fire10_2021', 'Fire HD 10 (11ª gen., 2021)'], ['fire8_2018', 'Fire HD 8 (8ª gen., 2018)'], ['fire7_2017', 'Fire 7 (7ª gen., 2017)'], ['misura', 'Misure mie']],
+          help: 'Il modello è in Impostazioni → Opzioni dispositivo → Informazioni sul Fire Tablet. Misure ufficiali, senza custodia.' },
+        { sec: 'Tablet', id: 'larghezza', label: 'Lato lungo', type: 'num', min: 80, max: 400, step: 0.1, def: 247, unit: 'mm', show: p => p.modello === 'misura' },
+        { sec: 'Tablet', id: 'altezza', label: 'Lato corto', type: 'num', min: 60, max: 300, step: 0.1, def: 166, unit: 'mm', show: p => p.modello === 'misura' },
+        { sec: 'Tablet', id: 'spessore', label: 'Spessore', type: 'num', min: 4, max: 20, step: 0.1, def: 9.2, unit: 'mm', show: p => p.modello === 'misura' },
+        { sec: 'Posizione', id: 'orientamento', label: 'Orientamento', type: 'select', def: 'orizzontale', options: [['orizzontale', 'Orizzontale'], ['verticale', 'Verticale']] },
+        { sec: 'Posizione', id: 'latoAperto', label: 'Lato aperto', type: 'select', def: 'destra', options: [['destra', 'Destra'], ['sinistra', 'Sinistra'], ['sopra', 'Sopra']],
+          help: 'Da qui entra il tablet, e qui restano liberi presa di ricarica e tasti: mettilo dal lato dove il tuo tablet ha la presa (guardandolo da davanti, come lo userai).' },
+        { sec: 'Posizione', id: 'inclinazione', label: 'Inclinazione', type: 'num', min: 5, max: 40, step: 1, def: 20, unit: '°', help: 'Quanto è piegato all\'indietro rispetto alla verticale.' },
+        ...[['Sotto', 'sotto'], ['Sopra', 'sopra'], ['Sinistra', 'sinistra'], ['Destra', 'destra']].map(([n, k]) => ({ sec: 'Cornice', id: 'bordo' + n, label: 'Labbro ' + k, type: 'num', min: 0, max: 15, step: 0.5, def: 3.5, unit: 'mm', show: p => p.latoAperto !== k,
+          help: k === 'sotto' ? 'Quanto ogni labbro copre il bordo nero attorno allo schermo, lato per lato, guardando il tablet da davanti come lo userai. Non deve arrivare sullo schermo. 0 = niente labbro.' : undefined })),
+        { sec: 'Cornice', id: 'gioco', label: 'Gioco', type: 'num', min: 0, max: 1, step: 0.05, def: 0.3, unit: 'mm', help: 'Spazio attorno al tablet, per lato. Se non entra aumentalo, se balla diminuiscilo.' },
+        { sec: 'Stampa', id: 'piatto', label: 'Lato del piatto', type: 'num', min: 150, max: 400, step: 1, def: 250, unit: 'mm', help: 'Anycubic Kobra S1: 250 mm. Se la cornice è più grande si divide in due metà con gli incastri.' },
+      ],
+    },
     schede: {
       label: 'Box schede ESP',
       params: [
@@ -897,6 +915,7 @@
     { id: 'supporti', title: 'Reggimensole e ganci', cat: 'Casa e giardino', desc: 'Squadre per mensole con rinforzo e viti, ganci a muro, appendiabiti, ganci sopra porta, per tubi e a S.', modes: ['mensola', 'gancio'], thumb: 'gancio' },
     { id: 'powerbank', title: 'Powerbank', cat: 'Elettronica', desc: 'Scatola per un powerbank fai-da-te: celle 18650 con contatti a molla come le pile, quattro schede di ricarica con le porte già al loro posto, coperchio a slitta o a viti nascoste.', modes: ['powerbank'], thumb: 'powerbank' },
     { id: 'schede', title: 'Box schede ESP', cat: 'Elettronica', desc: 'Scatola per un processore ESP e i suoi moduli, in fila sul fondo nei loro alloggi, piedini in su, USB che esce dalla parete. In costruzione, un passo alla volta.', modes: ['schede'], thumb: 'schede' },
+    { id: 'tablet', title: 'Supporto tablet', cat: 'Elettronica', desc: 'Cornice con base per usare un tablet senza custodia come schermo di Home Assistant: Fire HD 10, HD 8, Fire 7 o misure tue, orizzontale o verticale, lato aperto per presa e tasti. Se non entra nel piatto si divide in due con gli incastri.', modes: ['tablet'], thumb: 'tablet' },
     { id: 'racchette', title: 'Antivibrazione', cat: 'Sport', desc: 'Antivibrazione con il tuo nome per racchette da tennis (bottone o verme, per corde 16×19 e 18×20) e da padel (tappo o passante per i fori della racchetta). Da stampare in TPU.', modes: ['tennis', 'padel'], thumb: 'tennis' },
     { id: 'viteria', title: 'Viti e bulloni', cat: 'Meccanica', desc: 'Viti e bulloni con filetto metrico ISO, dadi, rondelle e perni a scatto.', modes: ['vite', 'bullone', 'perno'], thumb: 'bullone' },
   ];
@@ -1505,6 +1524,7 @@ ${build}</build>
     if (state.mode === 'lego') return `cassetto-modulare_${v.larghezza}x${v.profondita}_${v.unita}mm_h${v.altezza}`;
     if (state.mode === 'cover') { const nm = String(v.scritta || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24); return `cover_${v.modello}_${v.materiale}${v.tipo === 'cavalletto' ? '_cavalletto' : ''}${v.prova !== 'nessuna' ? '_prova-' + v.prova : ''}${nm ? '_' + nm : ''}`; }
     if (state.mode === 'powerbank') return `powerbank_${v.scheda}_${v.contatti === 'portapile' ? v.ppN * v.ppCelle : v.celle}celle_${v.coperchio}${v.prova && v.prova !== 'nessuna' ? '_prova-' + v.prova : ''}`;
+    if (state.mode === 'tablet') return `supporto-tablet_${v.modello === 'misura' ? Math.round(v.larghezza) + 'x' + Math.round(v.altezza) : v.modello}_${v.orientamento}`;
     if (state.mode === 'schede') return `box_${v.cpu}${[1, 2, 3, 4, 5].map(i => v['mod' + i]).filter(k => k && k !== 'nessuno').map(k => '_' + k).join('')}`;
     if (s) return s;
     const slug = (x) => String(x || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24);

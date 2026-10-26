@@ -149,7 +149,9 @@
       sx: [vol(54.82, 9.54)], dx: [mute(44.45, 4.33), side(65.57, 5.79)], w: 2.6,               // mute = Alert Slider (sempre aperto)
       // isola verticale a pillola con 4 lenti; flash doppio fuori dall'isola, a destra guardando il retro. Sporgenza: stima
       cam: { r: [7.44, 6.25, 19.49, 47.61, 6.0], h: 1.2, v: 1.2, fori: [[22.80, 12.40, 6.2]] },   // flash: foto (y 10,3–15,4) e cover di riferimento (y 7,5–16,2)
-      usb: [36.65, 12.45, 6.60, 3.25], sp: [25.6, 64.6], cima: [[42.8, 3.1]], piano: 1.0 },   // fondo come la cover di riferimento: microfono e USB, altoparlante
+      // microfono in cima: verso il lato della fotocamera, 40–42,5 mm dal fianco sinistro nella foto del bordo (gsmarena, in
+      // prospettiva), 42,8 nella cover di riferimento. Asola larga che li comprende tutti e due
+      usb: [36.65, 12.45, 6.60, 3.25], sp: [25.6, 64.6], cima: [[41.6, 5]], piano: 1.0 },   // fondo come la cover di riferimento: microfono e USB, altoparlante
   ];
   // lenti, flash, microfono e sensore sul retro [x, y, Ø] (quote del disegno del retro): i fori della copertura della fotocamera
   const L16 = [[13.62, 13.62, 16.00], [13.62, 31.34, 16.00], [30.01, 22.48, 6.28], [20.54, 22.48, 1.00]];
@@ -177,6 +179,8 @@
     'iphone-12-pro': [[12.16, 12.16, 12.45], [12.16, 27.58, 12.45], [25.51, 19.87, 12.45], [25.51, 9.17, 6.28], [30.23, 27.38, 1.15]],
     'iphone-12': [[12.73, 12.73, 12.10], [12.73, 27.01, 12.10], [25.28, 12.28, 2.40], [25.28, 19.87, 5.66]],
     'iphone-12-mini': [[10.67, 10.67, 12.10], [10.67, 24.95, 12.10], [22.21, 10.22, 2.40], [22.21, 17.81, 5.66]],
+    // in scala sulla foto ufficiale del retro, rispetto all'isola (±0,3 mm): diametro dell'anello attorno al vetro; flash a pillola 2,7 × 5,5
+    'oneplus-nord': [[13.47, 12.55, 5.4], [13.47, 23.75, 6.0], [13.47, 34.5, 4.0], [13.47, 41.65, 4.0], [22.80, 12.40, 5.8]],
   };
   for (const t of T) if (LENTI[t.id]) t.lenti = LENTI[t.id];
   root.SP_TELEFONI = T;
