@@ -28,6 +28,7 @@ parts = [
   rd('src/racchette.js'),
   rd('src/cassetti.js'),
   rd('src/tablet.js'),
+  rd('src/barattolo.js'),
   rd('src/app.js'),
 ]
 def tag(js): return '<script>\n' + js.replace('</script', '<\\/script') + '\n</script>'

@@ -34,6 +34,7 @@ La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la 
 | **Reggimensola** | Squadra per mensole con rinforzo a triangolo (pieno o traforato), puntone, raccordo curvo o arco, viti svasate e labbro antiscivolo | quante ne vuoi |
 | **Gancio** | Gancio a muro o appendiabiti con più ganci, sopra porta o anta, per tubo o bastone, a S; fissaggio a viti, biadesivo o magneti | 1 |
 | **Powerbank** | Scatola per un powerbank fai-da-te: portapile già pronto (o contatti a molla), cinque schede di ricarica con le porte già al loro posto, coperchio a slitta o a viti nascoste con scritta, loghi e il tuo SVG | scatola e coperchio (anche a colori) |
+| **Barattolo** | Barattolo tondo con tappo a vite che si chiude con un giro: cinque misure pronte o le tue, filetto grosso senza supporti, scritta, loghi e il tuo SVG sul tappo | barattolo e tappo (anche a colori) |
 | **Supporto tablet** | Cornice con base per usare un tablet senza custodia come schermo di Home Assistant: Fire HD 10 (2021), Fire HD 8 (2018), Fire 7 (2017) o misure tue, orizzontale o verticale | cornice (o 2 metà) e 2 piedini |
 | **Antivibrazione tennis** | Antivibrazione per le corde, a bottone (10 forme, i disegni della libreria o il tuo SVG) o a verme, per schemi 16×19, 18×20 o con le tue misure, con una scritta | 1 |
 | **Antivibrazione padel** | Tappo per i fori della racchetta, o passante per tutto lo spessore, con una scritta sulla testa | quanti ne vuoi |
@@ -244,6 +245,12 @@ In costruzione, un passo alla volta. Scegli il **processore** e fino a **5 modul
 - **LED** (fino a 4, da 3 o 5 mm): su qualsiasi parete, scegli la posizione lungo la parete (dal centro) e l'altezza dal fondo. Nella parete c'è il foro; dentro, una **culla a U** che parte dal fondo e regge LED, saldature e dupont per lo **spazio dietro i LED** (25 mm di base, regolabile). Il LED si infila da dentro e la punta resta **a filo della parete**: contro la parete c'è un manicotto con il foro del LED, lungo quanto la testa meno lo spessore della parete, e il collarino ci si appoggia dietro. La scatola si allarga da sola dal lato dei LED (davanti, dietro, destra); sulla parete sinistra c'è il processore, quindi il LED ci sta solo davanti o dietro al suo alloggio. Se la culla tocca un alloggio, una colonnina o un altro LED, o se il foro è vicino alla USB, compare una nota. Per ora niente LED nel coperchio.
 - **Coperchio avvitato** con 4 **viti stampate** M6 (o M8, M10) a testa svasata: entrano da sotto il fondo, a filo (svasatura a 55°, senza supporti; se il fondo è più sottile della svasatura sotto le colonnine c'è un rialzo), passano nelle colonnine agli angoli e si avvitano nelle boccole filettate sotto il coperchio. Le viti escono come pezzo a parte, da stampare in piedi con la testa sul piatto. Le misure delle schede sono in `dati/schede-misure.js`.
 
+### Barattolo
+Barattolo **tondo** con **tappo a vite**. Scegli la **misura** (Piccolo Ø 50 × 45, Medio Ø 70 × 70, Grande Ø 90 × 100, Alto Ø 70 × 130, Largo Ø 120 × 80 mm) oppure *Misure mie* (Ø 30–200 mm, alta 30–250 mm): sono misure esterne con il tappo chiuso; la capienza è nel riquadro delle misure.
+- **Filetto grosso, un giro solo:** un principio, lungo 330°, con le punte che si assottigliano agli estremi così il tappo imbocca da solo. Si regolano il **passo** (6 mm di base: quanto sale il tappo in un giro), la **profondità** (1,6 mm) e il **gioco** (0,4 mm). I fianchi sono a 45°: il barattolo si stampa dritto e il tappo capovolto, senza supporti. Se il passo è troppo piccolo per la profondità scelta, viene alzato da solo (lo dice la nota).
+- **Tappo a filo:** il collo è più stretto del corpo di quanto servono filetto e gonna del tappo, così da chiuso il tappo è a filo con il barattolo; dentro, sotto il collo, c'è un raccordo a 45°. Il tappo chiude battendo sull'orlo del collo. *Righe per la presa* sulla gonna (si possono togliere).
+- **Tappo decorato:** scritta su due righe (con altezza, posizione e rotazione), i visi nelle scritte, il **logo SP** e **il tuo SVG**, come sul coperchio del Powerbank: **a filo** (a colori, nei primi strati del tappo) o **inciso**. Quello che esce dal cerchio del tappo viene tagliato e compare una nota.
+
 ### Supporto tablet
 Per usare un tablet **senza custodia** come schermo di Home Assistant. Scegli il **modello** (Fire HD 10 11ª gen. 2021, Fire HD 8 8ª gen. 2018, Fire 7 7ª gen. 2017, con le misure ufficiali) oppure le tue misure, poi **orizzontale o verticale** e l'**inclinazione** (20° di base).
 - **Cornice:** abbraccia il tablet con 0,3 mm di gioco per lato e davanti ha i labbri che coprono solo il bordo nero: **sotto, sopra, sinistra e destra si regolano ognuno per conto suo** (3,5 mm di base, 0 = niente labbro; quello del lato aperto non c'è). Si stampa sulla schiena, senza supporti; dietro ha una grande finestra per risparmiare plastica.
@@ -360,6 +367,7 @@ Ogni stampante è diversa. Il parametro **Tolleranza stampante** (0,3 mm all'ini
 │   ├── powerbank.js scatola per powerbank: celle, schede e connettori
 │   ├── racchette.js antivibrazione per racchette da tennis e padel
 │   ├── cassetti.js cassetti modulari a mattoncino
+│   ├── barattolo.js barattoli tondi con tappo a vite
 │   ├── fonts.js    contorni dei caratteri (generato)
 │   ├── logos.js    contorni dei loghi per le scritte (generato da assets/)
 │   ├── svg.js      lettore SVG (disegni caricati e libreria)

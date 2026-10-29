@@ -6957,6 +6957,187 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
 
 </script>
 <script>
+// Barattoli tondi con tappo a vite: filetto grosso a un principio, lungo poco meno di un giro, quindi si chiude con un giro solo.
+// Si aggancia al motore di geom.js tramite SPRECOLO_EXT. Coordinate in mm, z verso l'alto, barattolo chiuso centrato in (0, 0).
+// - il collo è più stretto del corpo di quanto servono filetto e parete del tappo: chiuso, il tappo è a filo con il barattolo;
+// - i filetti hanno i fianchi a 45° (niente supporti: il barattolo si stampa dritto, il tappo capovolto) e le punte che si
+//   assottigliano agli estremi, così il tappo imbocca da solo;
+// - il tappo chiude battendo sull'orlo del collo; sopra ha scritta, loghi e il tuo SVG, a filo (a colori) o incisi.
+(function (root) {
+  (root.SPRECOLO_EXT = root.SPRECOLO_EXT || []).push(function barattolo(H) {
+    const { Manifold, Mesh, CrossSection, reg, union, sub, cylZ, fmt } = H;
+    const FORMATI = {
+      piccolo: { D: 50, H: 45 }, medio: { D: 70, H: 70 }, grande: { D: 90, H: 100 }, alto: { D: 70, H: 130 }, largo: { D: 120, H: 80 },
+    };
+    const TIP = 1, EMB = 0.5, ARC = 330, TAPER = 40, M = 1;   // punta del filetto, quanto entra nella parete, giro del filetto (°), tratto che si assottiglia (°), margini sul collo
+
+    // filetto lungo ARC gradi attorno al cilindro di raggio R (dir 1: sporge verso fuori, -1: verso dentro), dal centro z0 che sale di P a giro.
+    // Sezione a trapezio con i fianchi a 45°: alla parete è larga b = TIP + 2 td; entra EMB nella parete per unirsi bene.
+    function rib(R, dir, z0, P, td, seg) {
+      const n = Math.max(24, Math.round(seg * ARC / 360)), hb = TIP / 2 + td, pts = [], tri = [];
+      for (let i = 0; i <= n; i++) {
+        const a = ARC * i / n, t = Math.min(1, a / TAPER, (ARC - a) / TAPER), s = t * t * (3 - 2 * t), d = td * s;
+        const z = z0 + P * a / 360, ca = Math.cos(a * Math.PI / 180), sa = Math.sin(a * Math.PI / 180);
+        for (const [u, v] of [[-EMB, -(hb + EMB)], [d, -(hb - d)], [d, hb - d], [-EMB, hb + EMB]]) { const r = R + dir * u; pts.push(r * ca, r * sa, z + v); }
+      }
+      const q = (a, b, c, d) => (dir > 0 ? tri.push(a, b, c, a, c, d) : tri.push(a, c, b, a, d, c));
+      for (let i = 0; i < n; i++) for (let k = 0; k < 4; k++) { const k1 = (k + 1) % 4; q(4 * i + k, 4 * (i + 1) + k, 4 * (i + 1) + k1, 4 * i + k1); }
+      q(0, 1, 2, 3); q(4 * n + 3, 4 * n + 2, 4 * n + 1, 4 * n);
+      return reg(new Manifold(new Mesh({ numProp: 3, vertProperties: new Float32Array(pts), triVerts: new Uint32Array(tri) })));
+    }
+    const rev = (poly, seg) => reg(reg(CrossSection.ofPolygons([poly])).revolve(seg));
+
+    function barattolo(p) {
+      const f0 = FORMATI[p.formato];
+      const Do = f0 ? f0.D : +p.diametro, Ht = f0 ? f0.H : +p.altezza;
+      const w = +p.pareti, fl = +p.fondo, lt = +p.spCoperchio, g = +p.gioco;
+      const notes = [], info = [];
+      let td = +p.profFiletto, P = +p.passo;
+      const Ro = Do / 2, seg = Math.max(96, Math.min(240, Math.round(Math.PI * Do / 1.2)));
+      // il giro del tappo deve passare sopra il filetto del collo senza toccarlo: passo minimo
+      const Pmin = 2 * TIP + 2 * td + g + 0.2;
+      if (P < Pmin) { notes.push(`~Passo portato a ${fmt(Pmin)} mm: con un filetto profondo ${fmt(td)} mm il tappo non passerebbe`); P = Pmin; }
+      const hb = TIP / 2 + td, dz = TIP + td;            // dz: il filetto del tappo sta sotto quello del collo, fianco contro fianco con il gioco
+      const Rli = Ro - w, Rn = Rli - td - g, Rni = Rn - w;   // parete interna del tappo, esterno e interno del collo
+      if (Rni < 6) return { parts: [], info: [['Nota', 'Barattolo troppo stretto per il filetto e le pareti: aumenta il diametro o riduci pareti e filetto']] };
+      const rise = P * ARC / 360;
+      const Hn = M + 2 * hb + dz + rise + M;                // collo: dal gradino all'orlo
+      const zRim = Ht - lt, zSh = zRim - Hn, cone = Ro - w - Rni;   // orlo, gradino, raccordo interno a 45° sotto il collo
+      if (zSh - cone < fl + 3) return { parts: [], info: [['Nota', `Barattolo troppo basso per il tappo a vite: servono almeno ${fmt(Math.ceil(lt + Hn + cone + fl + 3))} mm di altezza`]] };
+      const zN = zSh + M + hb + dz;                         // centro dell'inizio del filetto del collo
+      const ch = Math.min(0.8, w / 2);
+
+      // ---- barattolo: profilo girato attorno all'asse, più il filetto del collo ----
+      let jar = rev([[0, 0], [Ro - ch, 0], [Ro, ch], [Ro, zSh], [Rn, zSh], [Rn, zRim], [Rni, zRim], [Rni, zSh], [Ro - w, zSh - cone], [Ro - w, fl], [0, fl]], seg);
+      jar = union([jar, rib(Rn, 1, zN, P, td, seg)]);
+      const vol = rev([[0, fl], [Ro - w, fl], [Ro - w, zSh - cone], [Rni, zSh], [Rni, zRim], [0, zRim]], seg).volume() / 1000;
+
+      // ---- tappo: piatto in cima e gonna con il filetto dentro; chiuso, la gonna resta 0,4 mm sopra il gradino ----
+      const zS = zSh + 0.4;
+      let lid = rev([[0, zRim], [Rli, zRim], [Rli, zS], [Ro - ch, zS], [Ro, zS + ch], [Ro, Ht - ch], [Ro - ch, Ht], [0, Ht]], seg);
+      lid = union([lid, rib(Rli, -1, zN - dz, P, td, seg)]);
+      if (p.zigrinatura) {
+        // righe per la presa sulla gonna, lontane dagli smussi
+        const n = Math.max(16, Math.round(2 * Math.PI * Ro / 4)), rn = Math.min(0.9, w * 0.4), cuts = [];
+        for (let i = 0; i < n; i++) { const a = 2 * Math.PI * (i + 0.5) / n, rc = Ro + rn * 0.35; cuts.push(cylZ(rn, zS + ch + 0.6, Ht - ch - 0.6, rc * Math.cos(a), rc * Math.sin(a), 12)); }
+        lid = sub(lid, union(cuts));
+      }
+
+      // ---- decorazione sopra il tappo: scritta, loghi e il tuo SVG (il tappo si stampa capovolto, la faccia di sopra sul piatto) ----
+      const DEC = H.decor, lidCol = {};
+      let decoInfo = null;
+      if (DEC) DEC.NOTES.clear();
+      const art = DEC && p.disegno === 'svg' ? DEC.artOf('svg', p.svg) : null;
+      const F = DEC ? DEC.filaments(p, art) : [p.col1, p.col2, p.col3, p.col4];
+      if (DEC) {
+        const R2 = (c) => reg(c);
+        const CU = (l) => { l = l.filter(c => c && !c.isEmpty()); return !l.length ? null : l.length === 1 ? l[0] : R2(CrossSection.union(l)); };
+        const CD = (a, b) => (!a ? null : !b ? a : R2(a.subtract(b)));
+        const CI = (a, b) => (!a || !b ? null : R2(a.intersect(b)));
+        const OFF = (c, d) => (c ? R2(c.offset(d, 'Round')) : null);
+        const emptyC = (c) => !c || c.isEmpty() || c.area() < 0.05;
+        const EZ = (c, z0, z1) => (emptyC(c) ? null : reg(reg(c.extrude(z1 - z0)).translate([0, 0, z0])));
+        const noz = +p.ugello || 0.4, st = p.stileCop === 'inciso' ? 'inciso' : 'filo', depth = Math.min(+p.profCop || 0.6, lt - 0.6);
+        const hasT = [p.scritta, p.scritta2].some(x => x && String(x).trim());
+        if (p.disegno === 'svg' && !art) notes.push('Carica un file SVG con il pulsante del riquadro "Il tuo disegno"');
+        // zona libera: il cerchio di sopra, lontano dallo smusso e dalle righe; si impagina nel quadrato un po' più grande di quello inscritto
+        const Rd = Ro - ch - (p.zigrinatura ? 2.5 : 1.5), area = R2(CrossSection.circle(Rd, seg)), L = 1.6 * Rd;
+        let artCS = null, txt = null;
+        let ts = Math.min(4, Math.max(2, +p.colTesto || 3));
+        if (p.colTesto === 'auto' && root.SPLAB_SVG) ts = [2, 3, 4].sort((a, b) => root.SPLAB_SVG.dist(F[b - 1], F[0]) - root.SPLAB_SVG.dist(F[a - 1], F[0]))[0];
+        if (art || hasT) {
+          const thA = (((+p.rotDisegno || 0) % 360) + 360) % 360;
+          const has1 = p.scritta && String(p.scritta).trim(), has2 = p.scritta2 && String(p.scritta2).trim();
+          const tH = hasT ? 1.5 * ((has1 ? +p.altTesto : 0) + (has2 ? +p.altTesto2 || +p.altTesto : 0)) : 0, gap = art && hasT ? 3 : 0;
+          const Sa = art ? Math.max(6, Math.min(+p.altDisegno, L - tH - gap, L)) : 0;
+          const cy = (Sa + gap + tH) / 2;
+          const slots = {};
+          if (art) {
+            const dP = Array.isArray(p.posDisegno) ? p.posDisegno : [0, 0], g0 = DEC.artGeom(art, Sa, L), acx = +dP[0] || 0, acy = cy - Sa / 2 + (+dP[1] || 0);
+            const place = (c) => (c ? (thA ? R2(R2(R2(c.rotate(thA)).translate([acx, acy]))) : R2(c.translate([acx, acy]))) : null);
+            artCS = st === 'filo' ? place(g0.sil) : (g0.lines ? place(g0.lines) : place(g0.sil));
+            if (st === 'filo') {
+              const sl = DEC.artSlots(g0, F, OFF(g0.sil, 0.01), noz, notes, true);
+              for (const k of [2, 3, 4]) if (sl[k]) slots[k] = place(sl[k]);
+              const sA = g0.sil.area(), cA = [2, 3, 4].reduce((s, k) => s + (sl[k] ? sl[k].area() : 0), 0);
+              if (sA > 1 && cA < 0.05 * sA) notes.push('Il disegno ha quasi solo il colore del tappo (Colore 1), quindi a filo non si vede: dagli un colore diverso nei Colori 2–4, oppure cambia il Colore 1');
+            }
+          }
+          if (hasT) {
+            txt = DEC.fitLines(p, { x: 0, y: cy - Sa - gap - tH / 2, w: L, h: Math.max(4, tH), hMax: L }, [p.rotTesto, p.rotTesto2]);
+            if (txt && txt.reduced) notes.push(`~Scritta ridotta a ${fmt(txt.cap)} mm per starci`);
+          }
+          for (const [c, nm, o] of [[txt && txt.cs, 'La scritta', 'a'], [artCS, 'Il disegno', 'o']]) {
+            const kc = CI(c, area);
+            if (c && (emptyC(kc) || kc.area() < c.area() * 0.98)) notes.push(`${nm} esce dal cerchio del tappo e viene tagliat${o}: rimpicciolisci${o === 'a' ? 'la' : 'lo'} o sposta${o === 'a' ? 'la' : 'lo'} con le frecce`);
+          }
+          const keep = (c) => CI(c, area);
+          if (st === 'filo') {
+            const tcs = txt ? keep(txt.cs) : null;
+            for (const k of [2, 3, 4]) {
+              let c = slots[k] ? keep(CD(slots[k], tcs ? OFF(tcs, 0.6) : null)) : null;
+              if (k === ts) c = CU([c, tcs]);
+              const sol = EZ(c, Ht - depth, Ht + 0.01);
+              if (sol) lidCol[k] = reg(sol.intersect(lid));
+            }
+            decoInfo = `a filo, negli ultimi ${fmt(depth)} mm del tappo (che si stampano per primi): serve una stampante multicolore, o un cambio di filamento a ${fmt(depth)} mm dal piatto`;
+          } else {
+            const hole = CU([artCS ? keep(artCS) : null, txt ? keep(txt.cs) : null]);
+            if (!emptyC(hole)) lid = sub(lid, EZ(hole, Ht - depth, Ht + 1));
+            decoInfo = `inciso ${fmt(depth)} mm`;
+          }
+          if (txt && txt.cap < 4) notes.push('Lettere sotto i 4 mm: vengono poco leggibili. Ingrandisci la scritta o accorcia il testo');
+        }
+        // marchio SP in basso sul tappo (visto da sopra), lontano da scritta e disegno; stesso stile della scritta
+        const mk = DEC.placeMark(area, p, notes, CU([txt ? txt.cs : null, artCS]), 0);
+        if (mk) {
+          if (st === 'filo') { const kM = DEC.markCol(p, ts), sol = EZ(mk, Ht - depth, Ht + 0.01); if (sol) lidCol[kM] = reg(union([lidCol[kM], sol.intersect(lid)].filter(Boolean))); }
+          else lid = sub(lid, EZ(mk, Ht - depth, Ht + 1));
+          if (!decoInfo) decoInfo = st === 'filo' ? `a filo, negli ultimi ${fmt(depth)} mm del tappo` : `inciso ${fmt(depth)} mm`;
+        }
+        if (hasT) DEC.logoNotes(noz);
+        for (const k of [2, 3, 4]) if (lidCol[k]) lid = sub(lid, lidCol[k]);
+      }
+
+      // ---- pezzi: barattolo dritto, tappo accanto (capovolto per la stampa) ----
+      const parts = [];
+      const flip = (q) => reg(q.rotate([180, 0, 0]));
+      const atL = p.__closed ? undefined : [2 * Ro + 12, 0, -zS];
+      const colored = Object.keys(lidCol).length > 0;
+      parts.push({ name: 'Barattolo', m: jar, role: 'body' });
+      parts.push(Object.assign({ name: 'Tappo', m: lid, role: 'inner', print: flip(lid), at: atL }, colored ? { color: F[0], group: 'Tappo' } : {}));
+      for (const k of [2, 3, 4]) if (lidCol[k]) parts.push({ name: `Tappo · colore ${k}`, m: lidCol[k], role: 'inner', print: flip(lidCol[k]), at: atL, color: F[k - 1], group: 'Tappo' });
+
+      info.push(['Esterno', `Ø ${fmt(Do)} × ${fmt(Ht)} mm, chiuso`]);
+      info.push(['Capienza', `circa ${vol >= 100 ? Math.round(vol / 10) * 10 : Math.round(vol)} ml`]);
+      info.push(['Bocca', `Ø ${fmt(2 * Rni)} mm (il corpo dentro è Ø ${fmt(2 * (Ro - w))} mm: sotto il collo c'è un raccordo a 45°)`]);
+      info.push(['Filetto', `un principio, passo ${fmt(P)} mm, profondo ${fmt(td)} mm, fianchi a 45°, gioco ${fmt(g)} mm; lungo ${ARC}°: si chiude con meno di un giro`]);
+      info.push(['Tappo', `alto ${fmt(Ht - zS)} mm, a filo con il barattolo; chiude battendo sull'orlo del collo${p.zigrinatura ? ', righe per la presa' : ''}`]);
+      if (decoInfo) info.push(['Tappo decorato', decoInfo]);
+      info.push(['Stampa', 'barattolo dritto, tappo capovolto (la faccia di sopra sul piatto): niente supporti. Per alimenti: PETG o PP, e meglio una guarnizione']);
+      if (td - g < 0.8) notes.push(`~Il filetto si aggancia solo per ${fmt(td - g)} mm: aumenta la profondità o riduci il gioco, sennò il tappo può saltare`);
+      for (const x of notes) info.push(['Nota', x]);
+      if (DEC) { for (const x of DEC.NOTES) info.push(['Nota', x]); DEC.NOTES.clear(); }
+      const res = { parts, info, view: [0.6, -1, 0.7] };
+      if (p.__check) {
+        // chiuso e a ogni ottavo di giro mentre si svita: il tappo non deve toccare il barattolo
+        res.closed = [];
+        for (const a of [0, 45, 90, 180, 270, 330]) {
+          const m = reg(reg(lid.rotate([0, 0, a])).translate([0, 0, P * a / 360 + 0.001]));
+          res.closed.push(['svitato ' + a + '°', +reg(m.intersect(jar)).volume().toFixed(3)]);
+        }
+        // tirato su dritto senza girarlo deve incastrarsi: il filetto fa presa
+        res.closed.push(['tirato su 1 mm', +reg(reg(lid.translate([0, 0, 1])).intersect(jar)).volume().toFixed(3)]);
+      }
+      return res;
+    }
+
+    return { barattolo };
+  });
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+</script>
+<script>
 (function () {
   'use strict';
   // ================= PARAMETRI =================
@@ -7350,7 +7531,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Cavalletto', id: 'inclinazione', label: 'Inclinazione', type: 'int', min: 10, max: 35, step: 1, def: 20, unit: '°', show: p => p.tipo === 'cavalletto', help: 'Quanto il telefono pende all\'indietro.' },
         { sec: 'Cavalletto', id: 'giocoCav', label: 'Gioco nella guida', type: 'num', min: 0, max: 0.6, step: 0.05, def: 0.2, unit: 'mm', show: p => p.tipo === 'cavalletto',
           help: 'Il cavalletto è un pezzo a parte che si infila in una guida a coda di rondine scavata nel retro. Stampalo in PLA o PETG.' },
-        { sec: 'Retro', id: 'svg', label: 'Il tuo disegno (SVG)', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
+        { sec: 'Retro', id: 'svg', label: 'Il tuo disegno', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
         { sec: 'Retro', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
         { sec: 'Retro', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 10, max: 120, step: 1, def: 45, unit: 'mm', show: p => p.disegno === 'svg' },
         { sec: 'Retro', id: 'posDisegno', label: 'Posizione disegno', type: 'pad', def: [0, 0], show: p => p.disegno === 'svg', help: 'Le frecce spostano il disegno sul retro; il centro lo rimette al suo posto. Fuori dalla zona libera viene tagliato.' },
@@ -7377,7 +7558,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Forma', id: 'profondita', label: 'Profondità bocca', type: 'num', min: 30, max: 300, step: 1, def: 110, unit: 'mm', show: p => p.forma === 'rettangolare' },
         { sec: 'Forma', id: 'altezza', label: 'Altezza', type: 'num', min: 30, max: 300, step: 1, def: 100, unit: 'mm' },
         { sec: 'Forma', id: 'base', label: 'Base rispetto alla bocca', type: 'num', min: 50, max: 100, step: 5, def: 80, unit: '%', help: '100% = pareti dritte. Meno di 100% = vaso che si stringe verso il basso.' },
-        { sec: 'Coperchio decorato', id: 'svg', label: 'Il tuo disegno (SVG)', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'svg', label: 'Il tuo disegno', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
         { sec: 'Coperchio decorato', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 8, max: 80, step: 1, def: 30, unit: 'mm', show: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
@@ -7739,7 +7920,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Coperchio', id: 'viteGioco', label: 'Gioco del filetto', type: 'num', min: 0.1, max: 0.8, step: 0.05, def: 0.3, unit: 'mm', show: p => p.coperchio === 'viti' && p.viteTipo === 'stampata', help: 'Spazio tra i fianchi della vite e del foro, come in Viti e bulloni. Se la vite è dura aumentalo, se balla diminuiscilo: stampa prima una vite sola.' },
         { sec: 'Coperchio', id: 'spCoperchio', label: 'Spessore coperchio', type: 'num', min: 1.6, max: 3, step: 0.2, def: 2, unit: 'mm' },
         { sec: 'Coperchio', id: 'tolleranza', label: 'Tolleranza', type: 'num', min: 0, max: 0.8, step: 0.05, def: 0.3, unit: 'mm', show: p => p.coperchio === 'slitta', help: 'Gioco del coperchio nelle guide. Se scorre duro aumentala, se balla diminuiscila.' },
-        { sec: 'Coperchio decorato', id: 'svg', label: 'Il tuo disegno (SVG)', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'svg', label: 'Il tuo disegno', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
         { sec: 'Coperchio decorato', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 8, max: 80, step: 1, def: 30, unit: 'mm', show: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'rotDisegno', label: 'Rotazione disegno', type: 'int', min: 0, max: 345, step: 15, def: 0, unit: '°', wrap: true, show: p => p.disegno === 'svg' },
@@ -7776,6 +7957,38 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
           help: k === 'sotto' ? 'Quanto ogni labbro copre il bordo nero attorno allo schermo, lato per lato, guardando il tablet da davanti come lo userai. Non deve arrivare sullo schermo. 0 = niente labbro.' : undefined })),
         { sec: 'Cornice', id: 'gioco', label: 'Gioco', type: 'num', min: 0, max: 1, step: 0.05, def: 0.3, unit: 'mm', help: 'Spazio attorno al tablet, per lato. Se non entra aumentalo, se balla diminuiscilo.' },
         { sec: 'Stampa', id: 'piatto', label: 'Lato del piatto', type: 'num', min: 150, max: 400, step: 1, def: 250, unit: 'mm', help: 'Anycubic Kobra S1: 250 mm. Se la cornice è più grande si divide in due metà con gli incastri.' },
+      ],
+    },
+    barattolo: {
+      label: 'Barattolo',
+      artKey: 'disegno',
+      params: [
+        { sec: 'Misure', id: 'formato', label: 'Misura', type: 'select', def: 'medio', options: [['piccolo', 'Piccolo · Ø 50 × 45 mm'], ['medio', 'Medio · Ø 70 × 70 mm'], ['grande', 'Grande · Ø 90 × 100 mm'], ['alto', 'Alto · Ø 70 × 130 mm'], ['largo', 'Largo · Ø 120 × 80 mm'], ['misura', 'Misure mie']],
+          help: 'Misure esterne, con il tappo chiuso. La capienza è nel riquadro delle misure.' },
+        { sec: 'Misure', id: 'diametro', label: 'Diametro', type: 'num', min: 30, max: 200, step: 1, def: 70, unit: 'mm', show: p => p.formato === 'misura', help: 'Fuori, dove il tappo è a filo con il barattolo.' },
+        { sec: 'Misure', id: 'altezza', label: 'Altezza', type: 'num', min: 30, max: 250, step: 1, def: 70, unit: 'mm', show: p => p.formato === 'misura', help: 'Con il tappo chiuso.' },
+        { sec: 'Misure', id: 'pareti', label: 'Spessore pareti', type: 'num', min: 1.2, max: 4, step: 0.4, def: 2, unit: 'mm', help: 'Vale per il barattolo, il collo e la gonna del tappo. Con ugello 0,4: 1,2 = 3 passate, 1,6 = 4, 2 = 5.' },
+        { sec: 'Misure', id: 'fondo', label: 'Spessore fondo', type: 'num', min: 1, max: 4, step: 0.2, def: 1.6, unit: 'mm' },
+        { sec: 'Tappo', id: 'spCoperchio', label: 'Spessore tappo', type: 'num', min: 1.6, max: 5, step: 0.2, def: 2.4, unit: 'mm' },
+        { sec: 'Tappo', id: 'passo', label: 'Passo del filetto', type: 'num', min: 4, max: 12, step: 0.5, def: 6, unit: 'mm',
+          help: 'Quanto sale il tappo in un giro. Il filetto è lungo poco meno di un giro: si chiude con un giro solo. Più grande = si avvita prima a imboccare ma il collo è più alto.' },
+        { sec: 'Tappo', id: 'profFiletto', label: 'Profondità filetto', type: 'num', min: 1, max: 3, step: 0.1, def: 1.6, unit: 'mm', help: 'Quanto sporge il filetto. Più profondo tiene di più, ma la bocca si stringe del doppio.' },
+        { sec: 'Tappo', id: 'gioco', label: 'Gioco', type: 'num', min: 0.2, max: 0.8, step: 0.05, def: 0.4, unit: 'mm', help: 'Spazio tra il filetto del tappo e quello del barattolo. Se è duro aumentalo, se balla diminuiscilo.' },
+        { sec: 'Tappo', id: 'zigrinatura', label: 'Righe per la presa', type: 'bool', def: true, help: 'Scanalature sulla gonna del tappo per svitarlo con le mani bagnate.' },
+        { sec: 'Tappo decorato', id: 'svg', label: 'Il tuo disegno', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
+        { sec: 'Tappo decorato', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
+        { sec: 'Tappo decorato', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 6, max: 150, step: 1, def: 30, unit: 'mm', show: p => p.disegno === 'svg' },
+        { sec: 'Tappo decorato', id: 'rotDisegno', label: 'Rotazione disegno', type: 'int', min: 0, max: 345, step: 15, def: 0, unit: '°', wrap: true, show: p => p.disegno === 'svg' },
+        { sec: 'Tappo decorato', id: 'posDisegno', label: 'Posizione disegno', type: 'pad', def: [0, 0], show: p => p.disegno === 'svg', help: 'Le frecce spostano il disegno sul tappo; il centro lo rimette al suo posto. Fuori dal cerchio viene tagliato.' },
+        { sec: 'Tappo decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso']],
+          help: 'Il tappo si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato.' },
+        layerP({ sec: 'Tappo decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.6 }),
+        ...withRot(linesP('Scritta sul tappo', '', '', 8, null, 40, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
+        { sec: 'Scritta sul tappo', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
+        Object.assign(nozzleP('Scritta sul tappo'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
+        ...markP(true),
+        ...colorsP(['Colore 1 · tappo e barattolo', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
+        { sec: 'Colori', id: 'colTesto', label: 'Colore della scritta', type: 'select', def: 'auto', options: [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4']], help: 'Solo con lo stile a filo. Auto: il colore che si legge meglio sul tappo.' },
       ],
     },
     schede: {
@@ -7877,6 +8090,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
     { id: 'rack', title: 'Rack telefoni', cat: 'Organizzazione', desc: 'Rack a fessure per riporre telefoni e tablet, anche di spessori diversi.', modes: ['rack'], thumb: 'rack' },
     { id: 'cover', title: 'Cover telefono', cat: 'Accessori', desc: 'Cover per iPhone dal 12 al 17 con le misure dei disegni Apple, OnePlus Nord, o per qualsiasi telefono con le tue misure. TPU o PLA/PETG a scatto, cornice per le lenti, cavalletto, scritta e il tuo SVG sul retro.', modes: ['cover'], thumb: 'cover' },
     { id: 'vasi', title: 'Vasi', cat: 'Casa e giardino', desc: 'Vasi e fioriere per aromatiche, normali con sottovaso o autoirriganti.', modes: ['vaso'], thumb: 'vaso' },
+    { id: 'barattoli', title: 'Barattoli', cat: 'Casa e giardino', desc: 'Barattoli tondi con tappo a vite: filetto grosso che si chiude con un giro solo, cinque misure o le tue, scritta, loghi e il tuo SVG sul tappo. Senza supporti.', modes: ['barattolo'], thumb: 'barattolo' },
     { id: 'supporti', title: 'Reggimensole e ganci', cat: 'Casa e giardino', desc: 'Squadre per mensole con rinforzo e viti, ganci a muro, appendiabiti, ganci sopra porta, per tubi e a S.', modes: ['mensola', 'gancio'], thumb: 'gancio' },
     { id: 'powerbank', title: 'Powerbank', cat: 'Elettronica', desc: 'Scatola per un powerbank fai-da-te: celle 18650 con contatti a molla come le pile, quattro schede di ricarica con le porte già al loro posto, coperchio a slitta o a viti nascoste.', modes: ['powerbank'], thumb: 'powerbank' },
     { id: 'schede', title: 'Box schede ESP', cat: 'Elettronica', desc: 'Scatola per un processore ESP e i suoi moduli, in fila sul fondo nei loro alloggi, piedini in su, USB che esce dalla parete. In costruzione, un passo alla volta.', modes: ['schede'], thumb: 'schede' },
@@ -8489,6 +8703,7 @@ ${build}</build>
     if (state.mode === 'lego') return `cassetto-modulare_${v.larghezza}x${v.profondita}_${v.unita}mm_h${v.altezza}`;
     if (state.mode === 'cover') { const nm = String(v.scritta || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24); return `cover_${v.modello}_${v.materiale}${v.tipo === 'cavalletto' ? '_cavalletto' : ''}${v.prova !== 'nessuna' ? '_prova-' + v.prova : ''}${nm ? '_' + nm : ''}`; }
     if (state.mode === 'powerbank') return `powerbank_${v.scheda}_${v.contatti === 'portapile' ? v.ppN * v.ppCelle : v.celle}celle_${v.coperchio}${v.prova && v.prova !== 'nessuna' ? '_prova-' + v.prova : ''}`;
+    if (state.mode === 'barattolo') { const nm = String(v.scritta || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24); return `barattolo_${v.formato === 'misura' ? Math.round(v.diametro) + 'x' + Math.round(v.altezza) : v.formato}${nm ? '_' + nm : ''}`; }
     if (state.mode === 'tablet') return `supporto-tablet_${v.modello === 'misura' ? Math.round(v.larghezza) + 'x' + Math.round(v.altezza) : v.modello}_${v.orientamento}`;
     if (state.mode === 'schede') return `box_${v.cpu}${[1, 2, 3, 4, 5].map(i => v['mod' + i]).filter(k => k && k !== 'nessuno').map(k => '_' + k).join('')}`;
     if (s) return s;

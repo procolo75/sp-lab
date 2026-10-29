@@ -391,7 +391,7 @@
         { sec: 'Cavalletto', id: 'inclinazione', label: 'Inclinazione', type: 'int', min: 10, max: 35, step: 1, def: 20, unit: '°', show: p => p.tipo === 'cavalletto', help: 'Quanto il telefono pende all\'indietro.' },
         { sec: 'Cavalletto', id: 'giocoCav', label: 'Gioco nella guida', type: 'num', min: 0, max: 0.6, step: 0.05, def: 0.2, unit: 'mm', show: p => p.tipo === 'cavalletto',
           help: 'Il cavalletto è un pezzo a parte che si infila in una guida a coda di rondine scavata nel retro. Stampalo in PLA o PETG.' },
-        { sec: 'Retro', id: 'svg', label: 'Il tuo disegno (SVG)', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
+        { sec: 'Retro', id: 'svg', label: 'Il tuo disegno', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
         { sec: 'Retro', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
         { sec: 'Retro', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 10, max: 120, step: 1, def: 45, unit: 'mm', show: p => p.disegno === 'svg' },
         { sec: 'Retro', id: 'posDisegno', label: 'Posizione disegno', type: 'pad', def: [0, 0], show: p => p.disegno === 'svg', help: 'Le frecce spostano il disegno sul retro; il centro lo rimette al suo posto. Fuori dalla zona libera viene tagliato.' },
@@ -418,7 +418,7 @@
         { sec: 'Forma', id: 'profondita', label: 'Profondità bocca', type: 'num', min: 30, max: 300, step: 1, def: 110, unit: 'mm', show: p => p.forma === 'rettangolare' },
         { sec: 'Forma', id: 'altezza', label: 'Altezza', type: 'num', min: 30, max: 300, step: 1, def: 100, unit: 'mm' },
         { sec: 'Forma', id: 'base', label: 'Base rispetto alla bocca', type: 'num', min: 50, max: 100, step: 5, def: 80, unit: '%', help: '100% = pareti dritte. Meno di 100% = vaso che si stringe verso il basso.' },
-        { sec: 'Coperchio decorato', id: 'svg', label: 'Il tuo disegno (SVG)', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'svg', label: 'Il tuo disegno', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
         { sec: 'Coperchio decorato', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 8, max: 80, step: 1, def: 30, unit: 'mm', show: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso'], ['traforata', 'Traforato']],
@@ -780,7 +780,7 @@
         { sec: 'Coperchio', id: 'viteGioco', label: 'Gioco del filetto', type: 'num', min: 0.1, max: 0.8, step: 0.05, def: 0.3, unit: 'mm', show: p => p.coperchio === 'viti' && p.viteTipo === 'stampata', help: 'Spazio tra i fianchi della vite e del foro, come in Viti e bulloni. Se la vite è dura aumentalo, se balla diminuiscilo: stampa prima una vite sola.' },
         { sec: 'Coperchio', id: 'spCoperchio', label: 'Spessore coperchio', type: 'num', min: 1.6, max: 3, step: 0.2, def: 2, unit: 'mm' },
         { sec: 'Coperchio', id: 'tolleranza', label: 'Tolleranza', type: 'num', min: 0, max: 0.8, step: 0.05, def: 0.3, unit: 'mm', show: p => p.coperchio === 'slitta', help: 'Gioco del coperchio nelle guide. Se scorre duro aumentala, se balla diminuiscila.' },
-        { sec: 'Coperchio decorato', id: 'svg', label: 'Il tuo disegno (SVG)', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
+        { sec: 'Coperchio decorato', id: 'svg', label: 'Il tuo disegno', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
         { sec: 'Coperchio decorato', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 8, max: 80, step: 1, def: 30, unit: 'mm', show: p => p.disegno === 'svg' },
         { sec: 'Coperchio decorato', id: 'rotDisegno', label: 'Rotazione disegno', type: 'int', min: 0, max: 345, step: 15, def: 0, unit: '°', wrap: true, show: p => p.disegno === 'svg' },
@@ -817,6 +817,38 @@
           help: k === 'sotto' ? 'Quanto ogni labbro copre il bordo nero attorno allo schermo, lato per lato, guardando il tablet da davanti come lo userai. Non deve arrivare sullo schermo. 0 = niente labbro.' : undefined })),
         { sec: 'Cornice', id: 'gioco', label: 'Gioco', type: 'num', min: 0, max: 1, step: 0.05, def: 0.3, unit: 'mm', help: 'Spazio attorno al tablet, per lato. Se non entra aumentalo, se balla diminuiscilo.' },
         { sec: 'Stampa', id: 'piatto', label: 'Lato del piatto', type: 'num', min: 150, max: 400, step: 1, def: 250, unit: 'mm', help: 'Anycubic Kobra S1: 250 mm. Se la cornice è più grande si divide in due metà con gli incastri.' },
+      ],
+    },
+    barattolo: {
+      label: 'Barattolo',
+      artKey: 'disegno',
+      params: [
+        { sec: 'Misure', id: 'formato', label: 'Misura', type: 'select', def: 'medio', options: [['piccolo', 'Piccolo · Ø 50 × 45 mm'], ['medio', 'Medio · Ø 70 × 70 mm'], ['grande', 'Grande · Ø 90 × 100 mm'], ['alto', 'Alto · Ø 70 × 130 mm'], ['largo', 'Largo · Ø 120 × 80 mm'], ['misura', 'Misure mie']],
+          help: 'Misure esterne, con il tappo chiuso. La capienza è nel riquadro delle misure.' },
+        { sec: 'Misure', id: 'diametro', label: 'Diametro', type: 'num', min: 30, max: 200, step: 1, def: 70, unit: 'mm', show: p => p.formato === 'misura', help: 'Fuori, dove il tappo è a filo con il barattolo.' },
+        { sec: 'Misure', id: 'altezza', label: 'Altezza', type: 'num', min: 30, max: 250, step: 1, def: 70, unit: 'mm', show: p => p.formato === 'misura', help: 'Con il tappo chiuso.' },
+        { sec: 'Misure', id: 'pareti', label: 'Spessore pareti', type: 'num', min: 1.2, max: 4, step: 0.4, def: 2, unit: 'mm', help: 'Vale per il barattolo, il collo e la gonna del tappo. Con ugello 0,4: 1,2 = 3 passate, 1,6 = 4, 2 = 5.' },
+        { sec: 'Misure', id: 'fondo', label: 'Spessore fondo', type: 'num', min: 1, max: 4, step: 0.2, def: 1.6, unit: 'mm' },
+        { sec: 'Tappo', id: 'spCoperchio', label: 'Spessore tappo', type: 'num', min: 1.6, max: 5, step: 0.2, def: 2.4, unit: 'mm' },
+        { sec: 'Tappo', id: 'passo', label: 'Passo del filetto', type: 'num', min: 4, max: 12, step: 0.5, def: 6, unit: 'mm',
+          help: 'Quanto sale il tappo in un giro. Il filetto è lungo poco meno di un giro: si chiude con un giro solo. Più grande = si avvita prima a imboccare ma il collo è più alto.' },
+        { sec: 'Tappo', id: 'profFiletto', label: 'Profondità filetto', type: 'num', min: 1, max: 3, step: 0.1, def: 1.6, unit: 'mm', help: 'Quanto sporge il filetto. Più profondo tiene di più, ma la bocca si stringe del doppio.' },
+        { sec: 'Tappo', id: 'gioco', label: 'Gioco', type: 'num', min: 0.2, max: 0.8, step: 0.05, def: 0.4, unit: 'mm', help: 'Spazio tra il filetto del tappo e quello del barattolo. Se è duro aumentalo, se balla diminuiscilo.' },
+        { sec: 'Tappo', id: 'zigrinatura', label: 'Righe per la presa', type: 'bool', def: true, help: 'Scanalature sulla gonna del tappo per svitarlo con le mani bagnate.' },
+        { sec: 'Tappo decorato', id: 'svg', label: 'Il tuo disegno', type: 'svg', palKey: 'disegno', use: { disegno: 'svg' }, unuse: { disegno: 'nessuno' }, using: p => p.disegno === 'svg' },
+        { sec: 'Tappo decorato', id: 'disegno', label: 'Disegno', type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['svg', 'Il tuo SVG']], show: () => false },   // lo imposta il riquadro qui sopra
+        { sec: 'Tappo decorato', id: 'altDisegno', label: 'Altezza disegno', type: 'num', min: 6, max: 150, step: 1, def: 30, unit: 'mm', show: p => p.disegno === 'svg' },
+        { sec: 'Tappo decorato', id: 'rotDisegno', label: 'Rotazione disegno', type: 'int', min: 0, max: 345, step: 15, def: 0, unit: '°', wrap: true, show: p => p.disegno === 'svg' },
+        { sec: 'Tappo decorato', id: 'posDisegno', label: 'Posizione disegno', type: 'pad', def: [0, 0], show: p => p.disegno === 'svg', help: 'Le frecce spostano il disegno sul tappo; il centro lo rimette al suo posto. Fuori dal cerchio viene tagliato.' },
+        { sec: 'Tappo decorato', id: 'stileCop', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo (a colori)'], ['inciso', 'Inciso']],
+          help: 'Il tappo si stampa capovolto, con la faccia di sopra sul piatto. A filo: i colori sono nei primi strati e la superficie resta liscia (multicolore, o cambio filamento). Inciso: scavato.' },
+        layerP({ sec: 'Tappo decorato', id: 'profCop', label: 'Spessore', min: 0.2, max: 1.6, def: 0.6 }),
+        ...withRot(linesP('Scritta sul tappo', '', '', 8, null, 40, 'Altezza delle maiuscole (i loghi sono alti 1,35 volte). Con i pulsanti sotto il campo metti il logo SP e i visi. Se non ci sta viene ridotta da sola.')),
+        { sec: 'Scritta sul tappo', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
+        Object.assign(nozzleP('Scritta sul tappo'), { show: p => hasLogo(p) || p.disegno === 'svg' }),
+        ...markP(true),
+        ...colorsP(['Colore 1 · tappo e barattolo', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
+        { sec: 'Colori', id: 'colTesto', label: 'Colore della scritta', type: 'select', def: 'auto', options: [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4']], help: 'Solo con lo stile a filo. Auto: il colore che si legge meglio sul tappo.' },
       ],
     },
     schede: {
@@ -918,6 +950,7 @@
     { id: 'rack', title: 'Rack telefoni', cat: 'Organizzazione', desc: 'Rack a fessure per riporre telefoni e tablet, anche di spessori diversi.', modes: ['rack'], thumb: 'rack' },
     { id: 'cover', title: 'Cover telefono', cat: 'Accessori', desc: 'Cover per iPhone dal 12 al 17 con le misure dei disegni Apple, OnePlus Nord, o per qualsiasi telefono con le tue misure. TPU o PLA/PETG a scatto, cornice per le lenti, cavalletto, scritta e il tuo SVG sul retro.', modes: ['cover'], thumb: 'cover' },
     { id: 'vasi', title: 'Vasi', cat: 'Casa e giardino', desc: 'Vasi e fioriere per aromatiche, normali con sottovaso o autoirriganti.', modes: ['vaso'], thumb: 'vaso' },
+    { id: 'barattoli', title: 'Barattoli', cat: 'Casa e giardino', desc: 'Barattoli tondi con tappo a vite: filetto grosso che si chiude con un giro solo, cinque misure o le tue, scritta, loghi e il tuo SVG sul tappo. Senza supporti.', modes: ['barattolo'], thumb: 'barattolo' },
     { id: 'supporti', title: 'Reggimensole e ganci', cat: 'Casa e giardino', desc: 'Squadre per mensole con rinforzo e viti, ganci a muro, appendiabiti, ganci sopra porta, per tubi e a S.', modes: ['mensola', 'gancio'], thumb: 'gancio' },
     { id: 'powerbank', title: 'Powerbank', cat: 'Elettronica', desc: 'Scatola per un powerbank fai-da-te: celle 18650 con contatti a molla come le pile, quattro schede di ricarica con le porte già al loro posto, coperchio a slitta o a viti nascoste.', modes: ['powerbank'], thumb: 'powerbank' },
     { id: 'schede', title: 'Box schede ESP', cat: 'Elettronica', desc: 'Scatola per un processore ESP e i suoi moduli, in fila sul fondo nei loro alloggi, piedini in su, USB che esce dalla parete. In costruzione, un passo alla volta.', modes: ['schede'], thumb: 'schede' },
@@ -1530,6 +1563,7 @@ ${build}</build>
     if (state.mode === 'lego') return `cassetto-modulare_${v.larghezza}x${v.profondita}_${v.unita}mm_h${v.altezza}`;
     if (state.mode === 'cover') { const nm = String(v.scritta || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24); return `cover_${v.modello}_${v.materiale}${v.tipo === 'cavalletto' ? '_cavalletto' : ''}${v.prova !== 'nessuna' ? '_prova-' + v.prova : ''}${nm ? '_' + nm : ''}`; }
     if (state.mode === 'powerbank') return `powerbank_${v.scheda}_${v.contatti === 'portapile' ? v.ppN * v.ppCelle : v.celle}celle_${v.coperchio}${v.prova && v.prova !== 'nessuna' ? '_prova-' + v.prova : ''}`;
+    if (state.mode === 'barattolo') { const nm = String(v.scritta || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24); return `barattolo_${v.formato === 'misura' ? Math.round(v.diametro) + 'x' + Math.round(v.altezza) : v.formato}${nm ? '_' + nm : ''}`; }
     if (state.mode === 'tablet') return `supporto-tablet_${v.modello === 'misura' ? Math.round(v.larghezza) + 'x' + Math.round(v.altezza) : v.modello}_${v.orientamento}`;
     if (state.mode === 'schede') return `box_${v.cpu}${[1, 2, 3, 4, 5].map(i => v['mod' + i]).filter(k => k && k !== 'nessuno').map(k => '_' + k).join('')}`;
     if (s) return s;
