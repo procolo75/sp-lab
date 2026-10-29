@@ -830,6 +830,12 @@
         ...[1, 2, 3, 4, 5].flatMap(i => [
           { sec: 'Moduli', id: 'mod' + i, label: 'Modulo ' + i, type: 'select', menu: true, def: i === 1 ? 'mpu6050' : 'nessuno', options: [['nessuno', 'Nessuno'], ...schedeOpts('mod')],
             help: i === 1 ? 'In fila a destra del processore, sul fondo, componenti e piedini in su.' : undefined },
+          { sec: 'Moduli', id: 'mod' + i + 'Liv', label: 'Modulo ' + i + ': dove', type: 'select', def: 'fondo', options: [['fondo', 'Sul fondo'], ['coperchio', 'Sotto il coperchio']], show: p => p['mod' + i] && p['mod' + i] !== 'nessuno',
+            help: i === 1 ? 'Sotto il coperchio: per display e sensori di luce o d\'aria. Il modulo sta contro una parete, componenti in su e piedini in giù, appoggiato a una mensola della parete e a due gambe sottili; quando chiudi il coperchio il bordino e dei pioli lo bloccano. Nel coperchio sopra c\'è la finestra.' : undefined },
+          { sec: 'Moduli', id: 'mod' + i + 'Parete', label: 'Modulo ' + i + ': parete', type: 'select', def: 'davanti', options: [['davanti', 'Davanti'], ['dietro', 'Dietro'], ['destra', 'Destra']], show: p => p['mod' + i] && p['mod' + i] !== 'nessuno' && p['mod' + i + 'Liv'] === 'coperchio',
+            help: i === 1 ? 'La parete sinistra no: lì c\'è il processore con la USB. La fila sul fondo si allontana da questa parete quanto serve.' : undefined },
+          { sec: 'Moduli', id: 'mod' + i + 'Lungo', label: 'Modulo ' + i + ': posizione lungo la parete', type: 'num', min: -150, max: 150, step: 0.5, def: 0, unit: 'mm', show: p => p['mod' + i] && p['mod' + i] !== 'nessuno' && p['mod' + i + 'Liv'] === 'coperchio',
+            help: i === 1 ? 'Distanza del centro del modulo dal centro della parete: positiva verso destra, guardando la parete da fuori.' : undefined },
           { sec: 'Moduli', id: 'mod' + i + 'Aria', label: 'Modulo ' + i + ': prese d\'aria nel coperchio', type: 'select', def: 'no', options: [['no', 'No'], ['si', 'Sì']], show: p => p['mod' + i] && p['mod' + i] !== 'nessuno',
             help: i === 1 ? 'Fessure da 2 mm nel coperchio sopra il modulo (per esempio per l\'ENS160).' : undefined },
           { sec: 'Moduli', id: 'mod' + i + 'Rot', label: 'Modulo ' + i + ': rotazione', type: 'select', def: '0', options: [['0', '0°'], ['90', '90°'], ['180', '180°'], ['270', '270°']], show: p => p['mod' + i] && p['mod' + i] !== 'nessuno',
