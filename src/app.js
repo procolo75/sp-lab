@@ -875,10 +875,10 @@
         ]),
         ...[1, 2, 3, 4].flatMap(i => [
           { sec: 'LED', id: 'led' + i, label: 'LED ' + i, type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['davanti', 'Parete davanti'], ['dietro', 'Parete dietro'], ['sinistra', 'Parete sinistra (USB)'], ['destra', 'Parete destra']],
-            help: i === 1 ? 'Foro nella parete e, dentro, una culla che parte dal fondo e regge il LED con le saldature e i dupont. Il LED si infila da dentro con il collarino contro la parete.' : undefined },
+            help: i === 1 ? 'Foro nella parete e, dentro, una culla che parte dal fondo e regge il LED con le saldature e i dupont. Il LED si infila da dentro con il collarino contro la parete. Occupa il suo tratto di parete come un modulo: la scatola cresce perché ci stia accanto agli altri.' : undefined },
           { sec: 'LED', id: 'led' + i + 'D', label: 'LED ' + i + ': diametro', type: 'select', def: '5', options: [['3', '3 mm'], ['5', '5 mm']], show: p => p['led' + i] && p['led' + i] !== 'nessuno' },
           { sec: 'LED', id: 'led' + i + 'Pos', label: 'LED ' + i + ': posizione lungo la parete', type: 'num', min: -150, max: 150, step: 0.5, def: 0, unit: 'mm', show: p => p['led' + i] && p['led' + i] !== 'nessuno',
-            help: i === 1 ? 'Distanza del centro del LED dal centro della parete: positiva verso destra, guardando la parete da fuori.' : undefined },
+            help: i === 1 ? 'Distanza del centro del LED dal centro della parete: positiva verso destra, guardando la parete da fuori. Se lì c\'è già qualcosa va al punto libero più vicino. Sulla parete sinistra il LED sta davanti al processore con valori da 0 in su, dietro con valori negativi.' : undefined },
           { sec: 'LED', id: 'led' + i + 'Z', label: 'LED ' + i + ': altezza', type: 'num', min: 0, max: 120, step: 0.5, def: 10, unit: 'mm', show: p => p['led' + i] && p['led' + i] !== 'nessuno',
             help: i === 1 ? 'Dal fondo interno al centro del LED. Se è troppo in basso o troppo in alto (sotto il bordino del coperchio) si ferma al limite.' : undefined },
         ]),

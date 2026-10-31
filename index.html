@@ -6094,36 +6094,67 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       // il primo e l'ultimo alloggio stanno tra le colonnine degli angoli: la scatola è profonda quanto basta
       // con i LED davanti, dietro o a destra la fila si allontana da quella parete quanto lo spazio dietro i LED
       const depth = (b) => b.W + 2 * g + 2 * pw;
-      const lenL = Math.max(5, +p.ledSpazio || 25), ledSu = (lato) => [1, 2, 3, 4].some(i => p['led' + i] === lato);
+      // i LED sono trattati come i moduli: ognuno occupa il suo tratto di parete e la scatola cresce perché ci stiano tutti, senza sovrapporsi
+      const lenL = Math.max(5, +p.ledSpazio || 25);
+      const leds = [];
+      for (let i = 1; i <= 4; i++) {
+        const lato = p['led' + i]; if (!['davanti', 'dietro', 'sinistra', 'destra'].includes(lato)) continue;
+        const L = LED[p['led' + i + 'D']] || LED[5], wc = Math.max(L.fl, 2 * DUP.passo) + 0.6, wo = wc + 2 * 1.2;
+        leds.push({ i, lato, L, wc, wo, ext: wo, want: +p['led' + i + 'Pos'] || 0 });
+      }
+      const ledSu = (lato) => leds.some(l => l.lato === lato);
       // i moduli sotto il coperchio occupano una striscia lungo la loro parete (scheda, gioco e dentino delle gambe): la fila si allontana anche da quella
       const legW = pw, perp = (it) => it.parete === 'destra' ? it.b.L : it.b.W, along = (it) => it.parete === 'destra' ? it.b.W : it.b.L;
       const striscia = (lato) => Math.max(0, ...alti.filter(it => it.parete === lato).map(it => perp(it) + 2 * g + legW));
       const lato = (s) => m + Math.max(ledSu(s) ? lenL : 0, striscia(s));
       const mF = lato('davanti'), mB = lato('dietro'), mR = lato('destra');
       // lungo la parete il modulo resta fuori dalla zona delle colonnine: se non ci sta la scatola si allarga
-      const lenAlto = (it) => along(it) + 2 * (g + legW) + 2 * (pc + rz);
-      items.forEach((it, k) => { const end = k === 0 || k === items.length - 1; it.lo = end ? Math.max(mF, pc + rz) : mF; it.hi = end ? Math.max(mB, pc + rz) : mB; });
-      const Yin = Math.max(...items.map(it => it.lo + it.hi + depth(it.b)), ...alti.filter(it => it.parete === 'destra').map(lenAlto));
+      for (const it of alti) { it.ext = along(it) + 2 * (g + legW); it.want = it.lungo; }
+      const suParete = (lato) => [...alti.filter(it => it.parete === lato), ...leds.filter(l => l.lato === lato)];
+      const fila = (list) => list.reduce((s, q) => s + q.ext, 0) + Math.max(0, list.length - 1) * gap;
+      // le strisce davanti e dietro prendono tutta la larghezza: a destra e a sinistra si sta tra le due e lontano dalle colonnine
+      const sF = Math.max(pc + rz, suParete('davanti').length ? mF : 0), sB = Math.max(pc + rz, suParete('dietro').length ? mB : 0);
+      // sulla parete sinistra i LED stanno davanti (posizione ≥ 0) o dietro (< 0) al processore, che si sposta per fargli posto
+      const ledSxF = leds.filter(l => l.lato === 'sinistra' && l.want >= 0), ledSxB = leds.filter(l => l.lato === 'sinistra' && l.want < 0);
       let x = w;
       items.forEach((it, k) => {
         const b = it.b;
         it.x0 = k === 0 ? w - 0.01 : x;                     // il processore usa la parete della scatola dalla parte della USB
         it.bx = k === 0 ? w + g : x + pw + g;              // angolo davanti a sinistra della scheda
         it.x1 = it.bx + b.L + g + pw;
-        it.y0 = w + it.lo + (Yin - it.lo - it.hi - depth(b)) / 2; it.by = it.y0 + pw + g; it.y1 = it.y0 + depth(b);
         x = it.x1 + gap;
       });
-      const Xin = Math.max(items[items.length - 1].x1 - w + mR, 2 * (pc + rz) + 2, ...alti.filter(it => it.parete !== 'destra').map(lenAlto));
+      items.forEach((it, k) => {
+        const end = k === 0 || k === items.length - 1, vicino = it.x0 < w + lenL;   // vicino: la culla di un LED a sinistra gli arriva di fianco
+        it.lo = Math.max(end ? Math.max(mF, pc + rz) : mF, vicino && ledSxF.length ? sF + fila(ledSxF) + gap : 0);
+        it.hi = Math.max(end ? Math.max(mB, pc + rz) : mB, vicino && ledSxB.length ? sB + fila(ledSxB) + gap : 0);
+      });
+      const Yin = Math.max(...items.map(it => it.lo + it.hi + depth(it.b)), sF + sB + fila(suParete('destra')));
+      items.forEach((it) => { it.y0 = w + it.lo + (Yin - it.lo - it.hi - depth(it.b)) / 2; it.by = it.y0 + pw + g; it.y1 = it.y0 + depth(it.b); });
+      const Xin = Math.max(items[items.length - 1].x1 - w + mR, 2 * (pc + rz) + 2, ...['davanti', 'dietro'].map(s => 2 * (pc + rz) + fila(suParete(s))), ledSu('sinistra') ? lenL + mR : 0);
       const Xo = Xin + 2 * w, Yo = Yin + 2 * w, Zw = f + Hin, Htot = Zw + tl;
       const rimH = Math.min(3, Hin - 0.5);   // bordino del coperchio che entra nella scatola
 
       // ---- moduli sotto il coperchio: in pianta contro la parete, la faccia di sopra del circuito sotto il bordino del coperchio ----
-      // posizione lungo la parete come per i LED: dal centro, positiva verso destra guardando la parete da fuori
+      // posizione lungo la parete, per moduli e LED: dal centro, positiva verso destra guardando la parete da fuori.
+      // Ognuno sta dove è stato scelto; se si sovrappone a un altro o alle colonnine va al punto libero più vicino
+      const disponi = (list, lo, hi) => {
+        const s = [...list].sort((q, r) => q.want - r.want);
+        let c = lo;
+        for (const q of s) { q.a = Math.max(c + q.ext / 2, q.want); c = q.a + q.ext / 2 + gap; }
+        c = hi;
+        for (const q of s.reverse()) { q.a = Math.min(q.a, c - q.ext / 2); c = q.a - q.ext / 2 - gap; }
+      };
+      disponi(suParete('davanti'), pc + rz - Xin / 2, Xin / 2 - pc - rz);
+      disponi(suParete('dietro'), pc + rz - Xin / 2, Xin / 2 - pc - rz);
+      disponi(suParete('destra'), sF - Yin / 2, Yin / 2 - sB);
+      const accanto = items.filter(it => it.x0 < w + lenL);
+      disponi(ledSxF, Yin / 2 - (Math.min(...accanto.map(it => it.y0)) - w - gap), Yin / 2 - sF);
+      disponi(ledSxB, sB - Yin / 2, Yin / 2 - (Math.max(...accanto.map(it => it.y1)) - w + gap));
       for (const it of alti) {
-        const b = it.b, A = along(it), len = it.parete === 'destra' ? Yin : Xin;
-        const aMax = Math.max(0, len / 2 - (pc + rz) - A / 2 - g - legW), a = Math.min(aMax, Math.max(-aMax, it.lungo));
-        if (Math.abs(a - it.lungo) > 0.01) notes.push(`${b.nome.split(' (')[0]}: spostato a ${fmt(a)} mm dal centro della parete ${it.parete}, il punto più vicino a quello scelto lontano dalle colonnine delle viti`);
-        it.a = a; it.A = A; it.P = perp(it);
+        const b = it.b, A = along(it), a = it.a;
+        if (Math.abs(a - it.lungo) > 0.01) notes.push(`${b.nome.split(' (')[0]}: spostato a ${fmt(a)} mm dal centro della parete ${it.parete}, il punto più vicino a quello scelto dove non tocca altro`);
+        it.A = A; it.P = perp(it);
         if (it.parete === 'davanti') { it.bx = w + Xin / 2 + a - b.L / 2; it.by = w + g; }
         else if (it.parete === 'dietro') { it.bx = w + Xin / 2 - a - b.L / 2; it.by = w + Yin - g - b.W; }
         else { it.by = w + Yin / 2 + a - b.W / 2; it.bx = w + Xin - g - b.L; }
@@ -6198,16 +6229,14 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       // la culla ha il fondo piatto (niente sbalzi) all'altezza del collarino; il LED entra da dentro e la punta resta a filo della parete:
       // contro la parete c'è un manicotto lungo quanto la testa meno la parete, il collarino ci si appoggia dietro
       const ledGhost = [];
-      const leds = [];
       const muro = {   // per ogni parete: centro della faccia interna, rotazione attorno a z (dentro = +y ruotato), lunghezza interna
         davanti: { o: [w + Xin / 2, w], rot: 0, len: Xin }, dietro: { o: [w + Xin / 2, w + Yin], rot: 180, len: Xin },
         sinistra: { o: [w, w + Yin / 2], rot: -90, len: Yin }, destra: { o: [w + Xin, w + Yin / 2], rot: 90, len: Yin } };
-      for (let i = 1; i <= 4; i++) {
-        const M = muro[p['led' + i]]; if (!M) continue;
-        const L = LED[p['led' + i + 'D']] || LED[5], wc = Math.max(L.fl, 2 * DUP.passo) + 0.6, wo = wc + 2 * 1.2, dz = Math.max(L.fl / 2 + 0.15, DUP.passo / 2 + 0.2);
-        const zMin = f + dz, zMax = Zw - rimH - Math.max(L.fl / 2 + 0.3, L.d / 2 + 1.4), aMax = Math.max(0, M.len / 2 - wo / 2);
-        const zc = Math.min(zMax, Math.max(zMin, f + (+p['led' + i + 'Z'] || 0))), a = Math.min(aMax, Math.max(-aMax, +p['led' + i + 'Pos'] || 0));
-        if (Math.abs(zc - f - (+p['led' + i + 'Z'] || 0)) > 0.01 || Math.abs(a - (+p['led' + i + 'Pos'] || 0)) > 0.01) notes.push(`LED ${i}: spostato a ${fmt(a)} mm dal centro della parete e ${fmt(zc - f)} mm dal fondo: è il punto più vicino a quello scelto in cui ci sta`);
+      for (const l of leds) {
+        const { i, L, wc, wo, a } = l, M = muro[l.lato], dz = Math.max(L.fl / 2 + 0.15, DUP.passo / 2 + 0.2);
+        const zMin = f + dz, zMax = Zw - rimH - Math.max(L.fl / 2 + 0.3, L.d / 2 + 1.4);
+        const zc = Math.min(zMax, Math.max(zMin, f + (+p['led' + i + 'Z'] || 0)));
+        if (Math.abs(zc - f - (+p['led' + i + 'Z'] || 0)) > 0.01 || Math.abs(a - l.want) > 0.01) notes.push(`LED ${i}: spostato a ${fmt(a)} mm dal centro della parete e ${fmt(zc - f)} mm dal fondo: è il punto più vicino a quello scelto in cui ci sta`);
         // nel sistema della parete davanti: x lungo la parete (verso destra guardandola da fuori), y verso l'interno, z assoluta
         const place = (q) => reg(reg(q.rotate([0, 0, M.rot])).translate([M.o[0], M.o[1], 0]));
         const cyl = (r, y0, y1) => reg(reg(reg(Manifold.cylinder(y1 - y0, r, r, 40)).rotate([-90, 0, 0])).translate([a, y0, zc]));
@@ -6218,14 +6247,14 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         const gl = U([cyl(L.d / 2, sl - (L.h - L.flH), sl), cyl(L.fl / 2, sl, sl + L.flH),
           box(a - 1.5, sl + L.flH, zc - 0.25, a + 1.5, lenL - DUP.corpo, zc + 0.25),
           box(a - DUP.passo, lenL - DUP.corpo, zc - DUP.passo / 2, a + DUP.passo, lenL, zc + DUP.passo / 2)]);
-        leds.push({ i, cradle: place(cradle), hole: place(hole), zc, a, L, lato: p['led' + i] });
+        Object.assign(l, { cradle: place(cradle), hole: place(hole), zc });
         ledGhost.push(place(gl));
       }
       for (const l of leds) adds.push(l.cradle);
       // la culla non deve finire negli alloggi, sulle colonnine, sulla USB o su un'altra culla
       for (const l of leds) {
         const hit = (m) => m && reg(l.cradle.intersect(m)).volume() > 0.01;
-        if (items.some(it => hit(box(it.x0, it.y0, f, it.x1, it.y1, Zw)))) notes.push(l.lato === 'sinistra' ? `LED ${l.i}: la culla entra in un alloggio. Sulla parete sinistra c'è il processore con la USB: il LED ci sta solo davanti o dietro al suo alloggio, aumenta lo spazio attorno agli alloggi o spostalo` : `LED ${l.i}: la culla entra in un alloggio. Spostalo lungo la parete`);
+        if (items.some(it => hit(box(it.x0, it.y0, f, it.x1, it.y1, Zw)))) notes.push(`LED ${l.i}: la culla entra in un alloggio. Spostalo lungo la parete`);
         if (postXY.some(([x, y]) => hit(cylZ(x, y, f, Zw, pr + 0.3)))) notes.push(`LED ${l.i}: la culla tocca una colonnina delle viti. Spostalo verso il centro della parete`);
         if (leds.some(o => o !== l && hit(o.cradle))) notes.push(`LED ${l.i}: la culla tocca quella di un altro LED`);
         if (altiM.some(hit) || alti.some(it => hit(box(it.bx - g, it.by - g, it.zp - (DUP.plastica + DUP.corpo + 3), it.bx + it.b.L + g, it.by + it.b.W + g, it.zt)))) notes.push(`LED ${l.i}: la culla tocca un modulo sotto il coperchio (mensola, gambe o i dupont sotto). Spostalo lungo la parete o abbassalo`);
@@ -8023,10 +8052,10 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         ]),
         ...[1, 2, 3, 4].flatMap(i => [
           { sec: 'LED', id: 'led' + i, label: 'LED ' + i, type: 'select', def: 'nessuno', options: [['nessuno', 'Nessuno'], ['davanti', 'Parete davanti'], ['dietro', 'Parete dietro'], ['sinistra', 'Parete sinistra (USB)'], ['destra', 'Parete destra']],
-            help: i === 1 ? 'Foro nella parete e, dentro, una culla che parte dal fondo e regge il LED con le saldature e i dupont. Il LED si infila da dentro con il collarino contro la parete.' : undefined },
+            help: i === 1 ? 'Foro nella parete e, dentro, una culla che parte dal fondo e regge il LED con le saldature e i dupont. Il LED si infila da dentro con il collarino contro la parete. Occupa il suo tratto di parete come un modulo: la scatola cresce perché ci stia accanto agli altri.' : undefined },
           { sec: 'LED', id: 'led' + i + 'D', label: 'LED ' + i + ': diametro', type: 'select', def: '5', options: [['3', '3 mm'], ['5', '5 mm']], show: p => p['led' + i] && p['led' + i] !== 'nessuno' },
           { sec: 'LED', id: 'led' + i + 'Pos', label: 'LED ' + i + ': posizione lungo la parete', type: 'num', min: -150, max: 150, step: 0.5, def: 0, unit: 'mm', show: p => p['led' + i] && p['led' + i] !== 'nessuno',
-            help: i === 1 ? 'Distanza del centro del LED dal centro della parete: positiva verso destra, guardando la parete da fuori.' : undefined },
+            help: i === 1 ? 'Distanza del centro del LED dal centro della parete: positiva verso destra, guardando la parete da fuori. Se lì c\'è già qualcosa va al punto libero più vicino. Sulla parete sinistra il LED sta davanti al processore con valori da 0 in su, dietro con valori negativi.' : undefined },
           { sec: 'LED', id: 'led' + i + 'Z', label: 'LED ' + i + ': altezza', type: 'num', min: 0, max: 120, step: 0.5, def: 10, unit: 'mm', show: p => p['led' + i] && p['led' + i] !== 'nessuno',
             help: i === 1 ? 'Dal fondo interno al centro del LED. Se è troppo in basso o troppo in alto (sotto il bordino del coperchio) si ferma al limite.' : undefined },
         ]),
