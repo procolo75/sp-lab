@@ -12,7 +12,7 @@ SP Lab è un generatore parametrico di oggetti da stampare in 3D che funziona in
 
 ## Cosa puoi generare
 
-La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la categoria scritta sopra il titolo. Alcuni riquadri raccolgono più generatori, che trovi come schede in alto: Natale (pallina, pallina a spirale, palla piatta, decorazione, albero, stella, lanterna, formina), Gridfinity (contenitore, cassettiera, base), Reggimensole e ganci (reggimensola, gancio), Antivibrazione (tennis, padel) e Viti e bulloni (vite, bullone, perno).
+La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la categoria scritta sopra il titolo. Alcuni riquadri raccolgono più generatori, che trovi come schede in alto: Natale (pallina, pallina a spirale, palla piatta, decorazione, albero, stella, bastoncino, casetta, lanterna, formina), Gridfinity (contenitore, cassettiera, base), Reggimensole e ganci (reggimensola, gancio), Antivibrazione (tennis, padel) e Viti e bulloni (vite, bullone, perno).
 
 | Generatore | Cos'è | Parti nel file |
 |---|---|---|
@@ -22,6 +22,8 @@ La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la 
 | **Decorazione** | Decorazione piatta da appendere con 73 disegni Fluent Emoji a colori (fino a 4 filamenti) o con il tuo SVG, nome su targhetta, oppure solo il nome | 1, più il supporto da tavolo |
 | **Albero** | Albero a spirale, a strati o da incastrare, con stella in cima e base con scritta | 1 o 2 |
 | **Stella** | Stella 3D a punte, come puntale dell'albero o da appendere | 2 metà |
+| **Bastoncino** | Bastoncino di zucchero a pezzi rossi e bianchi con le strisce in diagonale, unito da perni; ogni pezzo di un solo colore, tutto senza supporti | da 2 a 60 pezzi, più i perni |
+| **Casetta** | Casetta di Natale in kit: tutti i pezzi su una cartolina piatta da staccare e incastrare, decorazioni in uno strato colorato sopra. Cinque case (pan di zenzero, baita, chiesetta, bottega, nordica), alberi, pupazzo di neve e regalo | 1 cartolina (2 colori) |
 | **Lanterna** | Lanterna traforata per lumini LED, con scritta | 1 |
 | **Formina** | Formina per biscotti con tutti i disegni (anche a forma di nome o dal tuo SVG), con timbro per decorarli | 1 o 2 |
 | **Contenitore** | Contenitore [Gridfinity](https://gridfinity.xyz/) impilabile, con divisori, raccordo frontale e ripiano per l'etichetta | 1 |
@@ -81,6 +83,19 @@ Tutti gli oggetti di Natale possono avere **fino a tre colori** (abbinamenti pro
   - **Supporto da tavolo** con fessura: diventa un segnaposto.
 - **Albero:** a spirale (si può stampare anche in modalità vaso), a strati sfalsati (anche a colori alterni) o da incastrare (due sagome piatte a croce). Stella 3D in cima e base con scritta.
 - **Stella 3D:** numero e forma delle punte regolabili. Come **puntale**, con un tubo che si stringe verso l'alto e si adatta alla cima dell'albero, oppure da appendere. Si stampa in due metà piatte.
+- **Bastoncino di zucchero:** un tubo che sale dritto, gira a mezzo cerchio e scende un poco, tagliato in pezzi che alternano i due colori. I tagli sono obliqui, quindi montato ha le strisce in diagonale.
+  - *Misure:* altezza totale, diametro del tubo, larghezza del manico (da fuori a fuori), lunghezza della punta dopo la curva, fondo arrotondato o piatto. Se il manico è troppo stretto per il diametro viene allargato da solo.
+  - *Strisce:* numero di pezzi, inclinazione dei tagli (0° = strisce dritte) e verso. Nel manico i tagli vicini possono incrociarsi dentro il tubo: in quel caso l'inclinazione viene ridotta e il riquadro misure lo dice.
+  - *Perni:* da 0 a 4 per giunzione, con diametro, lunghezza e gioco dei fori regolabili. I perni sono nel file (si stampano in piedi, con le punte smussate) oppure usi tondino o filamento tagliato a misura. Da una giunzione all'altra i perni girano quanto serve per restare lontani dai fori dell'altra faccia; se i fori uscirebbero dal pezzo, i perni vengono accorciati, e se non stanno proprio si passa a un perno in meno.
+  - *Stampa senza supporti:* ogni pezzo si appoggia su una faccia di taglio, quella che fa sporgere meno le pareti (il riquadro misure dice lo sbalzo massimo, sempre entro 45°). Se un pezzo del manico sporgerebbe di più, vengono aggiunti pezzi da soli. I fori sono perpendicolari al taglio: nella faccia sul piatto salgono dritti e finiscono a punta 45°, senza ponti.
+  - *Un colore o più:* ogni pezzo è di un solo colore. Con una stampante a un colore, da *Pezzi nel file* scarichi prima solo i pezzi del colore 1 (con i perni) e poi quelli del colore 2.
+  - Montaggio dal pezzo 1 (in fondo) all'ultimo (punta del manico): i pezzi del fusto sono uguali, quelli del manico tutti diversi.
+- **Casetta in kit:** come le stampate dei modellini, una cartolina piatta con il telaio e i pezzi attaccati da canali sottili da spezzare. Si staccano e si montano a incastro, senza colla: facciata e retro con il timpano, due fianchi con gli angoli a pettine, due falde del tetto con le asole, la base con le fessure, e gli accessori che si infilano nella base.
+  - *Case:* **pan di zenzero** (glassa che cola, cuore traforato, tetto a mattoncini), **baita di montagna** (assi di legno, scuri, tetto coperto di neve, ghirlanda sulla porta), **chiesetta** con campanile, croce, rosone e finestre a sesto acuto, **bottega** con frontone, insegna con la tua scritta, vetrina e tenda a strisce, **casa nordica** con il tetto ripido e i festoni a pizzo. *Variante* cambia la neve che cola, i fiocchi sparsi e i sassi del vialetto.
+  - *Decorazioni:* lo stile di ogni casa si può cambiare: tetto (mattoncini, tegole a scaglie, scandole, coperto di neve, liscio), pareti (lisce, assi, mattoni in basso, pietre agli angoli), ornamento nel timpano (cuore o stella traforati, finestra tonda, rosone, fiocco, ghirlanda), fiocchi, stelline traforate o cuoricini sparsi sui muri, neve sui bordi (glassa, ghiaccioli sulla gronda, bordo a festoni sulla base). Le finestre sono traforate: con un lumino LED da 38 mm dentro si illuminano.
+  - *Strato colorato:* le decorazioni sono uno strato sopra i pezzi, di spessore regolabile (0,4 mm di base, a multipli dell'altezza dello strato). Con una stampante a un colore si cambia filamento alla fine dei pezzi. Linee di almeno 0,9 mm e spazi di almeno 0,6 mm: con ugello 0,4 vengono puliti.
+  - *Accessori:* fino a due alberi ai lati, pupazzo di neve e pacco regalo davanti, ognuno con la sua fessura nella base.
+  - *Cartolina:* il telaio segue i pezzi, che si incastrano per stare nel piatto scelto (se non ci stanno la cartolina si divide), con una scritta in testa (anche il logo SP). Altezza dei canali regolabile; senza telaio i pezzi escono sciolti. L'anteprima mostra la cartolina e accanto la casetta montata, che è solo da guardare: nel file c'è la cartolina.
 - **Lanterna** tonda o esagonale, traforata con stelle, fiocchi, alberi o cuori (sagome Fluent Emoji), con la sede per un lumino LED da 38 mm e una scritta sulla fascia in basso, in rilievo o traforata (la luce passa dalle lettere).
 - **Formina per biscotti** con tutti i disegni, anche a forma di nome o dal tuo SVG, con lama sottile e bordo per premere. Il **timbro** entra nella formina e stampa le linee del disegno e la scritta sul biscotto (è già a specchio).
 
@@ -311,7 +326,7 @@ I valori che imposti restano salvati nel browser. **Ripristina valori** torna a 
 
 **Frecce di posizione:** sotto ogni croce di frecce scegli il passo, 0,5 · 1 · 5 · 10 mm a clic (vale per tutte le croci; con Maiusc 0,2 mm).
 
-**Link diretti:** ogni generatore ha il suo indirizzo, da usare per linkarlo o salvarlo nei preferiti: `#natale` (pallina), `#natale-palla` (palla piatta), `#natale-piatto`, `#natale-albero`, `#natale-stella`, `#natale-lanterna`, `#natale-formina`, `#gridfinity`, `#gridfinity-cab` (cassettiera), `#gridfinity-base`, `#rack`, `#vasi`, `#supporti` (reggimensola), `#supporti-gancio`, `#racchette` (antivibrazione tennis), `#racchette-padel`, `#powerbank`, `#viteria` (vite), `#viteria-bullone`, `#viteria-perno`, `#cover`.
+**Link diretti:** ogni generatore ha il suo indirizzo, da usare per linkarlo o salvarlo nei preferiti: `#natale` (pallina), `#natale-palla` (palla piatta), `#natale-piatto`, `#natale-albero`, `#natale-stella`, `#natale-bastoncino`, `#natale-casetta`, `#natale-lanterna`, `#natale-formina`, `#gridfinity`, `#gridfinity-cab` (cassettiera), `#gridfinity-base`, `#rack`, `#vasi`, `#supporti` (reggimensola), `#supporti-gancio`, `#racchette` (antivibrazione tennis), `#racchette-padel`, `#powerbank`, `#viteria` (vite), `#viteria-bullone`, `#viteria-perno`, `#cover`.
 
 ### Il file 3MF
 - Ogni pezzo è un oggetto separato e con il suo nome (per esempio "Cassetto 3" o "Cestello pescante 1").
@@ -334,6 +349,8 @@ Ogni stampante è diversa. Il parametro **Tolleranza stampante** (0,3 mm all'ini
 - **Decorazioni piatte e palle piatte:** strati da 0,2 mm, 3 mm di spessore. Spessore, spessore della scritta e rilievo vanno a multipli di 0,2 e di 0,28 mm (0,28 · 0,56 · 0,84 · 1,12…): con − e + si passa al valore vicino, così ogni colore cade su strati interi anche se stampi il primo strato a 0,28. Per scritte piccole ugello da 0,4 mm e lettere di almeno 5 mm. La scritta in corsivo regge meglio se è almeno 8 mm.
 - **Palline:** incolla le due metà sull'anello con colla cianoacrilica. Lo spessore del guscio va bene da 1,2 mm in su; con 0,8 mm la pallina è leggerissima ma delicata.
 - **Formine:** usa PLA o PETG adatti agli alimenti e lavale a mano.
+- **Bastoncino:** 3 perimetri e riempimento 10–15%, senza supporti. Prima di stampare tutto prova un perno in due pezzi: se entra duro aumenta il *Gioco fori*, se balla diminuiscilo. Con i perni stampati una goccia di colla li tiene fermi.
+- **Casetta in kit:** strati da 0,2 mm, niente supporti, nessun brim. Con una stampante a un colore cambia filamento all'altezza dello *spessore pezzi* (1,6 mm di base). Stacca i pezzi piegando avanti e indietro, poi lima i resti dei canali. Se gli incastri entrano duri aumenta il *Gioco incastri*; un punto di colla li blocca per sempre. Solo lumini LED dentro.
 - **Lanterne:** solo lumini LED, mai candele vere.
 - **Gridfinity:** per la prima prova stampa un contenitore 1×1×3 e una base 2×2, così verifichi incastro e impilamento.
 - **Pareti:** usa spessori multipli del diametro dell'ugello (con 0,4 mm: 0,8, 1,2, 1,6).
@@ -368,6 +385,8 @@ Ogni stampante è diversa. Il parametro **Tolleranza stampante** (0,3 mm all'ini
 │   ├── racchette.js antivibrazione per racchette da tennis e padel
 │   ├── cassetti.js cassetti modulari a mattoncino
 │   ├── barattolo.js barattoli tondi con tappo a vite
+│   ├── bastoncino.js bastoncino di zucchero a pezzi con perni
+│   ├── casetta.js  casetta di Natale in kit: pezzi a incastro su una cartolina col telaio
 │   ├── fonts.js    contorni dei caratteri (generato)
 │   ├── logos.js    contorni dei loghi per le scritte (generato da assets/)
 │   ├── svg.js      lettore SVG (disegni caricati e libreria)
@@ -406,6 +425,7 @@ Per cambiare i caratteri delle scritte modifica l'elenco in `tools/make-fonts.mj
      - `print` è la versione già orientata per la stampa;
      - `at` è la posizione nell'anteprima;
      - `role: 'ghost'` indica un oggetto solo di esempio, che non viene esportato.
+     - `role: 'model'` indica un oggetto solo da guardare, nei suoi colori (la casetta montata accanto alla cartolina): non viene esportato.
      - `color` (es. `'#b3202a'`) e `group`: le parti con lo stesso gruppo diventano un unico oggetto multicolore.
    - `info`: lista di coppie `[etichetta, valore]` per il riquadro delle misure.
 2. Collegala in `build()` dentro `geom.js`.

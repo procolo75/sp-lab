@@ -4469,6 +4469,797 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
 
 </script>
 <script>
+// Casetta di Natale in kit: una cartolina piatta come le stampate dei modellini, con i pezzi attaccati al telaio da
+// piccoli canali da spezzare. Si staccano e si montano a incastro: quattro pareti con gli angoli a pettine, due falde
+// del tetto con le asole, una base con le fessure, alberi, pupazzo di neve e pacco regalo che si infilano nella base.
+// Si aggancia al motore di geom.js tramite SPRECOLO_EXT. Coordinate in mm, z verso l'alto.
+// - ogni pezzo si stampa piatto, faccia esterna in alto: sopra c'è lo strato colorato (decorazioni) di spessore p.strato,
+//   quindi con una stampante a un colore basta un cambio filamento;
+// - le decorazioni hanno linee larghe almeno 0,9 mm (due passate con ugello 0,4) e gli spazi almeno 0,6 mm;
+// - l'anteprima mostra la cartolina e, a destra, la casetta montata (ruolo 'model': non va nel file).
+(function (root) {
+  (root.SPRECOLO_EXT = root.SPRECOLO_EXT || []).push(function casetta(H) {
+    const { CrossSection, reg, union, fmt } = H;
+    const DEG = Math.PI / 180;
+
+    // ---------- strumenti 2D ----------
+    const R2 = (c) => reg(c);
+    const P2 = (pts) => R2(CrossSection.ofPolygons([pts], 'NonZero'));
+    const C2 = (x, y, r, seg) => R2(R2(CrossSection.circle(r, seg || Math.max(16, Math.min(64, Math.round(r * 6))))).translate([x, y]));
+    const RECT = (x0, y0, x1, y1) => P2([[x0, y0], [x1, y0], [x1, y1], [x0, y1]]);
+    const U = (list) => { list = list.filter(c => c && !c.isEmpty()); return list.length === 0 ? null : list.length === 1 ? list[0] : R2(CrossSection.union(list)); };
+    const D = (a, b) => (!a ? null : !b ? a : R2(a.subtract(b)));
+    const I = (a, b) => (!a || !b ? null : R2(a.intersect(b)));
+    const OFF = (c, d, j = 'Round') => (c ? R2(c.offset(d, j)) : null);
+    const MV = (c, x, y) => (c ? R2(c.translate([x, y])) : null);
+    const ROT = (c, deg) => (c ? R2(c.rotate(deg)) : null);
+    const MIRX = (c) => (c ? R2(c.mirror([1, 0])) : null);
+    const MIRY = (c) => (c ? R2(c.mirror([0, 1])) : null);
+    const HULL = (list) => R2(CrossSection.hull(list.filter(Boolean)));
+    const empty = (c) => !c || c.isEmpty() || c.area() < 0.05;
+    const bounds = (c) => { const b = c.bounds(); return { x0: b.min[0], y0: b.min[1], x1: b.max[0], y1: b.max[1], w: b.max[0] - b.min[0], h: b.max[1] - b.min[1] }; };
+    // toglie le parti più sottili di w (non si stamperebbero)
+    const clean = (c, w) => (empty(c) ? null : OFF(OFF(c, -w / 2, 'Miter'), w / 2, 'Round'));
+    const EXT = (c, z0, z1) => (empty(c) ? null : reg(reg(c.extrude(z1 - z0)).translate([0, 0, z0])));
+    function stroke(pts, w) {
+      const segs = [];
+      for (let i = 0; i < pts.length - 1; i++) segs.push(HULL([C2(pts[i][0], pts[i][1], w / 2, 16), C2(pts[i + 1][0], pts[i + 1][1], w / 2, 16)]));
+      return U(segs);
+    }
+    function starCS(n, R, r, cx = 0, cy = 0, rot = 90) {
+      const pts = [];
+      for (let i = 0; i < 2 * n; i++) { const a = (rot + i * 180 / n) * DEG, q = i % 2 ? r : R; pts.push([cx + q * Math.cos(a), cy + q * Math.sin(a)]); }
+      return P2(pts);
+    }
+    function rng(seed) { let a = (seed | 0) * 2654435761 >>> 0 || 1; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+    // ---------- forme ----------
+    const arch = (x, y0, w, h) => U([RECT(x - w / 2, y0, x + w / 2, y0 + Math.max(0.1, h - w / 2)), C2(x, y0 + Math.max(0.1, h - w / 2), w / 2, 48)]);
+    function pointed(x, y0, w, h) {   // arco a sesto acuto
+      const ys = y0 + Math.max(0.1, h - 0.866 * w);
+      const top = I(I(C2(x - w / 2, ys, w, 64), C2(x + w / 2, ys, w, 64)), RECT(x - w, ys, x + w, ys + 2 * w));
+      return U([RECT(x - w / 2, y0, x + w / 2, ys + 0.01), top]);
+    }
+    function heart(cx, cy, s) {
+      const r = s * 0.27, tip = C2(cx, cy - s * 0.46, 0.25, 8);
+      return U([HULL([C2(cx - s * 0.22, cy + s * 0.12, r), tip]), HULL([C2(cx + s * 0.22, cy + s * 0.12, r), tip])]);
+    }
+    function flake(cx, cy, r, w = 1) {
+      const out = [];
+      for (let k = 0; k < 6; k++) {
+        const a = (90 + k * 60) * DEG, ca = Math.cos(a), sa = Math.sin(a);
+        out.push(stroke([[cx, cy], [cx + r * ca, cy + r * sa]], w));
+        if (r > 3.2) for (const s of [-1, 1]) {
+          const bx = cx + 0.55 * r * ca, by = cy + 0.55 * r * sa, b = a + s * 45 * DEG;
+          out.push(stroke([[bx, by], [bx + 0.36 * r * Math.cos(b), by + 0.36 * r * Math.sin(b)]], w));
+        }
+      }
+      return U(out);
+    }
+    const star = (cx, cy, R) => starCS(5, R, R * 0.45, cx, cy);
+    // fiocco del pacco: due anse e il nodo
+    const bow = (cx, cy, s) => U([HULL([C2(cx - s * 0.42, cy + s * 0.2, s * 0.22), C2(cx, cy, 0.4, 8)]), HULL([C2(cx + s * 0.42, cy + s * 0.2, s * 0.22), C2(cx, cy, 0.4, 8)]), C2(cx, cy, s * 0.14)]);
+
+    // ---------- aperture: finestre, porte, ornamenti ----------
+    // ogni elemento aggiunge al lato: hole (traforo passante), decor (strato colorato), keep (zona da non coprire con altre decorazioni)
+    const FR = 1.6, MW = 1.6;   // cornice e listelli delle finestre
+    function newFace() { return { holes: [], decor: [], keep: [], base: [] }; }
+    function windowAt(F, kind, x, y0, w, h, holed, extra = {}) {
+      let sh, bars;
+      if (kind === 'arco') { sh = arch(x, y0, w, h); bars = U([RECT(x - MW / 2, y0, x + MW / 2, y0 + h), RECT(x - w, y0 + (h - w / 2) * 0.62 - MW / 2, x + w, y0 + (h - w / 2) * 0.62 + MW / 2)]); }
+      else if (kind === 'acuta') { sh = pointed(x, y0, w, h); bars = U([RECT(x - MW / 2, y0, x + MW / 2, y0 + h), RECT(x - w, y0 + (h - 0.866 * w) * 0.95 - MW / 2, x + w, y0 + (h - 0.866 * w) * 0.95 + MW / 2)]); }
+      else if (kind === 'tonda') { sh = C2(x, y0 + h / 2, w / 2, 48); bars = U([RECT(x - MW / 2, y0 - 1, x + MW / 2, y0 + h + 1), RECT(x - w, y0 + h / 2 - MW / 2, x + w, y0 + h / 2 + MW / 2)]); }
+      else if (kind === 'rosone') {
+        sh = C2(x, y0 + h / 2, w / 2, 64);
+        const sp = []; for (let k = 0; k < 4; k++) sp.push(ROT(RECT(-w, -MW / 2, w, MW / 2), k * 45));
+        bars = U([MV(U(sp), x, y0 + h / 2), D(C2(x, y0 + h / 2, w * 0.2), C2(x, y0 + h / 2, w * 0.2 - MW))]);
+      } else if (kind === 'vetrina') {
+        sh = RECT(x - w / 2, y0, x + w / 2, y0 + h);
+        const n = Math.max(2, Math.round(w / 11)), vb = [];
+        for (let k = 1; k < n; k++) vb.push(RECT(x - w / 2 + k * w / n - MW / 2, y0, x - w / 2 + k * w / n + MW / 2, y0 + h));
+        vb.push(RECT(x - w / 2, y0 + h * 0.74 - MW / 2, x + w / 2, y0 + h * 0.74 + MW / 2));
+        bars = U(vb);
+      } else { sh = RECT(x - w / 2, y0, x + w / 2, y0 + h); bars = U([RECT(x - MW / 2, y0, x + MW / 2, y0 + h), RECT(x - w / 2, y0 + h / 2 - MW / 2, x + w / 2, y0 + h / 2 + MW / 2)]); }
+      bars = I(bars, sh);
+      if (holed) F.holes.push(D(sh, bars));
+      F.decor.push(D(OFF(sh, FR), sh), bars);
+      if (kind !== 'tonda' && kind !== 'rosone') F.decor.push(RECT(x - w / 2 - FR - 1.4, y0 - FR - 1.8, x + w / 2 + FR + 1.4, y0 - FR + 0.2));   // davanzale
+      let keep = OFF(sh, FR + 2.2);
+      if (extra.shutters) {
+        // scuri: due ante ai lati, con un cuore traforato nel colore del pezzo
+        const sw = Math.max(4, w * 0.48), top = y0 + h;
+        for (const s of [-1, 1]) {
+          const x0 = s < 0 ? x - w / 2 - FR - 0.8 - sw : x + w / 2 + FR + 0.8, panel = RECT(x0, y0, x0 + sw, top);
+          F.decor.push(D(panel, U([heart(x0 + sw / 2, top - Math.min(sw, h) * 0.32, Math.min(sw * 0.6, 4.2)), RECT(x0 + 1.2, y0 + h * 0.42, x0 + sw - 1.2, y0 + h * 0.42 + 0.8)])));
+          keep = U([keep, OFF(panel, 2)]);
+        }
+      }
+      F.keep.push(keep);
+      return sh;
+    }
+    function doorAt(F, kind, x, w, h, opts = {}) {
+      const sh = kind === 'acuta' ? pointed(x, 0, w, h) : kind === 'arco' ? arch(x, 0, w, h) : RECT(x - w / 2, 0, x + w / 2, h);
+      const ring = D(OFF(sh, FR), sh);
+      F.decor.push(I(ring, RECT(x - w, 0, x + w, h + 10)));
+      // pannelli della porta: una cornice interna e la maniglia
+      const inner = OFF(sh, -2.4);
+      if (!empty(inner)) F.decor.push(I(D(inner, OFF(inner, -1)), RECT(x - w, 2.4, x + w, h)));
+      F.decor.push(C2(x + w * 0.28, h * 0.42, 1.15));
+      if (opts.planks) for (let k = 1; k < 4; k++) F.decor.push(I(RECT(x - w / 2 + k * w / 4 - 0.5, 3, x - w / 2 + k * w / 4 + 0.5, h), OFF(inner, -1.2)));
+      if (opts.heart) { const hs = Math.min(w * 0.36, 7); F.holes.push(heart(x, h - w / 2 - hs * 0.15, hs)); }
+      if (opts.wreath) wreath(F, x, h * 0.66, Math.min(w * 0.3, 6));
+      F.keep.push(OFF(sh, FR + 2.2));
+      F.door = sh;
+      return sh;
+    }
+    function wreath(F, cx, cy, r) {
+      const ring = D(C2(cx, cy, r, 48), C2(cx, cy, r - 1.6, 48));
+      F.decor.push(ring, bow(cx, cy - r + 0.4, r * 0.9));
+      F.keep.push(C2(cx, cy, r + 2.5));
+    }
+    // ornamento nel timpano: cuore o stella traforati con il bordo, fiocco di neve, finestra tonda, ghirlanda
+    function ornament(F, kind, cx, cy, s, holed) {
+      if (kind === 'nessuno' || s < 6) return;
+      if (kind === 'cuore' || kind === 'stella') {
+        const sh = kind === 'cuore' ? heart(cx, cy, s) : star(cx, cy, s * 0.55);
+        if (holed) F.holes.push(sh); else F.decor.push(OFF(sh, -0.01));
+        F.decor.push(D(OFF(sh, 1.6), sh));
+        F.keep.push(OFF(sh, 3.6));
+      } else if (kind === 'fiocco') { F.decor.push(flake(cx, cy, s * 0.5, 1.2)); F.keep.push(C2(cx, cy, s * 0.5 + 2.5)); }
+      else if (kind === 'tondo') windowAt(F, 'tonda', cx, cy - s * 0.4, s * 0.8, s * 0.8, holed);
+      else if (kind === 'rosone') windowAt(F, 'rosone', cx, cy - s * 0.45, s * 0.9, s * 0.9, holed);
+      else if (kind === 'ghirlanda') wreath(F, cx, cy, s * 0.45);
+    }
+    // tenda a strisce sopra la vetrina (bottega): strisce alterne col bordo a festoni
+    function awning(F, x0, x1, y, h) {
+      const n = Math.max(3, Math.round((x1 - x0) / 7)), sw = (x1 - x0) / n, out = [];
+      for (let k = 0; k < n; k += 2) out.push(U([RECT(x0 + k * sw, y, x0 + (k + 1) * sw, y + h), C2(x0 + (k + 0.5) * sw, y, sw / 2, 24)]));
+      out.push(RECT(x0 - 1, y + h, x1 + 1, y + h + 1.4));
+      F.decor.push(...out);
+      F.keep.push(RECT(x0 - 2.5, y - sw / 2 - 2.2, x1 + 2.5, y + h + 3.6));
+    }
+
+    // ---------- bordi innevati ----------
+    // neve (o glassa) su tutti i bordi rivolti in alto: una fascia alta bw e le gocce che colano. Stile 'pizzo' = festoni.
+    function icing(outline, bw, seed, style) {
+      const R = rng(seed), out = [D(outline, MV(outline, 0, -bw))];
+      for (const q of outline.toPolygons()) {
+        for (let i = 0; i < q.length; i++) {
+          const [ax, ay] = q[i], [bx, by] = q[(i + 1) % q.length], ex = bx - ax, ey = by - ay, L = Math.hypot(ex, ey);
+          if (L < 3 || -ex / L < 0.4) continue;   // solo i bordi con la normale verso l'alto
+          const step = style === 'pizzo' ? bw * 1.25 : bw * 1.7, n = Math.floor(L / step);
+          for (let k = 0; k < n; k++) {
+            const t = (k + 0.5 + (L / step - n) / 2) / (L / step), px = ax + ex * t, py = ay + ey * t;
+            if (style === 'pizzo') { out.push(C2(px, py - bw, bw * 0.62, 24)); continue; }
+            const len = bw * (0.3 + 1.3 * R()), w = bw * (0.55 + 0.3 * R());
+            out.push(stroke([[px, py - bw * 0.6], [px, py - bw - len]], w));
+          }
+        }
+      }
+      let c = U(out);
+      if (style === 'pizzo') {
+        // forellini nei festoni
+        const holes = [];
+        for (const q of outline.toPolygons()) for (let i = 0; i < q.length; i++) {
+          const [ax, ay] = q[i], [bx, by] = q[(i + 1) % q.length], ex = bx - ax, ey = by - ay, L = Math.hypot(ex, ey);
+          if (L < 3 || -ex / L < 0.4) continue;
+          const step = bw * 1.25, n = Math.floor(L / step);
+          for (let k = 0; k < n; k++) { const t = (k + 0.5 + (L / step - n) / 2) / (L / step); holes.push(C2(ax + ex * t, ay + ey * t - bw * 1.05, Math.max(0.5, bw * 0.17), 12)); }
+        }
+        c = D(c, U(holes));
+      }
+      return c;
+    }
+    // cumuli di neve alla base delle pareti
+    function drifts(x0, x1, h, seed) {
+      const R = rng(seed), out = [RECT(x0, 0, x1, h * 0.55)];
+      for (let x = x0; x < x1; x += h * 1.1) out.push(C2(x + h * 0.5 * R(), h * 0.45, h * (0.4 + 0.35 * R()), 24));
+      return I(U(out), RECT(x0, 0, x1, 3 * h));
+    }
+    // sparsi: fiocchi o stelline dove c'è posto
+    function scatter(F, free, kind, size, max, seed) {
+      if (kind === 'nessuno' || empty(free)) return;
+      const R = rng(seed), b = bounds(free), pts = [], st = size * 1.7;
+      for (let y = b.y0 + size / 2; y < b.y1; y += st) for (let x = b.x0 + size / 2; x < b.x1; x += st) pts.push([x + (R() - 0.5) * st * 0.6, y + (R() - 0.5) * st * 0.6]);
+      for (let i = pts.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [pts[i], pts[j]] = [pts[j], pts[i]]; }
+      let n = 0;
+      for (const [x, y] of pts) {
+        if (n >= max) break;
+        const s = size * (0.75 + 0.4 * R()), c = C2(x, y, s / 2 + 1.3, 20);
+        if (!empty(D(c, free))) continue;
+        if (kind === 'stelle') F.holes.push(MV(ROT(star(0, 0, s * 0.5), R() * 30), x, y));
+        else if (kind === 'cuori') F.decor.push(heart(x, y, s * 0.8));
+        else F.decor.push(flake(x, y, s / 2, 1));
+        free = D(free, C2(x, y, s / 2 + 3.5, 20)); n++;
+      }
+    }
+
+    // ---------- motivi del tetto (coordinate della falda: x dal colmo verso la gronda, y lungo la casa) ----------
+    function roofPattern(kind, L, y0, y1, seed) {
+      const R = rng(seed), lines = [], g = 0.7;
+      if (kind === 'tegole') {
+        const r = 3.4;
+        for (let i = 0, x = 1.5; x < L + r; i++, x += r) for (let y = y0 - r * 2 + (i % 2) * r; y < y1 + r * 2; y += 2 * r) {
+          const pts = []; for (let k = 0; k <= 10; k++) { const a = (-90 + k * 18) * DEG; pts.push([x + r * Math.cos(a), y + r * Math.sin(a)]); }
+          lines.push(stroke(pts, g));
+        }
+      } else if (kind === 'mattoni') {
+        const bh = 4, bwd = 8.5;
+        for (let i = 0, x = 1.5; x < L; i++, x += bh) {
+          lines.push(RECT(x - g / 2, y0 - 1, x + g / 2, y1 + 1));
+          for (let y = y0 - bwd + (i % 2) * bwd / 2; y < y1 + bwd; y += bwd) lines.push(RECT(x, y - g / 2, x + bh, y + g / 2));
+        }
+      } else if (kind === 'assi') {
+        const bwd = 5.5;
+        for (let y = y0 + bwd; y < y1; y += bwd) {
+          lines.push(RECT(-1, y - g / 2, L + 1, y + g / 2));
+          let x = 4 + 10 * R(); while (x < L - 3) { lines.push(RECT(x - g / 2, y, x + g / 2, y + bwd)); x += 9 + 9 * R(); }
+        }
+      }
+      return U(lines);
+    }
+    // muri: assi orizzontali (righe), mattoni (righe) o pietre d'angolo (blocchi)
+    function wallPattern(kind, x0, x1, top, seed) {
+      const R = rng(seed);
+      if (kind === 'assi') { const out = []; for (let y = 5; y < top + 80; y += 5.5) out.push(RECT(x0, y - 0.45, x1, y + 0.45)); return { lines: U(out) }; }
+      if (kind === 'mattoni') {
+        const out = [], bh = 3.6, bwd = 7.5;
+        for (let i = 0, y = 0; y < top; i++, y += bh) {
+          out.push(RECT(x0, y - 0.35, x1, y + 0.35));
+          for (let x = x0 - bwd + (i % 2) * bwd / 2 + 2 * R(); x < x1 + bwd; x += bwd) out.push(RECT(x - 0.35, y, x + 0.35, y + bh));
+        }
+        return { grooves: U(out) };
+      }
+      if (kind === 'pietra') {
+        const out = [];
+        for (let i = 0, y = 1; y + 4.2 < top; i++, y += 5.4) for (const s of [-1, 1]) {
+          const w = i % 2 ? 4.2 : 7, xe = s < 0 ? x0 : x1;
+          out.push(RECT(s < 0 ? xe : xe - w, y, s < 0 ? xe + w : xe, y + 4.4));
+        }
+        return { blocks: U(out) };
+      }
+      return {};
+    }
+
+    // ---------- stili delle case ----------
+    const STYLES = {
+      zenzero: { pitch: 42, ovE: 5, ovF: 4, tetto: 'mattoni', pareti: 'liscio', orn: 'cuore', ornB: 'stella', sparsi: 'fiocchi', neve: 'goccia' },
+      baita: { pitch: 30, ovE: 7, ovF: 6, tetto: 'neve', pareti: 'assi', orn: 'tondo', ornB: 'tondo', sparsi: 'nessuno', neve: 'goccia', drifts: true },
+      chiesa: { pitch: 46, ovE: 4, ovF: 4, tetto: 'tegole', pareti: 'pietra', orn: 'rosone', ornB: 'tondo', sparsi: 'stelle', neve: 'goccia', ext: 'torre' },
+      bottega: { pitch: 34, ovE: 5, ovF: 4, tetto: 'tegole', pareti: 'mattoni', orn: 'stella', ornB: 'stella', sparsi: 'fiocchi', neve: 'goccia', ext: 'insegna' },
+      nordica: { pitch: 55, ovE: 4, ovF: 3, tetto: 'assi', pareti: 'liscio', orn: 'stella', ornB: 'cuore', sparsi: 'fiocchi', neve: 'pizzo', drifts: true },
+    };
+    const NAMES = { zenzero: 'Casetta di pan di zenzero', baita: 'Baita di montagna', chiesa: 'Chiesetta', bottega: 'Bottega', nordica: 'Casa nordica' };
+
+    function casetta(p) {
+      const notes = [], info = [];
+      const st = STYLES[p.stile] || STYLES.zenzero, style = STYLES[p.stile] ? p.stile : 'zenzero';
+      const pick = (v, d) => (v && v !== 'auto' ? v : d);
+      const tetto = pick(p.tetto, st.tetto), pareti = pick(p.pareti, st.pareti), orn = pick(p.ornamento, st.orn), ornB = pick(p.ornamento, st.ornB), sparsi = pick(p.sparsi, st.sparsi);
+      const sp = Math.max(0.8, +p.spessore || 1.6), lay = Math.max(0.12, +p.strato || 0.4), tol = Math.max(0, +p.gioco || 0);
+      const W = Math.max(30, +p.larghezza), Dp = Math.max(30, +p.profondita), Hw = Math.max(25, +p.altezza);
+      const holed = p.finestre !== 'disegnate', snow = p.neve !== false, seed = (+p.variante | 0) * 7919 + 13;
+      const pitch = Math.max(20, Math.min(62, +p.pendenza || st.pitch));
+      const th = pitch * DEG, ca = Math.cos(th), sa = Math.sin(th);
+      const Hr = (W / 2) * Math.tan(th), Ls = (W / 2) / ca;
+      const ovE = st.ovE, ovF = st.ovF, Lr = Ls + ovE;
+      const ext = st.ext, frontCovered = !ext;   // con torre o insegna la falda parte dietro la facciata
+      const tF = ext ? -Dp / 2 + sp + tol : -Dp / 2 - ovF, tB = Dp / 2 + ovF;
+      const bw = Math.max(2.4, Math.min(4.5, W * 0.06));   // fascia di neve sui bordi
+
+      // pettine degli angoli: n denti, quelli pari della facciata e del retro, quelli dispari dei fianchi
+      const n = Math.max(3, 2 * Math.round((Hw / 9 - 1) / 2) + 1), hz = Hw / n;
+      const wB = Math.min(10, W * 0.18), wT = 7, wG = Math.min(7, Ls * 0.22);   // linguette: sotto, in cima ai fianchi, sul timpano
+      const tabT = sp / ca;   // altezza delle linguette dei fianchi: a filo con la faccia di sopra del tetto sul bordo esterno
+
+      // ===== pareti (u verso destra di chi guarda, v in alto, v = 0 sulla base) =====
+      function wallOutline(Wd, gable) {
+        const e = Wd / 2 - sp - tol / 2, list = [RECT(-e, 0, e, Hw)];
+        for (let k = 0; k < n; k++) {
+          if ((k % 2 === 0) !== gable) continue;
+          const v0 = k * hz + (gable ? 0 : tol / 2), v1 = (k + 1) * hz - (gable ? 0 : tol / 2);
+          list.push(RECT(e - 0.01, v0, Wd / 2, v1), RECT(-Wd / 2, v0, -e + 0.01, v1));
+        }
+        if (gable) list.push(P2([[-Wd / 2, Hw - 0.01], [Wd / 2, Hw - 0.01], [0, Hw + Hr]]));
+        return U(list);
+      }
+      const bottomTabs = (Wd) => U([-1, 1].map(s => RECT(s * Wd / 4 - wB / 2, -sp, s * Wd / 4 + wB / 2, 0.01)));
+      // linguette in cima al timpano, a metà di ogni falda, perpendicolari al tetto
+      function gableTabs() {
+        const out = [];
+        for (const s of [-1, 1]) {
+          const sg = Ls / 2, px = s * sg * ca, py = Hw + Hr - sg * sa, ex = s * ca, ey = -sa, nx = s * sa, ny = ca, e = sp + 0.01;
+          const a = [px - ex * wG / 2 - nx * 0.01, py - ey * wG / 2 - ny * 0.01], b = [px + ex * wG / 2 - nx * 0.01, py + ey * wG / 2 - ny * 0.01];
+          out.push(P2([a, b, [b[0] + nx * e, b[1] + ny * e], [a[0] + nx * e, a[1] + ny * e]]));
+        }
+        return U(out);
+      }
+      const sideTopTabs = () => U([-1, 1].map(s => RECT(s * Dp / 4 - wT / 2, Hw - 0.01, s * Dp / 4 + wT / 2, Hw + tabT)));
+
+      // facciata con torre (chiesa) o con il frontone dell'insegna (bottega)
+      let extShape = null, tower = null, sign = null;
+      if (ext === 'torre') {
+        const Tw = Math.max(12, W * 0.34), vT = Hw + Hr + Math.max(10, Hr * 0.42), spH = Tw * 0.95, apex = vT + spH;
+        tower = { Tw, vT, apex };
+        extShape = U([RECT(-Tw / 2, Hw + Hr * 0.3, Tw / 2, vT + 0.01), P2([[-Tw / 2 - 1.5, vT], [Tw / 2 + 1.5, vT], [0, apex]]),
+          RECT(-1.3, apex - 3, 1.3, apex + 8), RECT(-3.8, apex + 3, 3.8, apex + 5.6)]);
+      } else if (ext === 'insegna') {
+        const vF = Hw + Hr + Math.max(8, Hr * 0.4);
+        extShape = D(U([RECT(-W / 2, Hw, W / 2, vF), C2(0, vF, W * 0.2, 64)]), U([C2(-W / 2, vF, 5, 32), C2(W / 2, vF, 5, 32)]));
+        const sh = Math.min(16, (vF - Hw) * 0.5), sw = W * 0.66, sc = Hw + (vF - Hw) * 0.55;
+        sign = { x0: -sw / 2, x1: sw / 2, y0: sc - sh / 2, y1: sc + sh / 2, vF };
+      }
+
+      const pieces = [];
+      const T = H.decor || {};
+      function wallPiece(name, which) {
+        const gable = which !== 'side', Wd = gable ? W : Dp, F = newFace(), R = rng(seed + which.length * 31);
+        let outline = wallOutline(Wd, gable);
+        if (which === 'front' && extShape) outline = U([outline, extShape]);
+        // ---- aperture per stile ----
+        const winH = (r) => Hw * r;
+        if (which === 'front') {
+          if (style === 'zenzero') {
+            doorAt(F, 'arco', 0, W * 0.26, Hw * 0.58, { heart: holed });
+            for (const s of [-1, 1]) windowAt(F, 'arco', s * W * 0.3, Hw * 0.3, W * 0.17, winH(0.42), holed);
+          } else if (style === 'baita') {
+            doorAt(F, 'rett', 0, W * 0.24, Hw * 0.58, { planks: true, wreath: true });
+            for (const s of [-1, 1]) windowAt(F, 'quadra', s * W * 0.31, Hw * 0.36, W * 0.14, winH(0.3), holed);
+          } else if (style === 'chiesa') {
+            doorAt(F, 'acuta', 0, W * 0.24, Hw * 0.64, { planks: true });
+            for (const s of [-1, 1]) windowAt(F, 'acuta', s * W * 0.31, Hw * 0.3, W * 0.11, winH(0.4), holed);
+          } else if (style === 'bottega') {
+            const vx0 = -W / 2 + sp + 4, vx1 = W * 0.16;
+            windowAt(F, 'vetrina', (vx0 + vx1) / 2, Hw * 0.2, vx1 - vx0, winH(0.36), holed);
+            doorAt(F, 'rett', W * 0.31, W * 0.2, Hw * 0.56, {});
+            awning(F, -W / 2 + sp + 2.5, W / 2 - sp - 2.5, Hw * 0.66, Hw * 0.12);
+          } else {
+            doorAt(F, 'arco', 0, W * 0.22, Hw * 0.52, { heart: false, wreath: true });
+            for (const s of [-1, 1]) windowAt(F, 'quadra', s * W * 0.3, Hw * 0.3, W * 0.13, winH(0.42), holed);
+          }
+        } else if (which === 'back') {
+          if (style === 'chiesa') windowAt(F, 'acuta', 0, Hw * 0.28, W * 0.12, winH(0.44), holed);
+          else for (const s of [-1, 1]) windowAt(F, style === 'zenzero' ? 'arco' : style === 'chiesa' ? 'acuta' : 'quadra', s * W * 0.24, Hw * 0.32, W * 0.16, winH(style === 'nordica' ? 0.42 : 0.36), holed, { shutters: style === 'baita' });
+        } else {
+          if (style === 'chiesa') for (const k of [-1, 0, 1]) windowAt(F, 'acuta', k * Dp * 0.27, Hw * 0.24, Math.min(Dp * 0.1, 8), winH(0.52), holed);
+          else if (style === 'bottega') windowAt(F, 'quadra', 0, Hw * 0.34, Dp * 0.18, winH(0.32), holed);
+          else for (const s of [-1, 1]) windowAt(F, style === 'zenzero' ? 'arco' : 'quadra', s * Dp * 0.24, Hw * (style === 'baita' ? 0.36 : 0.3), Dp * (style === 'baita' ? 0.13 : 0.17), winH(style === 'baita' ? 0.3 : 0.4), holed, { shutters: style === 'baita' });
+        }
+        // ---- timpano ----
+        if (gable) {
+          const s0 = Math.min(Hr * 0.5, W * 0.3), cy = Hw + Hr * 0.36;
+          if (which === 'front' && ext === 'torre') {
+            ornament(F, orn, 0, Hw + Hr * 0.3, Math.min(s0, tower.Tw * 0.62), holed);
+            // cella campanaria: arco traforato nella torre, sopra il colmo
+            const bh = (tower.vT - Hw - Hr) * 0.72, bwd = Math.min(tower.Tw * 0.5, bh * 0.7);
+            windowAt(F, 'arco', 0, Hw + Hr + 1.2, bwd, bh, holed);
+            F.decor.push(star(0, tower.apex + 4.3, 0.01));
+          } else if (which === 'front' && ext === 'insegna') {
+            // insegna con la scritta
+            const sg = RECT(sign.x0, sign.y0, sign.x1, sign.y1);
+            F.decor.push(D(sg, OFF(sg, -1.2, 'Miter')));
+            const txt = String(p.insegna || '').trim();
+            if (txt && T.textCS) {
+              const capW = Math.min(sign.y1 - sign.y0 - 5, 9);
+              let tc = T.textCS([txt], p.carattere || 'tondo', capW, +p.ugello || 0.4);
+              if (tc) {
+                const b = bounds(tc), k = Math.min(1, (sign.x1 - sign.x0 - 5) / b.w, (sign.y1 - sign.y0 - 4.4) / b.h);
+                if (k < 1) tc = R2(tc.scale([k, k]));
+                const b2 = bounds(tc);
+                F.decor.push(MV(tc, -(b2.x0 + b2.x1) / 2, (sign.y0 + sign.y1) / 2 - (b2.y0 + b2.y1) / 2));
+                if (k < 0.97) notes.push('~Scritta dell\'insegna ridotta per stare nel riquadro');
+              }
+            }
+            F.keep.push(OFF(sg, 2));
+            for (const s of [-1, 1]) F.decor.push(star(s * (sign.x1 + (W / 2 - sign.x1) / 2 + 0.5), (sign.y0 + sign.y1) / 2, Math.min(4.5, (W / 2 - sign.x1) / 2 - 1.5)));
+          } else ornament(F, which === 'back' ? ornB : orn, 0, cy, s0, holed);
+        }
+        // ---- muri ----
+        const safe = OFF(outline, -(sp > 1 ? 0.9 : 0.6), 'Miter');
+        const keepAll = U(F.keep);
+        const wp = wallPattern(pareti, -Wd / 2 + sp + tol, Wd / 2 - sp - tol, Hw - 1, seed + 5);
+        // via i pezzetti troppo corti rimasti tra finestre e porte
+        const noBits = (c, a) => (empty(c) ? null : U(c.decompose().map(R2).filter(q => q.area() >= a)));
+        const keepT = OFF(keepAll, -1.2);
+        if (wp.lines) F.decor.push(noBits(D(I(wp.lines, gable ? I(outline, MV(outline, 0, -bw * 2.4)) : RECT(-Wd / 2, 0, Wd / 2, Hw - 2)), keepT), 5));
+        if (wp.blocks) F.decor.push(noBits(D(wp.blocks, keepT), 6));
+        let grooves = null;
+        if (wp.grooves) { F.decor.push(D(I(RECT(-Wd / 2, Hw * 0.0, Wd / 2, Hw * 0.42), safe), keepAll)); grooves = wp.grooves; }
+        // ---- neve sui bordi in alto e cumuli ----
+        if (snow) {
+          const top = gable ? outline : null;
+          if (top) F.decor.push(icing(D(top, RECT(-Wd, -50, Wd, Hw - 0.5)) || top, bw, seed + 101, st.neve));
+          if (st.drifts) F.decor.push(D(drifts(-Wd / 2, Wd / 2, Math.min(6, Hw * 0.12), seed + 7), F.door ? OFF(F.door, 0.6) : null));
+        }
+        // ---- sparsi ----
+        if (sparsi !== 'nessuno') {
+          let free = D(D(OFF(outline, -3, 'Miter'), U(F.keep)), RECT(-Wd, -10, Wd, Hw * 0.22));
+          if (snow && gable) free = D(free, OFF(D(outline, MV(outline, 0, -bw * 2.8)), 1));
+          if (sign) free = D(free, RECT(-W, Hw, W, sign.vF + 30));
+          scatter(F, free, sparsi, Math.max(6.5, Math.min(9, W * 0.13)), gable ? 6 : 3, seed + which.length * 17);
+        }
+        let holes = U(F.holes);
+        if (holes) holes = I(holes, OFF(outline, -1.2, 'Miter'));
+        let base = D(outline, holes);
+        let decor = U(F.decor);
+        if (grooves) decor = D(decor, D(grooves, OFF(keepAll, 0)));
+        decor = I(decor, OFF(base, -0.25));
+        decor = I(decor, safe);
+        decor = clean(decor, 0.8);
+        const tabs = U([bottomTabs(Wd), which === 'side' ? sideTopTabs() : (which === 'back' || frontCovered) ? gableTabs() : null]);
+        base = U([base, tabs]);
+        return { name, base, decor, kind: which };
+      }
+
+      const front = wallPiece('Facciata', 'front'), back = wallPiece('Retro', 'back'), side = wallPiece('Fianco', 'side');
+
+      // ===== tetto: una falda (x dal colmo verso la gronda, y lungo la casa); l'altra è la stessa specchiata =====
+      function roofPiece() {
+        let out = RECT(0, tF, Lr, tB);
+        const slots = [];
+        const sgap = tol / 2;
+        // asole delle linguette dei fianchi
+        const s0 = (W / 2 - sp - sp * sa) / ca, s1 = (W / 2) / ca;
+        for (const s of [-1, 1]) slots.push(RECT(s0 - sgap - 0.15, s * Dp / 4 - wT / 2 - sgap, s1 + sgap, s * Dp / 4 + wT / 2 + sgap));
+        // asole delle linguette dei timpani
+        const sg = Ls / 2;
+        const planes = [[Dp / 2 - sp, Dp / 2]];
+        if (frontCovered) planes.push([-Dp / 2, -Dp / 2 + sp]);
+        for (const [a, b] of planes) slots.push(RECT(sg - wG / 2 - sgap, a - sgap, sg + wG / 2 + sgap, b + sgap));
+        const slotCS = U(slots);
+        // ghiaccioli sulla gronda
+        let icicles = null;
+        if (snow) {
+          const R = rng(seed + 77), ic = [];
+          for (let y = tF + 3; y < tB - 2; y += 3.2 + 1.6 * R()) { const len = 1.5 + 3.5 * R(); ic.push(P2([[Lr - 0.2, y - 1.3], [Lr - 0.2, y + 1.3], [Lr + len, y + 0.2 * (R() - 0.5)]])); }
+          icicles = U(ic);
+          out = U([out, icicles]);
+        }
+        out = D(out, slotCS);
+        const safe = OFF(RECT(0, tF, Lr, tB), -0.9, 'Miter');
+        let decor;
+        if (tetto === 'neve') {
+          // manto di neve: tutta la falda, col bordo verso il colmo ondulato
+          const R = rng(seed + 9), wav = [];
+          for (let y = tF; y < tB + 6; y += 6) wav.push(C2(2.6 + 1.3 * R(), y, 2.6 + 1.6 * R(), 24));
+          decor = D(RECT(2.4, tF, Lr + 10, tB), U(wav));
+        } else if (tetto === 'liscio') decor = snow ? RECT(Lr - bw * 1.2, tF, Lr + 10, tB) : null;
+        else decor = D(RECT(0, tF, Lr + 10, tB), roofPattern(tetto, Lr, tF, tB, seed + 3));
+        if (snow && tetto !== 'neve') decor = U([decor, RECT(Lr - bw, tF, Lr + 10, tB), RECT(0, tF, 2.2, tB)]);
+        if (snow) decor = U([decor, icicles]);
+        decor = D(decor, OFF(slotCS, 1.3, 'Miter'));
+        decor = I(decor, OFF(out, -0.25, 'Miter'));
+        decor = I(decor, U([safe, icicles ? OFF(icicles, -0.3) : null, RECT(Lr - 1, tF + 0.9, Lr + 10, tB - 0.9)]));
+        decor = clean(decor, 0.8);
+        return { base: out, decor };
+      }
+      const roofR = roofPiece();
+
+      // ===== base =====
+      const nT = Math.max(0, Math.min(2, p.alberi | 0)), snowman = !!p.pupazzo, gift = !!p.regalo;
+      const hT = Math.max(18, Math.min(Hw * 0.95, 70)), twT = hT * 0.62;
+      const mx = nT ? twT + 7 : 6, mf = snowman || gift ? Math.max(14, Hw * 0.3) : 6, mb = 6;
+      const bx0 = -W / 2 - mx, bx1 = W / 2 + mx, by0 = -Dp / 2 - mf, by1 = Dp / 2 + mb;
+      const accs = [];   // accessori: { name, base, decor, x, y }
+      const houseFoot = RECT(-W / 2 - 0.01, -Dp / 2 - 0.01, W / 2 + 0.01, Dp / 2 + 0.01);
+      const baseSlots = [];
+      const slotRect = (x0, y0, x1, y1) => RECT(x0 - tol / 2, y0 - tol / 2, x1 + tol / 2, y1 + tol / 2);
+      for (const s of [-1, 1]) {
+        baseSlots.push(slotRect(s * W / 4 - wB / 2, -Dp / 2, s * W / 4 + wB / 2, -Dp / 2 + sp));
+        baseSlots.push(slotRect(s * W / 4 - wB / 2, Dp / 2 - sp, s * W / 4 + wB / 2, Dp / 2));
+        baseSlots.push(slotRect(W / 2 - sp, s * Dp / 4 - wB / 2, W / 2, s * Dp / 4 + wB / 2));
+        baseSlots.push(slotRect(-W / 2, s * Dp / 4 - wB / 2, -W / 2 + sp, s * Dp / 4 + wB / 2));
+      }
+      // ---- accessori: sagoma piatta con linguetta sotto, in piedi nella base, faccia decorata davanti ----
+      function treePiece(h) {
+        const tw = h * 0.62, trunkW = Math.max(5, tw * 0.2), trunkH = h * 0.12, tiers = 3, out = [], dec = [];
+        let v = trunkH;
+        for (let k = 0; k < tiers; k++) {
+          const w = tw * (1 - k * 0.24), th2 = (h - trunkH - h * 0.1) * (k === tiers - 1 ? 0.5 : 0.42), top = v + th2;
+          out.push(P2([[-w / 2, v], [w / 2, v], [0, Math.min(h * 0.92, top + th2 * 0.25)]]));
+          // festone e palline
+          const yA = v + th2 * 0.35;
+          dec.push(stroke([[-w * 0.36, yA + th2 * 0.06], [-w * 0.12, yA - th2 * 0.06], [w * 0.12, yA + th2 * 0.04], [w * 0.34, yA - th2 * 0.06]], 1.0));
+          dec.push(C2(-w * 0.2, v + th2 * 0.12 + 1.4, 1.3), C2(w * 0.22, v + th2 * 0.62, 1.2));
+          v += th2 * 0.62;
+        }
+        const tree = U(out);
+        const stH = Math.max(3.2, h * 0.09);
+        out.push(RECT(-trunkW / 2, 0, trunkW / 2, trunkH + 1), star(0, bounds(tree).y1 + stH * 0.15, stH));
+        dec.push(OFF(star(0, bounds(tree).y1 + stH * 0.15, stH), -0.01));
+        const base = U([U(out), RECT(-trunkW / 2, -sp, trunkW / 2, 0.01)]);
+        let decor = I(U([...dec, snow ? I(icing(tree, Math.max(1.6, h * 0.045), seed + 3, 'goccia'), tree) : null]), OFF(U(out), -0.5));
+        return { base, decor: clean(decor, 0.8), tabW: trunkW };
+      }
+      function snowmanPiece(h) {
+        const r1 = h * 0.24, r2 = h * 0.18, r3 = h * 0.13;
+        const c1 = r1, c2 = 2 * r1 + r2 * 0.75, c3 = c2 + r2 + r3 * 0.7;
+        const body = U([C2(0, c1, r1), C2(0, c2, r2), C2(0, c3, r3)]);
+        const hatW = r3 * 1.5, hatTop = c3 + r3 * 0.6 + h * 0.15;
+        const hat = U([RECT(-hatW * 0.65, c3 + r3 * 0.55, hatW * 0.65, c3 + r3 * 0.55 + 1.6), RECT(-hatW * 0.42, c3 + r3 * 0.55, hatW * 0.42, hatTop)]);
+        const arms = U([stroke([[-r2 * 0.8, c2 + r2 * 0.1], [-r2 * 1.7, c2 + r2 * 0.65], [-r2 * 2.05, c2 + r2 * 1.0]], 1.8), stroke([[r2 * 0.8, c2 + r2 * 0.1], [r2 * 1.75, c2 + r2 * 0.75]], 1.8)]);
+        const tabW = Math.max(5, r1);
+        const base = U([body, hat, arms, RECT(-tabW / 2, -sp, tabW / 2, 0.5)]);
+        // corpo bianco; occhi, bottoni, sciarpa e naso restano del colore del pezzo
+        const details = U([C2(-r3 * 0.36, c3 + r3 * 0.2, Math.max(0.8, r3 * 0.13)), C2(r3 * 0.36, c3 + r3 * 0.2, Math.max(0.8, r3 * 0.13)),
+          P2([[-0.2, c3 - r3 * 0.05], [-0.2, c3 - r3 * 0.3], [r3 * 0.75, c3 - r3 * 0.2]]),
+          RECT(-r2 * 1.1, c2 + r2 * 0.62, r2 * 1.1, c2 + r2 * 0.62 + Math.max(1.6, h * 0.05)), RECT(r2 * 0.25, c2 + r2 * 0.1, r2 * 0.25 + 1.8, c2 + r2 * 0.66),
+          C2(0, c2 - r2 * 0.05, Math.max(0.8, r2 * 0.12)), C2(0, c1 + r1 * 0.35, Math.max(0.8, r2 * 0.12)), C2(0, c1 - r1 * 0.2, Math.max(0.8, r2 * 0.12))]);
+        const decor = clean(U([D(OFF(body, -0.5), details), RECT(-hatW * 0.42 + 0.6, c3 + r3 * 0.55 + 2.4, hatW * 0.42 - 0.6, c3 + r3 * 0.55 + 3.6)]), 0.8);
+        return { base, decor, tabW };
+      }
+      function giftPiece(h) {
+        const w = h * 1.05, bh = h * 0.68, lid = h * 0.14;
+        const box = U([RECT(-w / 2, 0, w / 2, bh), RECT(-w / 2 - 1, bh - 0.01, w / 2 + 1, bh + lid)]);
+        const bo = bow(0, bh + lid + h * 0.03, h * 0.5);
+        const tabW = Math.max(5, w * 0.4);
+        const base = U([box, bo, RECT(-tabW / 2, -sp, tabW / 2, 0.01)]);
+        const rib = Math.max(1.6, w * 0.13);
+        const decor = clean(I(U([RECT(-rib / 2, 0, rib / 2, bh + lid), RECT(-w, bh + 0.8, w, bh + lid - 0.8), OFF(bo, -0.4), snow ? RECT(-w, bh + lid - 1.1, w, bh + lid) : null]), OFF(U([box, bo]), -0.45)), 0.8);
+        return { base, decor, tabW };
+      }
+      if (nT) {
+        const t = treePiece(hT);
+        for (let k = 0; k < nT; k++) {
+          const s = k === 0 ? -1 : 1;
+          accs.push({ name: nT > 1 ? `Albero ${k + 1}` : 'Albero', ...t, x: s * (W / 2 + 3 + twT / 2), y: -Dp / 6 });
+        }
+      }
+      const hS = Math.max(16, Math.min(Hw * 0.55, 40));
+      if (snowman) accs.push({ name: 'Pupazzo di neve', ...snowmanPiece(hS), x: W * 0.33, y: -Dp / 2 - mf / 2 });
+      if (gift) accs.push({ name: 'Pacco regalo', ...giftPiece(Math.max(11, Hw * 0.28)), x: -W * 0.33, y: -Dp / 2 - mf / 2 });
+      for (const a of accs) baseSlots.push(slotRect(a.x - a.tabW / 2, a.y - sp / 2, a.x + a.tabW / 2, a.y + sp / 2));
+      const baseOut = OFF(OFF(RECT(bx0, by0, bx1, by1), -4), 4);
+      const baseSlotCS = U(baseSlots);
+      let baseCS = D(baseOut, baseSlotCS);
+      // decorazioni della base: bordo di neve a festoni, vialetto di sassi davanti alla porta, fiocchi
+      let baseDecor = null;
+      {
+        const dl = [];
+        const R = rng(seed + 55);
+        if (snow) {
+          const ring = D(baseOut, OFF(baseOut, -2.2, 'Miter'));
+          const sc = [];
+          const per = 2 * (bx1 - bx0 + by1 - by0), nS = Math.round(per / 6);
+          for (let k = 0; k < nS; k++) {
+            let d = (k + 0.5) * per / nS, x, y;
+            const w0 = bx1 - bx0, h0 = by1 - by0;
+            if (d < w0) { x = bx0 + d; y = by0 + 2.2; } else if ((d -= w0) < h0) { x = bx1 - 2.2; y = by0 + d; } else if ((d -= h0) < w0) { x = bx1 - d; y = by1 - 2.2; } else { d -= w0; x = bx0 + 2.2; y = by1 - d; }
+            sc.push(C2(x, y, 2.2 + 0.6 * R(), 20));
+          }
+          dl.push(I(U([ring, U(sc)]), baseOut));
+        }
+        // vialetto: sassi ovali dalla porta al bordo davanti
+        if (mf > 8) {
+          let y = -Dp / 2 - 3.2;
+          while (y > by0 + 4) { const w = 3.4 + 1.6 * R(); dl.push(R2(R2(R2(CrossSection.circle(1, 20)).scale([w, 1.7])).translate([(R() - 0.5) * 2, y]))); y -= 4.4; }
+        }
+        let free = D(D(OFF(baseOut, -3.4, 'Miter'), OFF(houseFoot, 2.5, 'Miter')), OFF(baseSlotCS, 2.4, 'Miter'));
+        if (mf > 8) free = D(free, RECT(-5, by0, 5, -Dp / 2));
+        for (const a of accs) free = D(free, RECT(a.x - a.tabW / 2 - 4, a.y - 5, a.x + a.tabW / 2 + 4, a.y + 5));
+        const F2 = newFace();
+        scatter(F2, free, 'fiocchi', 5.5, 6, seed + 66);
+        dl.push(...F2.decor);
+        baseDecor = I(U(dl), OFF(baseCS, -0.4));
+        baseDecor = D(baseDecor, OFF(U([houseFoot, baseSlotCS]), 1.2, 'Miter'));
+        for (const a of accs) baseDecor = D(baseDecor, RECT(a.x - a.tabW / 2 - 1.6, a.y - sp / 2 - 1.6, a.x + a.tabW / 2 + 1.6, a.y + sp / 2 + 1.6));
+        baseDecor = clean(baseDecor, 0.8);
+      }
+
+      // ===== elenco dei pezzi, con la posa nella casetta montata =====
+      const rotX = (m) => reg(m.rotate([90, 0, 0]));
+      // parete: faccia decorata (z in alto nel pezzo piatto) verso fuori; half = distanza della faccia esterna dal centro
+      const placeWall = (m, half, az) => reg(reg(reg(rotX(m).translate([0, -half + sp, sp]))).rotate([0, 0, az]));
+      const placeAcc = (m, x, y) => reg(rotX(m).translate([x, y + sp / 2, sp]));
+      const zR = sp + Hw + Hr;
+      const placeRoof = (m, left) => { const r = reg(reg(m.rotate([0, pitch, 0])).translate([0, 0, zR])); return left ? reg(r.rotate([0, 0, 180])) : r; };
+      const list = [
+        { name: 'Facciata', base: front.base, decor: front.decor, place: [(m) => placeWall(m, Dp / 2, 0)] },
+        { name: 'Retro', base: back.base, decor: back.decor, place: [(m) => placeWall(m, Dp / 2, 180)] },
+        { name: 'Fianco', count: 2, base: side.base, decor: side.decor, place: [(m) => placeWall(m, W / 2, 90), (m) => placeWall(m, W / 2, -90)] },
+        { name: 'Falda destra', base: roofR.base, decor: roofR.decor, place: [(m) => placeRoof(m, false)] },
+        { name: 'Falda sinistra', base: MIRY(roofR.base), decor: MIRY(roofR.decor), place: [(m) => placeRoof(m, true)] },
+        { name: 'Base', base: baseCS, decor: baseDecor, place: [(m) => m], flatOnBed: true },
+      ];
+      for (const a of accs) list.push({ name: a.name, base: a.base, decor: a.decor, place: [(m) => placeAcc(m, a.x, a.y)] });
+      // i fianchi sono due pezzi uguali: nella cartolina ce ne sono due
+      const flatList = [];
+      for (const it of list) for (let k = 0; k < (it.count || 1); k++) flatList.push({ name: it.count ? `${it.name} ${k + 1}` : it.name, base: it.base, decor: it.decor, place: it.place[k] || it.place[0] });
+
+      // ===== cartolina: pezzi sul telaio, attaccati con canali sottili =====
+      const telaio = p.telaio !== false, bed = Math.max(120, +p.piatto || 220);
+      const gap = telaio ? 2.2 : 5, barW = 2.6, gW = 1.2, gH = Math.min(sp, Math.max(0.4, +p.canale || 0.8));
+      const maxInner = bed - 2 * barW - 1;
+      const items = flatList.map((it) => Object.assign({}, it, { b0: bounds(it.base) }));
+      const tooBig = items.filter(it => Math.min(it.b0.w, it.b0.h) + 2 * gap > maxInner || Math.max(it.b0.w, it.b0.h) + 2 * gap > maxInner);
+      if (tooBig.length) notes.push(`${tooBig.map(t => t.name).join(', ')} più grand${tooBig.length > 1 ? 'i' : 'e'} del piatto da ${fmt(bed)} mm: rimpicciolisci la casa o metti il piatto giusto`);
+      // scritta in testa alla cartolina
+      let header = null;
+      if (telaio && String(p.scritta || '').trim() && T.fitText) {
+        const tf = T.fitText(p, { x: 0, y: 0, w: maxInner - 12, h: Math.max(8, 1.25 * (+p.altTesto || 9) + (String(p.scritta2 || '').trim() ? 1.9 * (+p.altTesto2 || +p.altTesto || 9) : 0)) }, +p.altTesto || 9);
+        if (tf) header = { cs: tf.cs, h: tf.box.h + 7, w: tf.box.w };
+        if (tf && tf.reduced) notes.push('~Scritta della cartolina ridotta per stare nella larghezza del piatto');
+      }
+      // impacchettamento a "skyline": ogni cella (pezzo + spazio) si appoggia sulle celle già messe, separate da una barra.
+      // y verso il basso, dentro la cornice. Restituisce le celle messe e quelle avanzate
+      function pack(list, Wmax, Hmax) {
+        let sky = [{ x: 0, y: 0, w: Wmax + barW }];
+        const placed = [], rest = [];
+        for (const it of list) {
+          let best = null;
+          for (const rot of [0, 90]) {
+            const cw = (rot ? it.b0.h : it.b0.w) + 2 * gap, ch = (rot ? it.b0.w : it.b0.h) + 2 * gap;
+            for (let i = 0; i < sky.length; i++) {
+              const x = sky[i].x;
+              if (x + cw > Wmax + 1e-6) break;
+              let y = 0;
+              for (const sg of sky) if (sg.x < x + cw + barW - 1e-6 && sg.x + sg.w > x + 1e-6) y = Math.max(y, sg.y);
+              if (y + ch > Hmax + 1e-6) continue;
+              const score = (y + ch) * 1000 + x;
+              if (!best || score < best.score) best = { score, x, y, cw, ch, rot };
+            }
+          }
+          if (!best) { rest.push(it); continue; }
+          placed.push(Object.assign({ it }, best));
+          // nuovo tratto dello skyline e taglio di quelli coperti
+          const nx0 = best.x, nx1 = best.x + best.cw + barW, ny = best.y + best.ch + barW, out = [];
+          for (const sg of sky) {
+            if (sg.x + sg.w <= nx0 + 1e-9 || sg.x >= nx1 - 1e-9) { out.push(sg); continue; }
+            if (sg.x < nx0) out.push({ x: sg.x, y: sg.y, w: nx0 - sg.x });
+            if (sg.x + sg.w > nx1) out.push({ x: nx1, y: sg.y, w: sg.x + sg.w - nx1 });
+          }
+          out.push({ x: nx0, y: ny, w: nx1 - nx0 });
+          out.sort((a, b) => a.x - b.x);
+          sky = [];
+          for (const sg of out) { const l = sky[sky.length - 1]; if (l && Math.abs(l.y - sg.y) < 1e-6 && Math.abs(l.x + l.w - sg.x) < 1e-6) l.w += sg.w; else sky.push(Object.assign({}, sg)); }
+        }
+        const W2 = Math.max(0, ...placed.map(q => q.x + q.cw)), H2 = Math.max(0, ...placed.map(q => q.y + q.ch));
+        return { placed, rest, W: W2, H: H2 };
+      }
+      // prima i pezzi grandi; provo varie larghezze e tengo la cartolina più piccola e più quadrata che sta nel piatto
+      const mx2 = (it) => Math.max(it.b0.w, it.b0.h), ar = (it) => it.b0.w * it.b0.h;
+      const orders = [(a, b) => mx2(b) - mx2(a) || ar(b) - ar(a), (a, b) => ar(b) - ar(a), (a, b) => b.b0.h - a.b0.h || ar(b) - ar(a), (a, b) => b.b0.w - a.b0.w || ar(b) - ar(a), (a, b) => Math.min(b.b0.w, b.b0.h) - Math.min(a.b0.w, a.b0.h)];
+      const cards = [];
+      let left = items;
+      while (left.length && cards.length < 6) {
+        const hdr = cards.length === 0 && header ? header.h + barW : 0, Hmax = maxInner - hdr;
+        const minW = Math.max(...left.map(it => Math.min(it.b0.w, it.b0.h) + 2 * gap), header && !cards.length ? header.w + 12 : 0);
+        let best = null;
+        for (const ord of orders) for (let Wt = maxInner; Wt >= minW - 1e-6; Wt -= 4) {
+          const r = pack(left.slice().sort(ord), Wt, Hmax);
+          if (!r.placed.length) continue;
+          const Wc = Math.max(r.W, hdr ? header.w + 12 : 0), sc = (r.rest.length ? 1e9 : 0) - r.placed.length * 1e6 + Wc * (r.H + hdr) + 0.6 * Math.abs(Wc - r.H - hdr) * Math.max(Wc, r.H);
+          if (!best || sc < best.sc) best = Object.assign(r, { sc, Wc });
+        }
+        if (!best) break;
+        cards.push({ placed: best.placed, w: best.Wc + 2 * barW, h: best.H + hdr + 2 * barW, hdr });
+        left = best.rest;
+      }
+      // i pezzi più grandi del piatto vanno comunque nel file, ognuno nella sua cartolina
+      for (const it of left) {
+        const r = pack([it], 1e4, 1e4);
+        if (r.placed.length) cards.push({ placed: r.placed, w: r.W + 2 * barW, h: r.H + 2 * barW, hdr: 0 });
+      }
+
+      const parts = [];
+      let cx0 = 0, maxCardX = 0, cardH0 = 0;
+      const colB = p.col1, colD = p.col2;
+      cards.forEach((c, ci) => {
+        const Wc = c.w, Hc = c.h;
+        // da coordinate della cartolina con y verso il basso a quelle vere (y in alto, cartolina tra x = cx0 e cx0 + Wc)
+        const X = (x) => cx0 + x, Y = (y) => Hc - y;
+        const R4 = (x0, y0, x1, y1) => RECT(X(x0), Y(y1), X(x1), Y(y0));
+        const frame = [D(R4(0, 0, Wc, Hc), R4(barW, barW, Wc - barW, Hc - barW))], gates = [], pcsB = [], pcsD = [];
+        if (c.hdr) frame.push(R4(0, 0, Wc, barW + header.h + barW));
+        for (const q of c.placed) {
+          const it = q.it, x0 = barW + q.x, y0 = barW + c.hdr + q.y, x1 = x0 + q.cw, y1 = y0 + q.ch;
+          const bs = q.rot ? ROT(it.base, 90) : it.base, ds = q.rot ? ROT(it.decor, 90) : it.decor;
+          const bb0 = bounds(bs), dx = X((x0 + x1) / 2) - (bb0.x0 + bb0.x1) / 2, dy = Y((y0 + y1) / 2) - (bb0.y0 + bb0.y1) / 2;
+          const bb = MV(bs, dx, dy), dd = MV(ds, dx, dy);
+          pcsB.push(bb); if (dd) pcsD.push(dd);
+          it.flat = { bb, dd };
+          if (!telaio) continue;
+          frame.push(D(R4(x0 - barW, y0 - barW, x1 + barW, y1 + barW), R4(x0, y0, x1, y1)));
+          // canali: a sinistra e a destra verso la cornice della cella; sopra e sotto se il pezzo è largo
+          const b = bounds(bb), cX0 = X(x0), cX1 = X(x1), cY0 = Y(y1), cY1 = Y(y0);
+          const gate = (side) => {
+            const hor = side === 'l' || side === 'r';
+            const strip = I(bb, side === 'l' ? RECT(b.x0, b.y0, b.x0 + 1.5, b.y1) : side === 'r' ? RECT(b.x1 - 1.5, b.y0, b.x1, b.y1) : side === 'b' ? RECT(b.x0, b.y0, b.x1, b.y0 + 1.5) : RECT(b.x0, b.y1 - 1.5, b.x1, b.y1));
+            if (empty(strip)) return null;
+            const sb = bounds(strip), mid = hor ? (sb.y0 + sb.y1) / 2 : (sb.x0 + sb.x1) / 2;
+            const line = I(bb, hor ? RECT(b.x0, mid - gW / 2, b.x1, mid + gW / 2) : RECT(mid - gW / 2, b.y0, mid + gW / 2, b.y1));
+            if (empty(line)) return null;
+            const lb = bounds(line);
+            if (side === 'l') return RECT(cX0 - 0.01, mid - gW / 2, lb.x0 + 0.6, mid + gW / 2);
+            if (side === 'r') return RECT(lb.x1 - 0.6, mid - gW / 2, cX1 + 0.01, mid + gW / 2);
+            if (side === 'b') return RECT(mid - gW / 2, cY0 - 0.01, mid + gW / 2, lb.y0 + 0.6);
+            return RECT(mid - gW / 2, lb.y1 - 0.6, mid + gW / 2, cY1 + 0.01);
+          };
+          gates.push(gate('l'), gate('r'));
+          if (b.w > 30) gates.push(gate('t'), gate('b'));
+          if (b.h > 40) { gates.push(gate('t')); }
+        }
+        const frameCS = telaio ? D(U(frame), U(pcsB)) : null, gateCS = telaio ? D(U(gates.filter(Boolean)), U(pcsB)) : null;
+        let decorCS = U(pcsD);
+        const nm = cards.length > 1 ? `Cartolina ${ci + 1}` : 'Cartolina';
+        if (telaio) {
+          const bodyM = union([EXT(U(pcsB), 0, sp), EXT(frameCS, 0, sp), gateCS ? EXT(gateCS, 0, gH) : null].filter(Boolean));
+          let markM = null;
+          if (c.hdr) {
+            const hy = Y(barW + header.h / 2), tcs = MV(header.cs, X(Wc / 2), hy);
+            const extras = [], room = (Wc - 2 * barW - header.w) / 2 - 4;
+            if (room > 8) for (const s of [-1, 1]) { const r = Math.min(room - 2, header.h - 3, 13) / 2; extras.push(flake(X(Wc / 2) + s * (header.w / 2 + 3 + r), hy, r, 1.1)); }
+            decorCS = U([decorCS, tcs, ...extras]);
+            if (p.marchio && T.placeMark) {
+              const face = R4(barW + 1, barW + 0.8, Wc - barW - 1, barW + header.h - 0.8);
+              const mk = T.placeMark(face, p, notes, U([tcs, ...extras]), 0.5);
+              if (mk) markM = EXT(mk, sp, sp + lay);
+            }
+          }
+          parts.push({ name: `${nm} · pezzi e telaio`, m: bodyM, role: 'body', color: colB, group: nm });
+          const dm = EXT(decorCS, sp, sp + lay);
+          if (dm) parts.push({ name: `${nm} · decorazioni`, m: dm, role: 'body', color: colD, group: nm });
+          if (markM) parts.push({ name: `${nm} · logo SP`, m: markM, role: 'body', color: p['col' + (T.markCol ? T.markCol(p, 2) : 2)] || colD, group: nm });
+        }
+        if (ci === 0) cardH0 = Hc;
+        maxCardX = cx0 + Wc;
+        cx0 += Wc + 10;
+      });
+
+      // pezzi sciolti (senza telaio): ogni pezzo è un oggetto
+      const flatOf = (it) => ({ b: EXT(it.base, 0, sp), d: EXT(it.decor, sp, sp + lay) });
+      if (!telaio) {
+        for (const it of items) {
+          if (!it.flat) continue;
+          parts.push({ name: it.name, m: EXT(it.flat.bb, 0, sp), role: 'body', color: colB, group: it.name });
+          if (!empty(it.flat.dd)) parts.push({ name: `${it.name} · decorazioni`, m: EXT(it.flat.dd, sp, sp + lay), role: 'body', color: colD, group: it.name });
+        }
+      }
+
+      // casetta montata, a destra della cartolina (solo anteprima)
+      const check = !!p.__check;
+      const ox = maxCardX + 25 + (bx1 - bx0) / 2, oy = -(by1 + by0) / 2 + cardH0 / 2;
+      const asmB = [], asmD = [];
+      for (const it of flatList) {
+        const { b, d } = flatOf(it);
+        const pb = it.place(b), pd = d ? it.place(d) : null;
+        if (check) {
+          const mv = (m) => reg(m.translate([ox, oy, 0]));
+          parts.push({ name: `Montata · ${it.name}`, m: mv(pb), role: 'body', color: colB });
+          if (pd) parts.push({ name: `Montata · ${it.name} · decorazioni`, m: mv(pd), role: 'body', color: colD });
+        } else { asmB.push(pb); if (pd) asmD.push(pd); }
+      }
+      if (!check && p.anteprima !== 'cartolina') {
+        const mvM = (m) => reg(m.translate([ox, oy, 0]));
+        parts.push({ name: 'Casetta montata', m: mvM(union(asmB)), role: 'model', color: colB });
+        if (asmD.length) parts.push({ name: 'Casetta montata · decorazioni', m: mvM(union(asmD)), role: 'model', color: colD });
+      }
+
+      // ===== informazioni =====
+      const Htot = Hw + Hr + (tower ? tower.apex + 8 - Hw - Hr : sign ? sign.vF + W * 0.2 - Hw - Hr : 0) + sp;
+      info.push(['Casa', `${NAMES[style]}: ${fmt(W)} × ${fmt(Dp)} mm, alta ${fmt(Htot)} mm, tetto a ${fmt(pitch)}°`]);
+      info.push(['Base', `${fmt(bx1 - bx0)} × ${fmt(by1 - by0)} mm`]);
+      info.push(['Pezzi', `${flatList.length}: facciata, retro, 2 fianchi, 2 falde, base${accs.length ? ', ' + accs.map(a => a.name.toLowerCase()).join(', ') : ''}`]);
+      if (telaio) info.push(['Cartolina', cards.map((c, i) => `${cards.length > 1 ? `n. ${i + 1}: ` : ''}${fmt(c.w)} × ${fmt(c.h)} mm`).join(' · ') + `, spessa ${fmt(sp)} mm + ${fmt(lay)} mm di colore`]);
+      info.push(['Stampante a un colore', `cambio filamento a ${fmt(sp)} mm → colore 2 (le decorazioni)`]);
+      info.push(['Canali', telaio ? `larghi ${fmt(gW)} mm e alti ${fmt(gH)} mm: si spezzano con le dita, rifinisci con una lima o un tronchesino` : 'niente telaio: i pezzi sono sciolti']);
+      info.push(['Incastri', `gioco ${fmt(tol)} mm: angoli a pettine (${n} denti), linguette nella base e nelle asole del tetto. Se entrano duri aumenta il gioco; un punto di colla li blocca`]);
+      info.push(['Montaggio', '1) facciata e retro nelle fessure della base, 2) i fianchi tra i denti, 3) le falde sulle linguette, 4) alberi, pupazzo e regalo nelle loro fessure']);
+      if (holed) info.push(['Luce', W - 2 * sp >= 40 && Dp - 2 * sp >= 40 ? 'dentro ci sta un lumino LED da 38 mm: le finestre si illuminano' : 'per un lumino LED da 38 mm servono almeno 44 mm di larghezza e profondità']);
+      if (lay < 0.4) notes.push('~Strato colorato sotto 0,4 mm: con colori chiari su scuri si vede il colore sotto');
+      if (sp < 1.2) notes.push('Pezzi sotto 1,2 mm di spessore: gli incastri sono fragili');
+      for (const x of notes) info.push(['Nota', x]);
+      const res = { parts, info, view: [0.15, -1, 0.75] };
+      if (check) res.pieces = flatList.map(it => [it.name, it.base.decompose().length, it.decor ? +it.decor.area().toFixed(0) : 0]);
+      return res;
+    }
+
+    return { casetta: (p) => { const N = H.decor && H.decor.NOTES; if (N) N.clear(); const r = casetta(p); if (N) { for (const x of N) r.info.push(['Nota', x]); N.clear(); } return r; } };
+  });
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+</script>
+<script>
 // Reggimensole e ganci. Si aggancia al motore di geom.js tramite SPRECOLO_EXT. Coordinate in mm.
 // Tutto è costruito nel "piano di stampa": il profilo sta nel piano x,y (x = fuori dal muro, y = in alto)
 // e la larghezza va lungo z. Così il pezzo si stampa sdraiato sul fianco e gli strati seguono il profilo:
@@ -7175,6 +7966,299 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
 
 </script>
 <script>
+// Bastoncino di zucchero (candy cane) a pezzi: un tubo che sale dritto, gira a mezzo cerchio e scende un poco, tagliato in pezzi
+// rossi e bianchi con tagli obliqui, così montato ha le strisce in diagonale. I pezzi si uniscono con perni (stampati o tondino).
+// Si aggancia al motore di geom.js tramite SPRECOLO_EXT. Coordinate in mm, z verso l'alto; il bastoncino sta nel piano x, z.
+// - ogni pezzo è un solo colore: si stampa anche con una stampante a un colore;
+// - si stampa appoggiato su una faccia di taglio, scelta in modo che le pareti sporgano il meno possibile (sempre entro 45°);
+// - i fori dei perni sono perpendicolari alle facce di taglio: nella faccia sul piatto salgono dritti e finiscono a punta 45°,
+//   quindi niente ponti né supporti.
+(function (root) {
+  (root.SPRECOLO_EXT = root.SPRECOLO_EXT || []).push(function bastoncino(H) {
+    const { Manifold, Mesh, CrossSection, reg, union, sub, fmt } = H;
+    const DEG = Math.PI / 180;
+    const add = (a, b, k = 1) => [a[0] + k * b[0], a[1] + k * b[1], a[2] + k * b[2]];
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const Y = [0, 1, 0];
+    const f2 = (v) => String(Math.round(v * 100) / 100).replace('.', ',');
+
+    function bastoncino(p) {
+      const notes = [], info = [];
+      const D = +p.diametro, r = D / 2;
+      const domeB = p.fondo !== 'piatto';
+      // manico: raggio della curva (sull'asse del tubo); dentro deve restare un buco di almeno 2 mm
+      let R = (+p.larghezza - D) / 2;
+      const Rmin = r + 2;
+      if (R < Rmin) { R = Rmin; notes.push(`~Manico allargato a ${fmt(2 * R + D)} mm: più stretto il tubo si chiuderebbe su se stesso`); }
+      const TAIL = Math.max(0, +p.punta);
+      let L = +p.altezza - R - r - (domeB ? r : 0);   // tratto dritto del fusto
+      if (L < D) { L = D; notes.push(`Altezza troppo bassa per questo diametro e questo manico: portata a ${fmt(L + R + r + (domeB ? r : 0))} mm`); }
+      const ARC = Math.PI * R, STOT = L + ARC + TAIL;
+      const seg = Math.max(48, Math.min(160, Math.round(Math.PI * D / 0.9)));
+      const verso = p.verso === 'sinistra' ? -1 : 1;
+
+      // asse: punto, tangente T e normale P (nel piano x, z, verso il centro della curva)
+      function frame(s) {
+        if (s <= L) return [[0, 0, s], [0, 0, 1], [1, 0, 0]];
+        if (s <= L + ARC) {
+          const a = (s - L) / R, c = Math.cos(a), sn = Math.sin(a);
+          return [[R - R * c, 0, L + R * sn], [sn, 0, c], [c, 0, -sn]];
+        }
+        const t = s - L - ARC;
+        return [[2 * R, 0, L - t], [0, 0, -1], [-1, 0, 0]];
+      }
+
+      // tubo lungo l'asse da sA a sB, con le estremità a cupola (mezza sfera) o piatte. Mesh scritta a mano: anelli lungo l'asse.
+      function tube(sA, sB, domeA, domeEnd) {
+        const STEP = Math.min(1.5, R * 4 * DEG);
+        const ss = [sA];
+        for (let k = Math.floor(sA / STEP) + 1; k * STEP < sB - 0.05; k++) ss.push(k * STEP);
+        for (const b of [L, L + ARC]) if (b > sA + 0.05 && b < sB - 0.05 && !ss.some(v => Math.abs(v - b) < 0.05)) ss.push(b);
+        ss.push(sB); ss.sort((a, b) => a - b);
+        const rings = [];   // [centro, P, raggio, T]
+        const ND = Math.max(6, Math.round(seg / 8));
+        const dome = (s, dir, out) => {   // anelli della cupola, dal bordo verso il polo
+          const [c, T, P] = frame(s);
+          for (let k = 1; k < ND; k++) { const f = k / ND * 90 * DEG; out.push([add(c, T, dir * r * Math.sin(f)), P, r * Math.cos(f)]); }
+          return add(c, T, dir * r);
+        };
+        let poleA, poleB;
+        if (domeA) { const tmp = []; poleA = dome(sA, -1, tmp); rings.push(...tmp.reverse()); } else poleA = frame(sA)[0];
+        for (const s of ss) { const [c, , P] = frame(s); rings.push([c, P, r]); }
+        if (domeEnd) poleB = dome(sB, 1, rings); else poleB = frame(sB)[0];
+        const pts = [], tri = [];
+        for (const [c, P, rad] of rings) for (let j = 0; j < seg; j++) {
+          const a = 2 * Math.PI * j / seg, ca = Math.cos(a), sa = Math.sin(a);
+          pts.push(c[0] + rad * (ca * P[0] + sa * Y[0]), c[1] + rad * (ca * P[1] + sa * Y[1]), c[2] + rad * (ca * P[2] + sa * Y[2]));
+        }
+        const n = rings.length, iA = n * seg, iB = iA + 1;
+        pts.push(...poleA, ...poleB);
+        for (let i = 0; i < n - 1; i++) for (let j = 0; j < seg; j++) {
+          const a = i * seg + j, b = i * seg + (j + 1) % seg, c = a + seg, d = b + seg;
+          tri.push(a, b, d, a, d, c);
+        }
+        for (let j = 0; j < seg; j++) {
+          tri.push(iA, (j + 1) % seg, j);
+          tri.push(iB, (n - 1) * seg + j, (n - 1) * seg + (j + 1) % seg);
+        }
+        return reg(new Manifold(new Mesh({ numProp: 3, vertProperties: new Float32Array(pts), triVerts: new Uint32Array(tri) })));
+      }
+
+      // ---- tagli ----
+      let N = Math.max(2, Math.round(+p.pezzi));
+      const Nasked = N;
+      const thetaAsked = Math.max(0, Math.min(45, +p.inclinazione)) * DEG;
+      let theta = thetaAsked;
+      const cutsFor = (th) => {
+        const c = [];
+        for (let k = 1; k < N; k++) {
+          const s = k * STOT / N, [pt, T, P] = frame(s);
+          const nrm = add(T.map(v => v * Math.cos(th)), P, verso * Math.sin(th));
+          // u: nel piano del taglio, perpendicolare a y (serve per mettere i perni sulla faccia)
+          c.push({ s, pt, T, P, n: nrm, off: dot(nrm, pt), u: add(P.map(v => v * Math.cos(th)), T, -verso * Math.sin(th)) });
+        }
+        return c;
+      };
+      // tubo attorno al pezzo i (un po' oltre i due tagli) tagliato dai due piani
+      function piece(i, cuts, th) {
+        const m = r * Math.tan(th) + r + 3;
+        const sA = i === 0 ? 0 : Math.max(0, cuts[i - 1].s - m), sB = i === N - 1 ? STOT : Math.min(STOT, cuts[i].s + m);
+        let q = tube(sA, sB, i === 0 && domeB, i === N - 1);
+        if (i > 0) q = reg(q.trimByPlane(cuts[i - 1].n, cuts[i - 1].off));
+        if (i < N - 1) q = reg(q.trimByPlane(cuts[i].n.map(v => -v), -cuts[i].off));
+        return q;
+      }
+
+      // ---- orientamento per la stampa: una faccia di taglio sul piatto, quella con lo sbalzo minore ----
+      // ruoto attorno a y (le normali dei tagli stanno nel piano x, z) finché la faccia scelta guarda in giù
+      const faceDown = (q, v) => {   // v = normale uscente della faccia da mettere sul piatto
+        const g = Math.atan2(v[0], v[2]);
+        return reg(q.rotate([0, 180 - g / DEG, 0]));
+      };
+      function overhang(q) {   // sbalzo massimo in gradi dalla verticale, escluse le facce appoggiate sul piatto
+        const mesh = q.getMesh(), V = mesh.vertProperties, T = mesh.triVerts, np = mesh.numProp;
+        let z0 = Infinity; for (let k = 2; k < V.length; k += np) z0 = Math.min(z0, V[k]);
+        let worst = 0;
+        for (let k = 0; k < T.length; k += 3) {
+          const a = T[k] * np, b = T[k + 1] * np, c = T[k + 2] * np;
+          if (V[a + 2] < z0 + 0.02 && V[b + 2] < z0 + 0.02 && V[c + 2] < z0 + 0.02) continue;
+          const ux = V[b] - V[a], uy = V[b + 1] - V[a + 1], uz = V[b + 2] - V[a + 2], vx = V[c] - V[a], vy = V[c + 1] - V[a + 1], vz = V[c + 2] - V[a + 2];
+          const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, len = Math.hypot(nx, ny, nz);
+          if (len < 1e-4) continue;
+          if (nz / len < 0) worst = Math.max(worst, Math.asin(Math.min(1, -nz / len)) / DEG);
+        }
+        return worst;
+      }
+
+      // pezzi validi: con il manico stretto due tagli vicini possono incrociarsi dentro il tubo (riduco l'inclinazione);
+      // se un pezzo del manico sporge oltre 45° aggiungo pezzi, così tutto si stampa senza supporti
+      let cuts, pieces, orient, worstOv;
+      const Nmax = Math.max(N, Math.ceil(STOT / (0.35 * D)));
+      for (;;) {
+        theta = thetaAsked;
+        for (let tries = 0; ; tries++) {
+          cuts = cutsFor(theta);
+          pieces = [];
+          for (let i = 0; i < N; i++) pieces.push(piece(i, cuts, theta));
+          let bad = pieces.some(q => q.isEmpty() || q.decompose().map(reg).length !== 1);
+          for (let i = 0; !bad && i < N - 1; i++) if (reg(pieces[i].intersect(pieces[i + 1])).volume() > 0.05) bad = true;
+          if (!bad || tries > 14) break;
+          theta *= 0.85;
+        }
+        orient = pieces.map((q, i) => {
+          const opts = [];
+          if (i > 0) opts.push({ v: cuts[i - 1].n.map(x => -x) });   // faccia del taglio prima
+          if (i < N - 1) opts.push({ v: cuts[i].n });                // faccia del taglio dopo
+          let best = null;
+          for (const o of opts) { const ov = overhang(faceDown(q, o.v)); if (!best || ov < best.ov - 0.5) best = Object.assign({ ov }, o); }
+          return best;
+        });
+        worstOv = Math.max(...orient.map(o => o.ov));
+        if (worstOv <= 45.5 || N >= Nmax) break;
+        N++;
+      }
+      if (N > Nasked) notes.push(`~Pezzi portati a ${N}: con meno, un pezzo del manico sporgerebbe oltre 45° e servirebbero i supporti`);
+      if (theta < thetaAsked - 0.01 * DEG) notes.push(`~Inclinazione ridotta a ${fmt(theta / DEG)}°: con questo manico i tagli si incrocerebbero dentro il tubo`);
+
+      // ---- perni ----
+      // fori perpendicolari al taglio: nella faccia appoggiata sul piatto salgono dritti. Per ogni giunzione scelgo la rotazione dei
+      // perni che li tiene più lontani dai fori dell'altra faccia del pezzo, con almeno WALL di parete attorno
+      let nP = Math.max(0, Math.min(4, Math.round(+p.perni)));
+      const nPasked = nP;
+      const pinD = +p.diamPerno, hd = (pinD + +p.gioco) / 2, WALL = 1.6;
+      let depth = Math.max(3, +p.lungPerno / 2 + 0.5);
+      const holeVol = () => Math.PI * hd * hd * depth + Math.PI * hd * hd * hd / 3;
+      // distanza di un punto dall'asse del tubo
+      function axisDist(x) {
+        let d = Math.hypot(x[0], x[1], x[2] < 0 ? x[2] : x[2] > L ? x[2] - L : 0);
+        if (x[2] >= L) d = Math.min(d, Math.hypot(Math.hypot(x[0] - R, x[2] - L) - R, x[1]));
+        const zt = x[2] < L - TAIL ? L - TAIL - x[2] : x[2] > L ? x[2] - L : 0;
+        return Math.min(d, Math.hypot(x[0] - 2 * R, x[1], zt));
+      }
+      function segDist(a0, a1, b0, b1) {   // distanza minima tra due segmenti
+        const u = add(a1, a0, -1), v = add(b1, b0, -1), w = add(a0, b0, -1);
+        const A = dot(u, u), B = dot(u, v), C = dot(v, v), Dd = dot(u, w), E = dot(v, w), den = A * C - B * B;
+        let sc = den < 1e-9 ? 0 : Math.min(1, Math.max(0, (B * E - C * Dd) / den));
+        let tc = Math.min(1, Math.max(0, (B * sc + E) / C));
+        sc = Math.min(1, Math.max(0, (B * tc - Dd) / A));
+        return Math.hypot(...add(add(w, u, sc), v, -tc));
+      }
+      const pinPos = (c, rp, phi) => {
+        const out = [];
+        for (let k = 0; k < Math.max(1, nP); k++) {
+          const a = phi + (90 + k * 360 / Math.max(1, nP)) * DEG, w = nP > 1 ? [Math.cos(a) * rp, Math.sin(a) * rp] : [0, 0];
+          out.push(add(add(c.pt, c.u, w[0] / Math.cos(theta)), Y, w[1]));
+        }
+        return out;
+      };
+      // quanto margine lascia un foro (asse da q lungo dir per len): parete del tubo e faccia opposta del pezzo
+      function holeMargin(q, dir, len, far, farSign) {
+        let m = Infinity;
+        for (let k = 0; k <= 8; k++) m = Math.min(m, r - WALL - hd - axisDist(add(q, dir, len * k / 8)));
+        if (far) { const e = add(q, dir, len + 0.5); m = Math.min(m, farSign * (dot(far.n, e) - far.off) - 0.6); }
+        return m;
+      }
+      function planPins() {   // → { rp, phis } oppure null
+        const len = depth + hd;
+        const rps = nP > 1 ? [] : [0];
+        if (nP > 1) { const need = hd / Math.sin(Math.PI / nP) + 0.6; for (let x = 0.5 * r; x >= need - 1e-6; x -= 0.25) rps.push(x); }
+        const PH = []; for (let a = 0; a < 360 / Math.max(1, nP); a += 5) PH.push(a * DEG);
+        for (const rp of rps) {
+          const phis = [];
+          let ok = true;
+          for (let j = 0; j < cuts.length && ok; j++) {
+            const c = cuts[j];
+            let best = null;
+            for (const phi of (nP > 1 ? PH : [0])) {
+              const pts = pinPos(c, rp, phi);
+              let m = Infinity;
+              for (const q of pts) {
+                m = Math.min(m, holeMargin(q, c.n, len, cuts[j + 1], -1));                 // verso il pezzo dopo
+                m = Math.min(m, holeMargin(q, c.n.map(v => -v), len, cuts[j - 1], 1));     // verso il pezzo prima
+              }
+              if (j > 0) {   // fori dell'altra faccia del pezzo j (giunzione j-1, che salgono lungo la sua normale)
+                const cp = cuts[j - 1], prev = pinPos(cp, rp, phis[j - 1]);
+                for (const q of pts) for (const q0 of prev) m = Math.min(m, segDist(q, add(q, c.n, -len), q0, add(q0, cp.n, len)) - 2 * hd - 0.8);
+              }
+              if (!best || m > best.m) best = { m, phi };
+            }
+            if (best.m < 0) ok = false; else phis.push(best.phi);
+          }
+          if (ok) return { rp, phis };
+        }
+        return null;
+      }
+      let finals = pieces, pinOk = nP > 0, plan = null;
+      if (nP > 0 && N > 1) {
+        for (;;) {
+          plan = planPins();
+          if (plan) {
+            const hole = reg(reg(CrossSection.ofPolygons([[[0, -depth - hd], [hd, -depth], [hd, depth], [0, depth + hd]]])).revolve(32));
+            const HS = cuts.map((c, j) => pinPos(c, plan.rp, plan.phis[j]).map(q => reg(reg(hole.rotate([0, Math.atan2(c.n[0], c.n[2]) / DEG, 0])).translate(q))));
+            let ok = true;
+            finals = pieces.map((q, i) => {
+              const hs = [...(i > 0 ? HS[i - 1] : []), ...(i < N - 1 ? HS[i] : [])];
+              const out = sub(q, union(hs));
+              // controllo finale: ogni foro tutto dentro il pezzo e nessun foro che ne incontra un altro
+              if (out.genus() !== 0 || out.decompose().map(reg).length !== 1 || q.volume() - out.volume() < hs.length * holeVol() * 0.985) ok = false;
+              return out;
+            });
+            if (ok) break;
+          }
+          if (depth <= 3.01) {
+            if (nP > 1) { nP--; depth = Math.max(3, +p.lungPerno / 2 + 0.5); continue; }   // ci riprovo con un perno in meno
+            pinOk = false; finals = pieces; nP = nPasked; notes.push('I perni non stanno nei pezzi: aumenta il diametro del tubo, usa perni più sottili, oppure incolla i pezzi'); break;
+          }
+          depth = Math.max(3, depth - 0.5);
+        }
+        if (pinOk && nP < nPasked) notes.push(`~${nP === 1 ? 'Un perno' : nP + ' perni'} per giunzione invece di ${nPasked}: di più non stanno nel tubo`);
+        if (pinOk && depth < +p.lungPerno / 2 + 0.5 - 0.01) notes.push(`~Perni accorciati a ${fmt(2 * depth - 1)} mm: più lunghi i fori uscirebbero dai pezzi`);
+      }
+
+      // ---- pezzi ----
+      const col = (i) => (i % 2 === 0 ? p.col1 : p.col2);
+      const which = p.quali;
+      const parts = [];
+      const pieceLen = STOT / N;
+      finals.forEach((q, i) => {
+        const o = orient[i], k = i % 2 === 0 ? 1 : 2;
+        const skip = (which === 'c1' && k !== 1) || (which === 'c2' && k !== 2);
+        parts.push(Object.assign({ name: `Pezzo ${i + 1} · colore ${k}`, m: q, print: faceDown(q, o.v), color: col(i) }, skip ? { role: 'ghost' } : { role: 'body' }));
+      });
+      const nPins = pinOk ? nP * (N - 1) : 0, pinL = 2 * depth - 1;
+      if (nP > 0 && p.stampaPerni && which !== 'c2' && pinOk) {
+        // perni in piedi, con le estremità smussate: entrano meglio e non serve il brim
+        const ch = Math.min(0.5, pinD * 0.12), pr = pinD / 2;
+        const pin = union([reg(Manifold.cylinder(ch, pr - ch, pr, 32)), reg(reg(Manifold.cylinder(pinL - 2 * ch, pr, pr, 32)).translate([0, 0, ch])), reg(reg(Manifold.cylinder(ch, pr, pr - ch, 32)).translate([0, 0, pinL - ch]))]);
+        const per = Math.ceil(Math.sqrt(nPins)), step = pinD + 4;
+        for (let k = 0; k < nPins; k++) {
+          const at = [2 * R + D + 15 + (k % per) * step, -Math.floor(k / per) * step, -r];
+          parts.push({ name: `Perno ${k + 1}`, m: reg(pin.translate(at)), print: pin, color: p.col1, role: 'body' });
+        }
+      }
+
+      // ---- misure ----
+      const Hreal = L + R + r + (domeB ? r : 0);
+      info.push(['Misure', `alto ${fmt(Hreal)} mm, manico largo ${fmt(2 * R + D)} mm, tubo Ø ${fmt(D)} mm`]);
+      info.push(['Pezzi', `${N}: ${Math.ceil(N / 2)} del colore 1 e ${Math.floor(N / 2)} del colore 2, lunghi ${fmt(pieceLen)} mm sull'asse; tagli inclinati di ${fmt(theta / DEG)}°`]);
+      if (nP > 0 && pinOk) {
+        info.push(['Perni', `${nPins} (${nP} per giunzione), Ø ${f2(pinD)} × ${fmt(pinL)} mm${p.stampaPerni ? ', nel file, da stampare in piedi' : ': tondino o filamento tagliato a misura'}`]);
+        info.push(['Fori', `Ø ${f2(2 * hd)} mm (perno + ${f2(+p.gioco)} di gioco), profondi ${fmt(depth)} mm per lato, perpendicolari al taglio, con la punta a 45°`]);
+      } else info.push(['Montaggio', 'senza perni: incolla i pezzi con colla cianoacrilica']);
+      info.push(['Stampa', `ogni pezzo su una faccia di taglio, senza supporti: sbalzo massimo ${fmt(Math.round(worstOv))}°. Riempimento 10–15%, 3 perimetri`]);
+      if (worstOv > 45.5) notes.push(`Un pezzo ha uno sbalzo di ${fmt(Math.round(worstOv))}°: metti più pezzi o allarga il manico, così si stampa senza supporti`);
+      info.push(['Montaggio', 'dal pezzo 1 (in fondo) al pezzo ' + N + ' (punta del manico); i pezzi del manico sono tutti diversi, quelli del fusto uguali']);
+      if (which !== 'tutti') info.push(['Nel file', `solo i pezzi del colore ${which === 'c1' ? 1 : 2}${which === 'c1' && nP > 0 && p.stampaPerni ? ' e i perni' : ''}: gli altri sono in azzurro e non si esportano`]);
+      for (const x of notes) info.push(['Nota', x]);
+      return { parts, info, view: [0.35, -1, 0.3] };
+    }
+
+    return { bastoncino };
+  });
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+</script>
+<script>
 (function () {
   'use strict';
   // ================= PARAMETRI =================
@@ -7783,6 +8867,61 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         { sec: 'Colori', id: 'col1', label: 'Colore', type: 'color', def: '#e3b341' },
       ],
     },
+    bastoncino: {
+      label: 'Bastoncino',
+      params: [
+        { sec: 'Misure', id: 'altezza', label: 'Altezza', type: 'num', min: 80, max: 1000, step: 5, def: 200, unit: 'mm', help: 'Dal fondo alla cima del manico.' },
+        { sec: 'Misure', id: 'diametro', label: 'Diametro', type: 'num', min: 10, max: 120, step: 1, def: 30, unit: 'mm', help: 'Del tubo.' },
+        { sec: 'Misure', id: 'larghezza', label: 'Larghezza manico', type: 'num', min: 30, max: 500, step: 1, def: 100, unit: 'mm', help: 'Da fuori a fuori della curva. Se è troppo stretta per il diametro viene allargata da sola.' },
+        { sec: 'Misure', id: 'punta', label: 'Punta del manico', type: 'num', min: 0, max: 200, step: 1, def: 20, unit: 'mm', help: 'Quanto scende dritta la punta dopo la curva, prima della cupola.' },
+        { sec: 'Misure', id: 'fondo', label: 'Fondo', type: 'select', def: 'tondo', options: [['tondo', 'Arrotondato'], ['piatto', 'Piatto']] },
+        { sec: 'Strisce', id: 'pezzi', label: 'Pezzi', type: 'int', min: 2, max: 60, def: 10, help: 'Uno per striscia, alternando i due colori. Se il manico ne ha troppo pochi per stampare senza supporti ne vengono aggiunti.' },
+        { sec: 'Strisce', id: 'inclinazione', label: 'Inclinazione', type: 'int', min: 0, max: 45, step: 5, def: 30, unit: '°', help: 'Dei tagli: 0 = strisce dritte, più alta = più diagonali.' },
+        { sec: 'Strisce', id: 'verso', label: 'Verso', type: 'select', def: 'destra', options: [['destra', 'Verso destra'], ['sinistra', 'Verso sinistra']] },
+        { sec: 'Perni', id: 'perni', label: 'Perni per giunzione', type: 'int', min: 0, max: 4, def: 3, help: '0 = niente perni, i pezzi si incollano. Con 2 o più il pezzo non gira.' },
+        { sec: 'Perni', id: 'diamPerno', label: 'Diametro perno', type: 'num', min: 1.75, max: 10, step: 0.05, def: 4, unit: 'mm', show: p => p.perni > 0, help: 'Il perno stampato o il tondino che usi (1,75 = filamento).' },
+        { sec: 'Perni', id: 'lungPerno', label: 'Lunghezza perno', type: 'num', min: 6, max: 60, step: 1, def: 18, unit: 'mm', show: p => p.perni > 0, help: 'Metà in un pezzo, metà nell\'altro. Se i fori non ci stanno vengono accorciati da soli.' },
+        { sec: 'Perni', id: 'gioco', label: 'Gioco fori', type: 'num', min: 0, max: 1, step: 0.05, def: 0.3, unit: 'mm', show: p => p.perni > 0, help: 'Il foro è più largo del perno di questo. Se il perno entra duro aumentalo, se balla diminuiscilo.' },
+        { sec: 'Perni', id: 'stampaPerni', label: 'Perni nel file', type: 'bool', def: true, show: p => p.perni > 0, help: 'Spento se usi tondino o filamento tagliato a misura.' },
+        { sec: 'Stampa', id: 'quali', label: 'Pezzi nel file', type: 'select', def: 'tutti', options: [['tutti', 'Tutti'], ['c1', 'Solo colore 1 (e perni)'], ['c2', 'Solo colore 2']],
+          help: 'Con una stampante a un colore stampi prima tutti i pezzi di un colore, poi gli altri.' },
+        { sec: 'Colori', id: 'col1', label: 'Colore 1', type: 'color', def: '#c62828' },
+        { sec: 'Colori', id: 'col2', label: 'Colore 2', type: 'color', def: '#f4f4f2' },
+      ],
+    },
+    casetta: {
+      label: 'Casetta',
+      params: [
+        { sec: 'Casa', id: 'stile', label: 'Casa', type: 'select', def: 'zenzero', options: [['zenzero', 'Casetta di pan di zenzero'], ['baita', 'Baita di montagna'], ['chiesa', 'Chiesetta con campanile'], ['bottega', 'Bottega con insegna'], ['nordica', 'Casa nordica']],
+          help: 'Un kit da montare: tutti i pezzi su una cartolina piatta, come le stampate dei modellini. Si staccano e si incastrano senza colla.' },
+        { sec: 'Casa', id: 'insegna', label: 'Insegna', type: 'text', def: 'Dolci', placeholder: 'es. Panetteria', show: p => p.stile === 'bottega' },
+        { sec: 'Casa', id: 'variante', label: 'Variante', type: 'int', min: 1, max: 99, def: 1, help: 'Cambia la neve che cola, i fiocchi sparsi e i sassi del vialetto.' },
+        { sec: 'Misure', id: 'larghezza', label: 'Larghezza', type: 'num', min: 30, max: 120, step: 1, def: 50, unit: 'mm', help: 'La facciata.' },
+        { sec: 'Misure', id: 'profondita', label: 'Profondità', type: 'num', min: 30, max: 120, step: 1, def: 44, unit: 'mm', help: 'I fianchi. Per un lumino LED da 38 mm dentro servono almeno 44 mm di larghezza e di profondità.' },
+        { sec: 'Misure', id: 'altezza', label: 'Altezza pareti', type: 'num', min: 25, max: 120, step: 1, def: 40, unit: 'mm', help: 'Fino all\'inizio del tetto.' },
+        { sec: 'Misure', id: 'pendenza', label: 'Pendenza tetto', type: 'int', min: 0, max: 62, step: 1, def: 0, unit: '°', help: '0 = quella della casa scelta (la nordica è la più ripida, la baita la più bassa).' },
+        { sec: 'Decorazioni', id: 'tetto', label: 'Tetto', type: 'select', def: 'auto', options: [['auto', 'Come la casa'], ['mattoni', 'Mattoncini'], ['tegole', 'Tegole a scaglie'], ['assi', 'Scandole di legno'], ['neve', 'Coperto di neve'], ['liscio', 'Liscio']] },
+        { sec: 'Decorazioni', id: 'pareti', label: 'Pareti', type: 'select', def: 'auto', options: [['auto', 'Come la casa'], ['liscio', 'Lisce'], ['assi', 'Assi di legno'], ['mattoni', 'Mattoni in basso'], ['pietra', 'Pietre agli angoli']] },
+        { sec: 'Decorazioni', id: 'ornamento', label: 'Nel timpano', type: 'select', def: 'auto', options: [['auto', 'Come la casa'], ['cuore', 'Cuore traforato'], ['stella', 'Stella traforata'], ['tondo', 'Finestra tonda'], ['rosone', 'Rosone'], ['fiocco', 'Fiocco di neve'], ['ghirlanda', 'Ghirlanda'], ['nessuno', 'Niente']] },
+        { sec: 'Decorazioni', id: 'sparsi', label: 'Sparsi sui muri', type: 'select', def: 'auto', options: [['auto', 'Come la casa'], ['fiocchi', 'Fiocchi di neve'], ['stelle', 'Stelline traforate'], ['cuori', 'Cuoricini'], ['nessuno', 'Niente']] },
+        { sec: 'Decorazioni', id: 'neve', label: 'Neve sui bordi', type: 'bool', def: true, help: 'Glassa che cola dai timpani, ghiaccioli sulla gronda, bordo di neve sulla base.' },
+        { sec: 'Decorazioni', id: 'finestre', label: 'Finestre', type: 'select', def: 'traforate', options: [['traforate', 'Traforate'], ['disegnate', 'Solo disegnate']], help: 'Traforate: con un lumino LED dentro si illuminano.' },
+        { sec: 'Accessori', id: 'alberi', label: 'Alberi', type: 'int', min: 0, max: 2, def: 2, help: 'Ai lati della casa.' },
+        { sec: 'Accessori', id: 'pupazzo', label: 'Pupazzo di neve', type: 'bool', def: true },
+        { sec: 'Accessori', id: 'regalo', label: 'Pacco regalo', type: 'bool', def: true },
+        { sec: 'Spessori', id: 'spessore', label: 'Spessore pezzi', type: 'num', min: 1, max: 3, step: 0.2, def: 1.6, unit: 'mm', help: 'Senza lo strato colorato. Gli incastri sono fatti su questa misura.' },
+        layerP({ sec: 'Spessori', id: 'strato', label: 'Strato colorato', min: 0.2, max: 1.2, def: 0.4, help: 'Lo strato delle decorazioni sopra i pezzi: multipli dell\'altezza dello strato (0,2 · 0,4 · 0,56…). Con una stampante a un colore cambi filamento lì.' }),
+        { sec: 'Spessori', id: 'gioco', label: 'Gioco incastri', type: 'num', min: 0, max: 0.6, step: 0.05, def: 0.2, unit: 'mm', help: 'Se i pezzi entrano duri aumentalo, se ballano diminuiscilo.' },
+        { sec: 'Cartolina', id: 'telaio', label: 'Telaio da kit', type: 'bool', def: true, help: 'I pezzi attaccati a un telaio con canali sottili da spezzare. Spento: pezzi sciolti.' },
+        { sec: 'Cartolina', id: 'canale', label: 'Altezza canali', type: 'num', min: 0.4, max: 1.6, step: 0.2, def: 0.8, unit: 'mm', show: p => p.telaio, help: 'Più bassi si staccano più facilmente.' },
+        { sec: 'Cartolina', id: 'piatto', label: 'Piatto della stampante', type: 'num', min: 150, max: 400, step: 1, def: 220, unit: 'mm', help: 'Lato del piatto: se i pezzi non ci stanno la cartolina si divide in due.' },
+        ...textP('Buon Natale', '', 'corsivo', 9, p => p.telaio).filter(q => q.id !== 'rilievoTesto'),
+        ...markP(false, p => p.telaio && String(p.scritta || '').trim() !== ''),
+        { sec: 'Anteprima', id: 'anteprima', label: 'Mostra', type: 'select', def: 'montata', options: [['montata', 'Cartolina e casetta montata'], ['cartolina', 'Solo la cartolina']], help: 'La casetta montata è solo da guardare: nel file va la cartolina.' },
+        ...colorsP(['Colore 1 · pezzi', 'Colore 2 · decorazioni']).map(q => q.id === 'col1' ? Object.assign(q, { def: '#c62828' }) : q.id === 'col2' ? Object.assign(q, { def: '#f4f4f2' }) : q.id === 'tavolozza' ? Object.assign(q, { def: 'neve', options: [['neve', 'Rosso e bianco'], ...q.options], onSet: (k, v) => (k === 'neve' ? { col1: '#c62828', col2: '#f4f4f2' } : q.onSet(k, v)) }) : q),
+        ...markColorsP(2),
+      ],
+    },
     lanterna: {
       label: 'Lanterna',
       params: [
@@ -8121,7 +9260,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
 
   // ================= GRUPPI (pagina iniziale) =================
   const GROUPS = [
-    { id: 'natale', title: 'Natale', cat: 'Feste', desc: 'Palline (anche a spirale, intere senza supporti), palle piatte con disegni e nome, decorazioni con il nome, alberi, stelle puntale, lanterne e formine per biscotti. Fino a tre colori.', modes: ['pallina', 'spirale', 'palla', 'piatto', 'albero', 'stella', 'lanterna', 'formina'], thumb: 'pallina' },
+    { id: 'natale', title: 'Natale', cat: 'Feste', desc: 'Palline (anche a spirale, intere senza supporti), palle piatte con disegni e nome, decorazioni con il nome, alberi, stelle puntale, bastoncini di zucchero a pezzi, lanterne, formine per biscotti e casette in kit da montare (cartolina con i pezzi da staccare). Fino a tre colori.', modes: ['pallina', 'spirale', 'palla', 'piatto', 'albero', 'stella', 'bastoncino', 'casetta', 'lanterna', 'formina'], thumb: 'pallina' },
     { id: 'gridfinity', title: 'Gridfinity', cat: 'Organizzazione', desc: 'Contenitori impilabili, cassettiere con cassetti e basi a griglia da 42 mm.', modes: ['bin', 'cab', 'base'], thumb: 'cab' },
     { id: 'lego', title: 'Cassetti modulari', cat: 'Organizzazione', desc: 'Mattoncini con cassetto che si impilano come i Lego: vaschetta e coperchio con i bottoncini, a scatto o incollato, cassetto con o senza guide e separatori estraibili. Poca plastica, tutto stampato dritto.', modes: ['lego'], thumb: 'lego' },
     { id: 'rack', title: 'Rack telefoni', cat: 'Organizzazione', desc: 'Rack a fessure per riporre telefoni e tablet, anche di spessori diversi.', modes: ['rack'], thumb: 'rack' },
@@ -8484,7 +9623,8 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
   }
 
   let current = null;  // ultimo risultato
-  const real = (parts) => parts.filter(p => p.role !== 'ghost');
+  // 'ghost' = oggetti di esempio in azzurro, 'model' = pezzi montati da guardare (casetta in kit): nessuno dei due va nel file
+  const real = (parts) => parts.filter(p => p.role !== 'ghost' && p.role !== 'model');
   let fitted = null;
   let capIndex = 0, caps = [];
   function showResult(res) {
@@ -8499,7 +9639,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
       grp.add(main);
       if (part.role !== 'ghost') grp.add(new THREE.LineSegments(edges, edgesMat()));
       // sezione: maschera stencil dell'interno del pezzo, poi un tappo colorato sul piano di taglio
-      if (sectionOn && part.role !== 'ghost') {
+      if (sectionOn && part.role !== 'ghost' && part.role !== 'model') {
         const k = capIndex++;
         main.renderOrder = 1000;
         for (const [side, op] of [[THREE.BackSide, THREE.IncrementWrapStencilOp], [THREE.FrontSide, THREE.DecrementWrapStencilOp]]) {
@@ -8516,7 +9656,7 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
         grp.position.set(0, -part.pivot[0], -part.pivot[1]);
         piv.add(grp); piv.userData.part = part; piv.userData.isPivot = true; modelGroup.add(piv);
       } else modelGroup.add(grp);
-      if (part.role === 'body') { bb.expandByPoint(new THREE.Vector3(...part.mesh.min)); bb.expandByPoint(new THREE.Vector3(...part.mesh.max)); }
+      if (part.role === 'body' || part.role === 'model') { bb.expandByPoint(new THREE.Vector3(...part.mesh.min)); bb.expandByPoint(new THREE.Vector3(...part.mesh.max)); }
     }
     applyOpen();
     modelGroup.position.z = 0; modelGroup.updateMatrixWorld(true); bbAll.setFromObject(modelGroup);
@@ -8550,9 +9690,9 @@ window.__MANIFOLD_WASM__="AGFzbQEAAAABlwRFYAF/AGACf38AYAJ/fwF/YAN/f38AYAF/AX9gBH
     const nNote = rows.filter(([k]) => k === 'Nota').length, badge = $('#infoBadge');
     badge.hidden = !nNote; badge.textContent = nNote; badge.title = nNote === 1 ? '1 nota' : `${nNote} note`;
     const rp = real(res.parts), bad = rp.find(p => p.mesh.status !== 'NoError');
-    const ghosts = res.parts.length - rp.length;
+    const ghosts = res.parts.filter(p => p.role === 'ghost').length, models = res.parts.some(p => p.role === 'model');
     const nU = printUnits(res.parts).length, nC = new Set(rp.map(p => p.color).filter(Boolean)).size;
-    setStatus(bad ? 'Geometria con errori: prova a cambiare i valori' : (nU === 1 ? '1 pezzo pronto' : `${nU} pezzi pronti`) + (nC > 1 ? ` · ${nC} colori` : '') + (ghosts ? ' · in azzurro gli oggetti di esempio' : '') + ` · griglia ${gridStep} mm`, bad ? 'err' : 'ok');
+    setStatus(bad ? 'Geometria con errori: prova a cambiare i valori' : (nU === 1 ? '1 pezzo pronto' : `${nU} pezzi pronti`) + (nC > 1 ? ` · ${nC} colori` : '') + (ghosts ? ' · in azzurro gli oggetti di esempio' : '') + (models ? ' · a destra montata, solo da guardare' : '') + ` · griglia ${gridStep} mm`, bad ? 'err' : 'ok');
   }
   function applyOpen() {
     for (const grp of modelGroup.children) {
@@ -8752,7 +9892,9 @@ ${build}</build>
     if (state.mode === 'palla') return `palla-piatta_${v.figura && v.figura !== 'nessuna' ? v.figura : v.sfondo}${nm}`;
     if (state.mode === 'albero') return `albero_${v.stile}_${v.altezza}mm`;
     if (state.mode === 'stella') return `stella_${v.uso}_${v.diametro}mm`;
+    if (state.mode === 'casetta') return `casetta-kit_${v.stile}_${v.larghezza}x${v.profondita}x${v.altezza}${nm}`;
     if (state.mode === 'lanterna') return `lanterna_${v.forma}_${v.disegno}`;
+    if (state.mode === 'bastoncino') return `bastoncino_${Math.round(v.altezza)}mm_D${Math.round(v.diametro)}${v.quali === 'c1' ? '_colore1' : v.quali === 'c2' ? '_colore2' : ''}`;
     if (state.mode === 'formina') return `formina_${v.forma}${v.timbro && nm ? nm : ''}`;
     if (state.mode === 'tennis') return `antivibrazione-tennis_${v.modello}${v.modello === 'bottone' ? '_' + v.forma : ''}${nm}`;
     if (state.mode === 'padel') return `antivibrazione-padel_${v.tipo}_${String(v.foro).replace('.', ',')}mm${nm}`;

@@ -20,6 +20,7 @@ parts = [
   rd('src/telefoni.js'),
   rd('src/geom.js'),
   rd('src/natale.js'),
+  rd('src/casetta.js'),
   rd('src/supporti.js'),
   rd('src/cover.js'),
   rd('src/powerbank.js'),
@@ -29,6 +30,7 @@ parts = [
   rd('src/cassetti.js'),
   rd('src/tablet.js'),
   rd('src/barattolo.js'),
+  rd('src/bastoncino.js'),
   rd('src/app.js'),
 ]
 def tag(js): return '<script>\n' + js.replace('</script', '<\\/script') + '\n</script>'

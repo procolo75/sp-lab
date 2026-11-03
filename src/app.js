@@ -606,6 +606,61 @@
         { sec: 'Colori', id: 'col1', label: 'Colore', type: 'color', def: '#e3b341' },
       ],
     },
+    bastoncino: {
+      label: 'Bastoncino',
+      params: [
+        { sec: 'Misure', id: 'altezza', label: 'Altezza', type: 'num', min: 80, max: 1000, step: 5, def: 200, unit: 'mm', help: 'Dal fondo alla cima del manico.' },
+        { sec: 'Misure', id: 'diametro', label: 'Diametro', type: 'num', min: 10, max: 120, step: 1, def: 30, unit: 'mm', help: 'Del tubo.' },
+        { sec: 'Misure', id: 'larghezza', label: 'Larghezza manico', type: 'num', min: 30, max: 500, step: 1, def: 100, unit: 'mm', help: 'Da fuori a fuori della curva. Se è troppo stretta per il diametro viene allargata da sola.' },
+        { sec: 'Misure', id: 'punta', label: 'Punta del manico', type: 'num', min: 0, max: 200, step: 1, def: 20, unit: 'mm', help: 'Quanto scende dritta la punta dopo la curva, prima della cupola.' },
+        { sec: 'Misure', id: 'fondo', label: 'Fondo', type: 'select', def: 'tondo', options: [['tondo', 'Arrotondato'], ['piatto', 'Piatto']] },
+        { sec: 'Strisce', id: 'pezzi', label: 'Pezzi', type: 'int', min: 2, max: 60, def: 10, help: 'Uno per striscia, alternando i due colori. Se il manico ne ha troppo pochi per stampare senza supporti ne vengono aggiunti.' },
+        { sec: 'Strisce', id: 'inclinazione', label: 'Inclinazione', type: 'int', min: 0, max: 45, step: 5, def: 30, unit: '°', help: 'Dei tagli: 0 = strisce dritte, più alta = più diagonali.' },
+        { sec: 'Strisce', id: 'verso', label: 'Verso', type: 'select', def: 'destra', options: [['destra', 'Verso destra'], ['sinistra', 'Verso sinistra']] },
+        { sec: 'Perni', id: 'perni', label: 'Perni per giunzione', type: 'int', min: 0, max: 4, def: 3, help: '0 = niente perni, i pezzi si incollano. Con 2 o più il pezzo non gira.' },
+        { sec: 'Perni', id: 'diamPerno', label: 'Diametro perno', type: 'num', min: 1.75, max: 10, step: 0.05, def: 4, unit: 'mm', show: p => p.perni > 0, help: 'Il perno stampato o il tondino che usi (1,75 = filamento).' },
+        { sec: 'Perni', id: 'lungPerno', label: 'Lunghezza perno', type: 'num', min: 6, max: 60, step: 1, def: 18, unit: 'mm', show: p => p.perni > 0, help: 'Metà in un pezzo, metà nell\'altro. Se i fori non ci stanno vengono accorciati da soli.' },
+        { sec: 'Perni', id: 'gioco', label: 'Gioco fori', type: 'num', min: 0, max: 1, step: 0.05, def: 0.3, unit: 'mm', show: p => p.perni > 0, help: 'Il foro è più largo del perno di questo. Se il perno entra duro aumentalo, se balla diminuiscilo.' },
+        { sec: 'Perni', id: 'stampaPerni', label: 'Perni nel file', type: 'bool', def: true, show: p => p.perni > 0, help: 'Spento se usi tondino o filamento tagliato a misura.' },
+        { sec: 'Stampa', id: 'quali', label: 'Pezzi nel file', type: 'select', def: 'tutti', options: [['tutti', 'Tutti'], ['c1', 'Solo colore 1 (e perni)'], ['c2', 'Solo colore 2']],
+          help: 'Con una stampante a un colore stampi prima tutti i pezzi di un colore, poi gli altri.' },
+        { sec: 'Colori', id: 'col1', label: 'Colore 1', type: 'color', def: '#c62828' },
+        { sec: 'Colori', id: 'col2', label: 'Colore 2', type: 'color', def: '#f4f4f2' },
+      ],
+    },
+    casetta: {
+      label: 'Casetta',
+      params: [
+        { sec: 'Casa', id: 'stile', label: 'Casa', type: 'select', def: 'zenzero', options: [['zenzero', 'Casetta di pan di zenzero'], ['baita', 'Baita di montagna'], ['chiesa', 'Chiesetta con campanile'], ['bottega', 'Bottega con insegna'], ['nordica', 'Casa nordica']],
+          help: 'Un kit da montare: tutti i pezzi su una cartolina piatta, come le stampate dei modellini. Si staccano e si incastrano senza colla.' },
+        { sec: 'Casa', id: 'insegna', label: 'Insegna', type: 'text', def: 'Dolci', placeholder: 'es. Panetteria', show: p => p.stile === 'bottega' },
+        { sec: 'Casa', id: 'variante', label: 'Variante', type: 'int', min: 1, max: 99, def: 1, help: 'Cambia la neve che cola, i fiocchi sparsi e i sassi del vialetto.' },
+        { sec: 'Misure', id: 'larghezza', label: 'Larghezza', type: 'num', min: 30, max: 120, step: 1, def: 50, unit: 'mm', help: 'La facciata.' },
+        { sec: 'Misure', id: 'profondita', label: 'Profondità', type: 'num', min: 30, max: 120, step: 1, def: 44, unit: 'mm', help: 'I fianchi. Per un lumino LED da 38 mm dentro servono almeno 44 mm di larghezza e di profondità.' },
+        { sec: 'Misure', id: 'altezza', label: 'Altezza pareti', type: 'num', min: 25, max: 120, step: 1, def: 40, unit: 'mm', help: 'Fino all\'inizio del tetto.' },
+        { sec: 'Misure', id: 'pendenza', label: 'Pendenza tetto', type: 'int', min: 0, max: 62, step: 1, def: 0, unit: '°', help: '0 = quella della casa scelta (la nordica è la più ripida, la baita la più bassa).' },
+        { sec: 'Decorazioni', id: 'tetto', label: 'Tetto', type: 'select', def: 'auto', options: [['auto', 'Come la casa'], ['mattoni', 'Mattoncini'], ['tegole', 'Tegole a scaglie'], ['assi', 'Scandole di legno'], ['neve', 'Coperto di neve'], ['liscio', 'Liscio']] },
+        { sec: 'Decorazioni', id: 'pareti', label: 'Pareti', type: 'select', def: 'auto', options: [['auto', 'Come la casa'], ['liscio', 'Lisce'], ['assi', 'Assi di legno'], ['mattoni', 'Mattoni in basso'], ['pietra', 'Pietre agli angoli']] },
+        { sec: 'Decorazioni', id: 'ornamento', label: 'Nel timpano', type: 'select', def: 'auto', options: [['auto', 'Come la casa'], ['cuore', 'Cuore traforato'], ['stella', 'Stella traforata'], ['tondo', 'Finestra tonda'], ['rosone', 'Rosone'], ['fiocco', 'Fiocco di neve'], ['ghirlanda', 'Ghirlanda'], ['nessuno', 'Niente']] },
+        { sec: 'Decorazioni', id: 'sparsi', label: 'Sparsi sui muri', type: 'select', def: 'auto', options: [['auto', 'Come la casa'], ['fiocchi', 'Fiocchi di neve'], ['stelle', 'Stelline traforate'], ['cuori', 'Cuoricini'], ['nessuno', 'Niente']] },
+        { sec: 'Decorazioni', id: 'neve', label: 'Neve sui bordi', type: 'bool', def: true, help: 'Glassa che cola dai timpani, ghiaccioli sulla gronda, bordo di neve sulla base.' },
+        { sec: 'Decorazioni', id: 'finestre', label: 'Finestre', type: 'select', def: 'traforate', options: [['traforate', 'Traforate'], ['disegnate', 'Solo disegnate']], help: 'Traforate: con un lumino LED dentro si illuminano.' },
+        { sec: 'Accessori', id: 'alberi', label: 'Alberi', type: 'int', min: 0, max: 2, def: 2, help: 'Ai lati della casa.' },
+        { sec: 'Accessori', id: 'pupazzo', label: 'Pupazzo di neve', type: 'bool', def: true },
+        { sec: 'Accessori', id: 'regalo', label: 'Pacco regalo', type: 'bool', def: true },
+        { sec: 'Spessori', id: 'spessore', label: 'Spessore pezzi', type: 'num', min: 1, max: 3, step: 0.2, def: 1.6, unit: 'mm', help: 'Senza lo strato colorato. Gli incastri sono fatti su questa misura.' },
+        layerP({ sec: 'Spessori', id: 'strato', label: 'Strato colorato', min: 0.2, max: 1.2, def: 0.4, help: 'Lo strato delle decorazioni sopra i pezzi: multipli dell\'altezza dello strato (0,2 · 0,4 · 0,56…). Con una stampante a un colore cambi filamento lì.' }),
+        { sec: 'Spessori', id: 'gioco', label: 'Gioco incastri', type: 'num', min: 0, max: 0.6, step: 0.05, def: 0.2, unit: 'mm', help: 'Se i pezzi entrano duri aumentalo, se ballano diminuiscilo.' },
+        { sec: 'Cartolina', id: 'telaio', label: 'Telaio da kit', type: 'bool', def: true, help: 'I pezzi attaccati a un telaio con canali sottili da spezzare. Spento: pezzi sciolti.' },
+        { sec: 'Cartolina', id: 'canale', label: 'Altezza canali', type: 'num', min: 0.4, max: 1.6, step: 0.2, def: 0.8, unit: 'mm', show: p => p.telaio, help: 'Più bassi si staccano più facilmente.' },
+        { sec: 'Cartolina', id: 'piatto', label: 'Piatto della stampante', type: 'num', min: 150, max: 400, step: 1, def: 220, unit: 'mm', help: 'Lato del piatto: se i pezzi non ci stanno la cartolina si divide in due.' },
+        ...textP('Buon Natale', '', 'corsivo', 9, p => p.telaio).filter(q => q.id !== 'rilievoTesto'),
+        ...markP(false, p => p.telaio && String(p.scritta || '').trim() !== ''),
+        { sec: 'Anteprima', id: 'anteprima', label: 'Mostra', type: 'select', def: 'montata', options: [['montata', 'Cartolina e casetta montata'], ['cartolina', 'Solo la cartolina']], help: 'La casetta montata è solo da guardare: nel file va la cartolina.' },
+        ...colorsP(['Colore 1 · pezzi', 'Colore 2 · decorazioni']).map(q => q.id === 'col1' ? Object.assign(q, { def: '#c62828' }) : q.id === 'col2' ? Object.assign(q, { def: '#f4f4f2' }) : q.id === 'tavolozza' ? Object.assign(q, { def: 'neve', options: [['neve', 'Rosso e bianco'], ...q.options], onSet: (k, v) => (k === 'neve' ? { col1: '#c62828', col2: '#f4f4f2' } : q.onSet(k, v)) }) : q),
+        ...markColorsP(2),
+      ],
+    },
     lanterna: {
       label: 'Lanterna',
       params: [
@@ -944,7 +999,7 @@
 
   // ================= GRUPPI (pagina iniziale) =================
   const GROUPS = [
-    { id: 'natale', title: 'Natale', cat: 'Feste', desc: 'Palline (anche a spirale, intere senza supporti), palle piatte con disegni e nome, decorazioni con il nome, alberi, stelle puntale, lanterne e formine per biscotti. Fino a tre colori.', modes: ['pallina', 'spirale', 'palla', 'piatto', 'albero', 'stella', 'lanterna', 'formina'], thumb: 'pallina' },
+    { id: 'natale', title: 'Natale', cat: 'Feste', desc: 'Palline (anche a spirale, intere senza supporti), palle piatte con disegni e nome, decorazioni con il nome, alberi, stelle puntale, bastoncini di zucchero a pezzi, lanterne, formine per biscotti e casette in kit da montare (cartolina con i pezzi da staccare). Fino a tre colori.', modes: ['pallina', 'spirale', 'palla', 'piatto', 'albero', 'stella', 'bastoncino', 'casetta', 'lanterna', 'formina'], thumb: 'pallina' },
     { id: 'gridfinity', title: 'Gridfinity', cat: 'Organizzazione', desc: 'Contenitori impilabili, cassettiere con cassetti e basi a griglia da 42 mm.', modes: ['bin', 'cab', 'base'], thumb: 'cab' },
     { id: 'lego', title: 'Cassetti modulari', cat: 'Organizzazione', desc: 'Mattoncini con cassetto che si impilano come i Lego: vaschetta e coperchio con i bottoncini, a scatto o incollato, cassetto con o senza guide e separatori estraibili. Poca plastica, tutto stampato dritto.', modes: ['lego'], thumb: 'lego' },
     { id: 'rack', title: 'Rack telefoni', cat: 'Organizzazione', desc: 'Rack a fessure per riporre telefoni e tablet, anche di spessori diversi.', modes: ['rack'], thumb: 'rack' },
@@ -1307,7 +1362,8 @@
   }
 
   let current = null;  // ultimo risultato
-  const real = (parts) => parts.filter(p => p.role !== 'ghost');
+  // 'ghost' = oggetti di esempio in azzurro, 'model' = pezzi montati da guardare (casetta in kit): nessuno dei due va nel file
+  const real = (parts) => parts.filter(p => p.role !== 'ghost' && p.role !== 'model');
   let fitted = null;
   let capIndex = 0, caps = [];
   function showResult(res) {
@@ -1322,7 +1378,7 @@
       grp.add(main);
       if (part.role !== 'ghost') grp.add(new THREE.LineSegments(edges, edgesMat()));
       // sezione: maschera stencil dell'interno del pezzo, poi un tappo colorato sul piano di taglio
-      if (sectionOn && part.role !== 'ghost') {
+      if (sectionOn && part.role !== 'ghost' && part.role !== 'model') {
         const k = capIndex++;
         main.renderOrder = 1000;
         for (const [side, op] of [[THREE.BackSide, THREE.IncrementWrapStencilOp], [THREE.FrontSide, THREE.DecrementWrapStencilOp]]) {
@@ -1339,7 +1395,7 @@
         grp.position.set(0, -part.pivot[0], -part.pivot[1]);
         piv.add(grp); piv.userData.part = part; piv.userData.isPivot = true; modelGroup.add(piv);
       } else modelGroup.add(grp);
-      if (part.role === 'body') { bb.expandByPoint(new THREE.Vector3(...part.mesh.min)); bb.expandByPoint(new THREE.Vector3(...part.mesh.max)); }
+      if (part.role === 'body' || part.role === 'model') { bb.expandByPoint(new THREE.Vector3(...part.mesh.min)); bb.expandByPoint(new THREE.Vector3(...part.mesh.max)); }
     }
     applyOpen();
     modelGroup.position.z = 0; modelGroup.updateMatrixWorld(true); bbAll.setFromObject(modelGroup);
@@ -1373,9 +1429,9 @@
     const nNote = rows.filter(([k]) => k === 'Nota').length, badge = $('#infoBadge');
     badge.hidden = !nNote; badge.textContent = nNote; badge.title = nNote === 1 ? '1 nota' : `${nNote} note`;
     const rp = real(res.parts), bad = rp.find(p => p.mesh.status !== 'NoError');
-    const ghosts = res.parts.length - rp.length;
+    const ghosts = res.parts.filter(p => p.role === 'ghost').length, models = res.parts.some(p => p.role === 'model');
     const nU = printUnits(res.parts).length, nC = new Set(rp.map(p => p.color).filter(Boolean)).size;
-    setStatus(bad ? 'Geometria con errori: prova a cambiare i valori' : (nU === 1 ? '1 pezzo pronto' : `${nU} pezzi pronti`) + (nC > 1 ? ` · ${nC} colori` : '') + (ghosts ? ' · in azzurro gli oggetti di esempio' : '') + ` · griglia ${gridStep} mm`, bad ? 'err' : 'ok');
+    setStatus(bad ? 'Geometria con errori: prova a cambiare i valori' : (nU === 1 ? '1 pezzo pronto' : `${nU} pezzi pronti`) + (nC > 1 ? ` · ${nC} colori` : '') + (ghosts ? ' · in azzurro gli oggetti di esempio' : '') + (models ? ' · a destra montata, solo da guardare' : '') + ` · griglia ${gridStep} mm`, bad ? 'err' : 'ok');
   }
   function applyOpen() {
     for (const grp of modelGroup.children) {
@@ -1575,7 +1631,9 @@ ${build}</build>
     if (state.mode === 'palla') return `palla-piatta_${v.figura && v.figura !== 'nessuna' ? v.figura : v.sfondo}${nm}`;
     if (state.mode === 'albero') return `albero_${v.stile}_${v.altezza}mm`;
     if (state.mode === 'stella') return `stella_${v.uso}_${v.diametro}mm`;
+    if (state.mode === 'casetta') return `casetta-kit_${v.stile}_${v.larghezza}x${v.profondita}x${v.altezza}${nm}`;
     if (state.mode === 'lanterna') return `lanterna_${v.forma}_${v.disegno}`;
+    if (state.mode === 'bastoncino') return `bastoncino_${Math.round(v.altezza)}mm_D${Math.round(v.diametro)}${v.quali === 'c1' ? '_colore1' : v.quali === 'c2' ? '_colore2' : ''}`;
     if (state.mode === 'formina') return `formina_${v.forma}${v.timbro && nm ? nm : ''}`;
     if (state.mode === 'tennis') return `antivibrazione-tennis_${v.modello}${v.modello === 'bottone' ? '_' + v.forma : ''}${nm}`;
     if (state.mode === 'padel') return `antivibrazione-padel_${v.tipo}_${String(v.foro).replace('.', ',')}mm${nm}`;
