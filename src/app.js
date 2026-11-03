@@ -651,13 +651,60 @@
         { sec: 'Spessori', id: 'spessore', label: 'Spessore pezzi', type: 'num', min: 1, max: 3, step: 0.2, def: 1.6, unit: 'mm', help: 'Senza lo strato colorato. Gli incastri sono fatti su questa misura.' },
         layerP({ sec: 'Spessori', id: 'strato', label: 'Strato colorato', min: 0.2, max: 1.2, def: 0.4, help: 'Lo strato delle decorazioni sopra i pezzi: multipli dell\'altezza dello strato (0,2 · 0,4 · 0,56…). Con una stampante a un colore cambi filamento lì.' }),
         { sec: 'Spessori', id: 'gioco', label: 'Gioco incastri', type: 'num', min: 0, max: 0.6, step: 0.05, def: 0.2, unit: 'mm', help: 'Se i pezzi entrano duri aumentalo, se ballano diminuiscilo.' },
+        { sec: 'Spessori', id: 'prova', label: 'Solo prova incastri', type: 'bool', def: false, help: 'Stampa solo pochi pezzi piccoli con gli stessi incastri, in pochi minuti: provi il gioco prima di stampare tutto.' },
         { sec: 'Cartolina', id: 'telaio', label: 'Telaio da kit', type: 'bool', def: true, help: 'I pezzi attaccati a un telaio con canali sottili da spezzare. Spento: pezzi sciolti.' },
         { sec: 'Cartolina', id: 'canale', label: 'Altezza canali', type: 'num', min: 0.4, max: 1.6, step: 0.2, def: 0.8, unit: 'mm', show: p => p.telaio, help: 'Più bassi si staccano più facilmente.' },
         { sec: 'Cartolina', id: 'piatto', label: 'Piatto della stampante', type: 'num', min: 150, max: 400, step: 1, def: 220, unit: 'mm', help: 'Lato del piatto: se i pezzi non ci stanno la cartolina si divide in due.' },
-        ...textP('Buon Natale', '', 'corsivo', 9, p => p.telaio).filter(q => q.id !== 'rilievoTesto'),
-        ...markP(false, p => p.telaio && String(p.scritta || '').trim() !== ''),
+        ...textP('Buon Natale', '', 'corsivo', 9, p => p.telaio && !p.prova).filter(q => q.id !== 'rilievoTesto'),
+        ...markP(false, p => p.telaio && !p.prova && String(p.scritta || '').trim() !== ''),
         { sec: 'Anteprima', id: 'anteprima', label: 'Mostra', type: 'select', def: 'montata', options: [['montata', 'Cartolina e casetta montata'], ['cartolina', 'Solo la cartolina']], help: 'La casetta montata è solo da guardare: nel file va la cartolina.' },
         ...colorsP(['Colore 1 · pezzi', 'Colore 2 · decorazioni']).map(q => q.id === 'col1' ? Object.assign(q, { def: '#c62828' }) : q.id === 'col2' ? Object.assign(q, { def: '#f4f4f2' }) : q.id === 'tavolozza' ? Object.assign(q, { def: 'neve', options: [['neve', 'Rosso e bianco'], ...q.options], onSet: (k, v) => (k === 'neve' ? { col1: '#c62828', col2: '#f4f4f2' } : q.onSet(k, v)) }) : q),
+        ...markColorsP(2),
+      ],
+    },
+    lanternakit: {
+      label: 'Lanterna kit',
+      params: [
+        { sec: 'Lanterna', id: 'lato', label: 'Lato', type: 'num', min: 44, max: 120, step: 1, def: 56, unit: 'mm', help: 'Quattro pannelli con gli angoli a pettine, da montare sulla base. Per un lumino LED da 38 mm almeno 44 mm.' },
+        { sec: 'Lanterna', id: 'altezza', label: 'Altezza', type: 'num', min: 50, max: 200, step: 1, def: 88, unit: 'mm', help: 'Con il piatto da 220 tutto in una cartolina fino a circa 56 × 90 mm.' },
+        ...[['scena1', 'Pannello 1', 'villaggio'], ['scena2', 'Pannello 2', 'bosco'], ['scena3', 'Pannello 3', 'slitta'], ['scena4', 'Pannello 4', 'fiocchi']].map(([id, label, def]) => ({ sec: 'Scene', id, label, type: 'select', def,
+          options: [['villaggio', 'Paesino'], ['bosco', 'Bosco'], ['slitta', 'Renne e luna'], ['fiocchi', 'Fiocchi di neve'], ['stelle', 'Luna e stelle'], ['cuori', 'Cuori']] })),
+        { sec: 'Scene', id: 'variante', label: 'Variante', type: 'int', min: 1, max: 99, def: 1, help: 'Cambia dove cadono stelle, fiocchi e cuori.' },
+        { sec: 'Scene', id: 'manico', label: 'Manico per appenderla', type: 'bool', def: true },
+        { sec: 'Spessori', id: 'spessore', label: 'Spessore pezzi', type: 'num', min: 1, max: 3, step: 0.2, def: 1.6, unit: 'mm', help: 'Senza lo strato colorato. Gli incastri sono fatti su questa misura.' },
+        layerP({ sec: 'Spessori', id: 'strato', label: 'Strato colorato', min: 0.2, max: 1.2, def: 0.4, help: 'Lo strato delle decorazioni sopra i pezzi. Con una stampante a un colore cambi filamento lì.' }),
+        { sec: 'Spessori', id: 'gioco', label: 'Gioco incastri', type: 'num', min: 0, max: 0.6, step: 0.05, def: 0.2, unit: 'mm', help: 'Se i pezzi entrano duri aumentalo, se ballano diminuiscilo.' },
+        { sec: 'Spessori', id: 'prova', label: 'Solo prova incastri', type: 'bool', def: false, help: 'Stampa solo pochi pezzi piccoli con gli stessi incastri, in pochi minuti: provi il gioco prima di stampare tutto.' },
+        { sec: 'Cartolina', id: 'telaio', label: 'Telaio da kit', type: 'bool', def: true, help: 'I pezzi attaccati a un telaio con canali sottili da spezzare. Spento: pezzi sciolti.' },
+        { sec: 'Cartolina', id: 'canale', label: 'Altezza canali', type: 'num', min: 0.4, max: 1.6, step: 0.2, def: 0.8, unit: 'mm', show: p => p.telaio },
+        { sec: 'Cartolina', id: 'piatto', label: 'Piatto della stampante', type: 'num', min: 150, max: 400, step: 1, def: 220, unit: 'mm', help: 'Se i pezzi non ci stanno la cartolina si divide in due.' },
+        ...textP('Buon Natale', '', 'corsivo', 9, p => p.telaio && !p.prova).filter(q => q.id !== 'rilievoTesto'),
+        ...markP(false, p => p.telaio && !p.prova && String(p.scritta || '').trim() !== ''),
+        { sec: 'Anteprima', id: 'anteprima', label: 'Mostra', type: 'select', def: 'montata', options: [['montata', 'Cartolina e lanterna montata'], ['cartolina', 'Solo la cartolina']], help: 'La lanterna montata è solo da guardare: nel file va la cartolina.' },
+        ...colorsP(['Colore 1 · pezzi', 'Colore 2 · decorazioni']).map(q => q.id === 'col1' ? Object.assign(q, { def: '#1d4e89' }) : q.id === 'col2' ? Object.assign(q, { def: '#f4f4f2' }) : q.id === 'tavolozza' ? Object.assign(q, { def: 'notte', options: [['notte', 'Blu notte e bianco'], ...q.options], onSet: (k, v) => (k === 'notte' ? { col1: '#1d4e89', col2: '#f4f4f2' } : q.onSet(k, v)) }) : q),
+        ...markColorsP(2),
+      ],
+    },
+    alberokit: {
+      label: 'Albero kit',
+      params: [
+        { sec: 'Albero', id: 'altezza', label: 'Altezza', type: 'num', min: 60, max: 250, step: 1, def: 120, unit: 'mm', help: 'Tre sagome che si incrociano a 60° (sei rami) su una base tonda. Oltre 125 mm serve un piatto più grande di 220.' },
+        { sec: 'Albero', id: 'stella', label: 'Stella in cima', type: 'bool', def: true },
+        { sec: 'Albero', id: 'neve', label: 'Neve sui rami', type: 'bool', def: true },
+        { sec: 'Albero', id: 'festoni', label: 'Festoni', type: 'bool', def: true },
+        { sec: 'Albero', id: 'palline', label: 'Palline', type: 'bool', def: true },
+        { sec: 'Albero', id: 'variante', label: 'Variante', type: 'int', min: 1, max: 99, def: 1, help: 'Cambia dove cadono le palline.' },
+        { sec: 'Spessori', id: 'spessore', label: 'Spessore pezzi', type: 'num', min: 1.4, max: 3, step: 0.2, def: 2, unit: 'mm', help: 'Senza lo strato colorato. 2 mm rendono l\'albero bello rigido.' },
+        layerP({ sec: 'Spessori', id: 'strato', label: 'Strato colorato', min: 0.2, max: 1.2, def: 0.4, help: 'Lo strato delle decorazioni sopra i pezzi. Con una stampante a un colore cambi filamento lì.' }),
+        { sec: 'Spessori', id: 'gioco', label: 'Gioco incastri', type: 'num', min: 0, max: 0.6, step: 0.05, def: 0.2, unit: 'mm', help: 'Se i pezzi entrano duri aumentalo, se ballano diminuiscilo.' },
+        { sec: 'Spessori', id: 'prova', label: 'Solo prova incastri', type: 'bool', def: false, help: 'Stampa solo pochi pezzi piccoli con gli stessi incastri, in pochi minuti: provi il gioco prima di stampare tutto.' },
+        { sec: 'Cartolina', id: 'telaio', label: 'Telaio da kit', type: 'bool', def: true, help: 'I pezzi attaccati a un telaio con canali sottili da spezzare. Spento: pezzi sciolti.' },
+        { sec: 'Cartolina', id: 'canale', label: 'Altezza canali', type: 'num', min: 0.4, max: 1.6, step: 0.2, def: 0.8, unit: 'mm', show: p => p.telaio },
+        { sec: 'Cartolina', id: 'piatto', label: 'Piatto della stampante', type: 'num', min: 150, max: 400, step: 1, def: 220, unit: 'mm', help: 'Se i pezzi non ci stanno la cartolina si divide in due.' },
+        ...textP('Buon Natale', '', 'corsivo', 9, p => p.telaio && !p.prova).filter(q => q.id !== 'rilievoTesto'),
+        ...markP(false, p => p.telaio && !p.prova && String(p.scritta || '').trim() !== ''),
+        { sec: 'Anteprima', id: 'anteprima', label: 'Mostra', type: 'select', def: 'montata', options: [['montata', 'Cartolina e albero montato'], ['cartolina', 'Solo la cartolina']], help: 'L\'albero montato è solo da guardare: nel file va la cartolina.' },
+        ...colorsP(['Colore 1 · pezzi', 'Colore 2 · decorazioni']).map(q => q.id === 'col1' ? Object.assign(q, { def: '#1f6b3a' }) : q.id === 'col2' ? Object.assign(q, { def: '#f4f4f2' }) : q.id === 'tavolozza' ? Object.assign(q, { def: 'abete', options: [['abete', 'Verde e bianco'], ...q.options], onSet: (k, v) => (k === 'abete' ? { col1: '#1f6b3a', col2: '#f4f4f2' } : q.onSet(k, v)) }) : q),
         ...markColorsP(2),
       ],
     },
@@ -999,7 +1046,7 @@
 
   // ================= GRUPPI (pagina iniziale) =================
   const GROUPS = [
-    { id: 'natale', title: 'Natale', cat: 'Feste', desc: 'Palline (anche a spirale, intere senza supporti), palle piatte con disegni e nome, decorazioni con il nome, alberi, stelle puntale, bastoncini di zucchero a pezzi, lanterne, formine per biscotti e casette in kit da montare (cartolina con i pezzi da staccare). Fino a tre colori.', modes: ['pallina', 'spirale', 'palla', 'piatto', 'albero', 'stella', 'bastoncino', 'casetta', 'lanterna', 'formina'], thumb: 'pallina' },
+    { id: 'natale', title: 'Natale', cat: 'Feste', desc: 'Palline (anche a spirale, intere senza supporti), palle piatte con disegni e nome, decorazioni con il nome, alberi, stelle puntale, bastoncini di zucchero a pezzi, lanterne, formine per biscotti e kit da montare (casetta, lanterna e albero su una cartolina con i pezzi da staccare). Fino a tre colori.', modes: ['pallina', 'spirale', 'palla', 'piatto', 'albero', 'stella', 'bastoncino', 'casetta', 'lanternakit', 'alberokit', 'lanterna', 'formina'], thumb: 'pallina' },
     { id: 'gridfinity', title: 'Gridfinity', cat: 'Organizzazione', desc: 'Contenitori impilabili, cassettiere con cassetti e basi a griglia da 42 mm.', modes: ['bin', 'cab', 'base'], thumb: 'cab' },
     { id: 'lego', title: 'Cassetti modulari', cat: 'Organizzazione', desc: 'Mattoncini con cassetto che si impilano come i Lego: vaschetta e coperchio con i bottoncini, a scatto o incollato, cassetto con o senza guide e separatori estraibili. Poca plastica, tutto stampato dritto.', modes: ['lego'], thumb: 'lego' },
     { id: 'rack', title: 'Rack telefoni', cat: 'Organizzazione', desc: 'Rack a fessure per riporre telefoni e tablet, anche di spessori diversi.', modes: ['rack'], thumb: 'rack' },
@@ -1631,7 +1678,9 @@ ${build}</build>
     if (state.mode === 'palla') return `palla-piatta_${v.figura && v.figura !== 'nessuna' ? v.figura : v.sfondo}${nm}`;
     if (state.mode === 'albero') return `albero_${v.stile}_${v.altezza}mm`;
     if (state.mode === 'stella') return `stella_${v.uso}_${v.diametro}mm`;
-    if (state.mode === 'casetta') return `casetta-kit_${v.stile}_${v.larghezza}x${v.profondita}x${v.altezza}${nm}`;
+    if (state.mode === 'casetta') return v.prova ? `casetta-kit_prova-incastri_gioco${String(v.gioco).replace('.', ',')}` : `casetta-kit_${v.stile}_${v.larghezza}x${v.profondita}x${v.altezza}${nm}`;
+    if (state.mode === 'lanternakit') return v.prova ? `lanterna-kit_prova-incastri_gioco${String(v.gioco).replace('.', ',')}` : `lanterna-kit_${v.lato}x${v.altezza}${nm}`;
+    if (state.mode === 'alberokit') return v.prova ? `albero-kit_prova-incastri_gioco${String(v.gioco).replace('.', ',')}` : `albero-kit_${v.altezza}mm${nm}`;
     if (state.mode === 'lanterna') return `lanterna_${v.forma}_${v.disegno}`;
     if (state.mode === 'bastoncino') return `bastoncino_${Math.round(v.altezza)}mm_D${Math.round(v.diametro)}${v.quali === 'c1' ? '_colore1' : v.quali === 'c2' ? '_colore2' : ''}`;
     if (state.mode === 'formina') return `formina_${v.forma}${v.timbro && nm ? nm : ''}`;

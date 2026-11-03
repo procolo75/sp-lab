@@ -6,6 +6,8 @@
 //   quindi con una stampante a un colore basta un cambio filamento;
 // - le decorazioni hanno linee larghe almeno 0,9 mm (due passate con ugello 0,4) e gli spazi almeno 0,6 mm;
 // - l'anteprima mostra la cartolina e, a destra, la casetta montata (ruolo 'model': non va nel file).
+// Nello stesso file: lanterna in kit (4 pannelli traforati a pettine, base, cappello, manico) e albero in kit
+// (3 sagome incrociate a 60° su una base tonda). Tutti e tre hanno la "prova incastri": pochi pezzi piccoli per tarare il gioco.
 (function (root) {
   (root.SPRECOLO_EXT = root.SPRECOLO_EXT || []).push(function casetta(H) {
     const { CrossSection, reg, union, fmt } = H;
@@ -260,12 +262,174 @@
     };
     const NAMES = { zenzero: 'Casetta di pan di zenzero', baita: 'Baita di montagna', chiesa: 'Chiesetta', bottega: 'Bottega', nordica: 'Casa nordica' };
 
+    function cardify(flatList, p, notes, sp, lay) {
+      const T = H.decor || {};
+      // ===== cartolina: pezzi sul telaio, attaccati con canali sottili =====
+      const telaio = p.telaio !== false, bed = Math.max(120, +p.piatto || 220);
+      const gap = telaio ? 2.2 : 5, barW = 2.6, gW = 1.2, gH = Math.min(sp, Math.max(0.4, +p.canale || 0.8));
+      const maxInner = bed - 2 * barW - 1;
+      const items = flatList.map((it) => Object.assign({}, it, { b0: bounds(it.base) }));
+      const tooBig = items.filter(it => Math.min(it.b0.w, it.b0.h) + 2 * gap > maxInner || Math.max(it.b0.w, it.b0.h) + 2 * gap > maxInner);
+      if (tooBig.length) notes.push(`${tooBig.map(t => t.name).join(', ')} più grand${tooBig.length > 1 ? 'i' : 'e'} del piatto da ${fmt(bed)} mm: rimpicciolisci il modello o metti il piatto giusto`);
+      // scritta in testa alla cartolina
+      let header = null;
+      if (telaio && String(p.scritta || '').trim() && T.fitText) {
+        const tf = T.fitText(p, { x: 0, y: 0, w: maxInner - 12, h: Math.max(8, 1.25 * (+p.altTesto || 9) + (String(p.scritta2 || '').trim() ? 1.9 * (+p.altTesto2 || +p.altTesto || 9) : 0)) }, +p.altTesto || 9);
+        if (tf) header = { cs: tf.cs, h: tf.box.h + 7, w: tf.box.w };
+        if (tf && tf.reduced) notes.push('~Scritta della cartolina ridotta per stare nella larghezza del piatto');
+      }
+      // impacchettamento a "skyline": ogni cella (pezzo + spazio) si appoggia sulle celle già messe, separate da una barra.
+      // y verso il basso, dentro la cornice. Restituisce le celle messe e quelle avanzate
+      function pack(list, Wmax, Hmax) {
+        let sky = [{ x: 0, y: 0, w: Wmax + barW }];
+        const placed = [], rest = [];
+        for (const it of list) {
+          let best = null;
+          for (const rot of [0, 90]) {
+            const cw = (rot ? it.b0.h : it.b0.w) + 2 * gap, ch = (rot ? it.b0.w : it.b0.h) + 2 * gap;
+            for (let i = 0; i < sky.length; i++) {
+              const x = sky[i].x;
+              if (x + cw > Wmax + 1e-6) break;
+              let y = 0;
+              for (const sg of sky) if (sg.x < x + cw + barW - 1e-6 && sg.x + sg.w > x + 1e-6) y = Math.max(y, sg.y);
+              if (y + ch > Hmax + 1e-6) continue;
+              const score = (y + ch) * 1000 + x;
+              if (!best || score < best.score) best = { score, x, y, cw, ch, rot };
+            }
+          }
+          if (!best) { rest.push(it); continue; }
+          placed.push(Object.assign({ it }, best));
+          // nuovo tratto dello skyline e taglio di quelli coperti
+          const nx0 = best.x, nx1 = best.x + best.cw + barW, ny = best.y + best.ch + barW, out = [];
+          for (const sg of sky) {
+            if (sg.x + sg.w <= nx0 + 1e-9 || sg.x >= nx1 - 1e-9) { out.push(sg); continue; }
+            if (sg.x < nx0) out.push({ x: sg.x, y: sg.y, w: nx0 - sg.x });
+            if (sg.x + sg.w > nx1) out.push({ x: nx1, y: sg.y, w: sg.x + sg.w - nx1 });
+          }
+          out.push({ x: nx0, y: ny, w: nx1 - nx0 });
+          out.sort((a, b) => a.x - b.x);
+          sky = [];
+          for (const sg of out) { const l = sky[sky.length - 1]; if (l && Math.abs(l.y - sg.y) < 1e-6 && Math.abs(l.x + l.w - sg.x) < 1e-6) l.w += sg.w; else sky.push(Object.assign({}, sg)); }
+        }
+        const W2 = Math.max(0, ...placed.map(q => q.x + q.cw)), H2 = Math.max(0, ...placed.map(q => q.y + q.ch));
+        return { placed, rest, W: W2, H: H2 };
+      }
+      // prima i pezzi grandi; provo varie larghezze e tengo la cartolina più piccola e più quadrata che sta nel piatto
+      const mx2 = (it) => Math.max(it.b0.w, it.b0.h), ar = (it) => it.b0.w * it.b0.h;
+      const orders = [(a, b) => mx2(b) - mx2(a) || ar(b) - ar(a), (a, b) => ar(b) - ar(a), (a, b) => b.b0.h - a.b0.h || ar(b) - ar(a), (a, b) => b.b0.w - a.b0.w || ar(b) - ar(a), (a, b) => Math.min(b.b0.w, b.b0.h) - Math.min(a.b0.w, a.b0.h)];
+      const cards = [];
+      let left = items;
+      while (left.length && cards.length < 6) {
+        const hdr = cards.length === 0 && header ? header.h + barW : 0, Hmax = maxInner - hdr;
+        const minW = Math.max(...left.map(it => Math.min(it.b0.w, it.b0.h) + 2 * gap), header && !cards.length ? header.w + 12 : 0);
+        let best = null;
+        // ordini fissi più qualche mescolata (sempre la stessa): si tiene la cartolina migliore
+        const lists = orders.map(o => left.slice().sort(o)), RR = rng(97);
+        for (let k = 0; k < 24; k++) { const l = left.slice(); for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(RR() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; } lists.push(l); }
+        for (const lst of lists) for (let Wt = maxInner; Wt >= minW - 1e-6; Wt -= 4) {
+          const r = pack(lst, Wt, Hmax);
+          if (!r.placed.length) continue;
+          const Wc = Math.max(r.W, hdr ? header.w + 12 : 0), sc = (r.rest.length ? 1e9 : 0) - r.placed.length * 1e6 + Wc * (r.H + hdr) + 0.6 * Math.abs(Wc - r.H - hdr) * Math.max(Wc, r.H);
+          if (!best || sc < best.sc) best = Object.assign(r, { sc, Wc });
+        }
+        if (!best) break;
+        cards.push({ placed: best.placed, w: best.Wc + 2 * barW, h: best.H + hdr + 2 * barW, hdr });
+        left = best.rest;
+      }
+      // i pezzi più grandi del piatto vanno comunque nel file, ognuno nella sua cartolina
+      for (const it of left) {
+        const r = pack([it], 1e4, 1e4);
+        if (r.placed.length) cards.push({ placed: r.placed, w: r.W + 2 * barW, h: r.H + 2 * barW, hdr: 0 });
+      }
+
+      const parts = [];
+      let cx0 = 0, maxCardX = 0, cardH0 = 0;
+      const colB = p.col1, colD = p.col2;
+      cards.forEach((c, ci) => {
+        const Wc = c.w, Hc = c.h;
+        // da coordinate della cartolina con y verso il basso a quelle vere (y in alto, cartolina tra x = cx0 e cx0 + Wc)
+        const X = (x) => cx0 + x, Y = (y) => Hc - y;
+        const R4 = (x0, y0, x1, y1) => RECT(X(x0), Y(y1), X(x1), Y(y0));
+        const frame = [D(R4(0, 0, Wc, Hc), R4(barW, barW, Wc - barW, Hc - barW))], gates = [], pcsB = [], pcsD = [];
+        if (c.hdr) frame.push(R4(0, 0, Wc, barW + header.h + barW));
+        for (const q of c.placed) {
+          const it = q.it, x0 = barW + q.x, y0 = barW + c.hdr + q.y, x1 = x0 + q.cw, y1 = y0 + q.ch;
+          const bs = q.rot ? ROT(it.base, 90) : it.base, ds = q.rot ? ROT(it.decor, 90) : it.decor;
+          const bb0 = bounds(bs), dx = X((x0 + x1) / 2) - (bb0.x0 + bb0.x1) / 2, dy = Y((y0 + y1) / 2) - (bb0.y0 + bb0.y1) / 2;
+          const bb = MV(bs, dx, dy), dd = MV(ds, dx, dy);
+          pcsB.push(bb); if (dd) pcsD.push(dd);
+          it.flat = { bb, dd };
+          if (!telaio) continue;
+          frame.push(D(R4(x0 - barW, y0 - barW, x1 + barW, y1 + barW), R4(x0, y0, x1, y1)));
+          // canali: a sinistra e a destra verso la cornice della cella; sopra e sotto se il pezzo è largo
+          const cX0 = X(x0), cX1 = X(x1), cY0 = Y(y1), cY1 = Y(y0);
+          // canali per ogni pezzo della cella (nelle celle con due pezzi accostati, ognuno ha i suoi)
+          for (const pc of bb.decompose().map(R2)) {
+          const b = bounds(pc);
+          const gate = (side) => {
+            const hor = side === 'l' || side === 'r';
+            const strip = I(pc, side === 'l' ? RECT(b.x0, b.y0, b.x0 + 1.5, b.y1) : side === 'r' ? RECT(b.x1 - 1.5, b.y0, b.x1, b.y1) : side === 'b' ? RECT(b.x0, b.y0, b.x1, b.y0 + 1.5) : RECT(b.x0, b.y1 - 1.5, b.x1, b.y1));
+            if (empty(strip)) return null;
+            const sb = bounds(strip), mid = hor ? (sb.y0 + sb.y1) / 2 : (sb.x0 + sb.x1) / 2;
+            const line = I(pc, hor ? RECT(b.x0, mid - gW / 2, b.x1, mid + gW / 2) : RECT(mid - gW / 2, b.y0, mid + gW / 2, b.y1));
+            if (empty(line)) return null;
+            const lb = bounds(line);
+            if (side === 'l') return RECT(cX0 - 0.01, mid - gW / 2, lb.x0 + 0.6, mid + gW / 2);
+            if (side === 'r') return RECT(lb.x1 - 0.6, mid - gW / 2, cX1 + 0.01, mid + gW / 2);
+            if (side === 'b') return RECT(mid - gW / 2, cY0 - 0.01, mid + gW / 2, lb.y0 + 0.6);
+            return RECT(mid - gW / 2, lb.y1 - 0.6, mid + gW / 2, cY1 + 0.01);
+          };
+          gates.push(gate('l'), gate('r'));
+          if (b.w > 30) gates.push(gate('t'), gate('b'));
+          if (b.h > 40) { gates.push(gate('t')); }
+          }
+        }
+        const frameCS = telaio ? D(U(frame), U(pcsB)) : null, gateCS = telaio ? D(U(gates.filter(Boolean)), U(pcsB)) : null;
+        let decorCS = U(pcsD);
+        const nm = cards.length > 1 ? `Cartolina ${ci + 1}` : 'Cartolina';
+        if (telaio) {
+          const bodyM = union([EXT(U(pcsB), 0, sp), EXT(frameCS, 0, sp), gateCS ? EXT(gateCS, 0, gH) : null].filter(Boolean));
+          let markM = null;
+          if (c.hdr) {
+            const hy = Y(barW + header.h / 2), tcs = MV(header.cs, X(Wc / 2), hy);
+            const extras = [], room = (Wc - 2 * barW - header.w) / 2 - 4;
+            if (room > 8) for (const s of [-1, 1]) { const r = Math.min(room - 2, header.h - 3, 13) / 2; extras.push(flake(X(Wc / 2) + s * (header.w / 2 + 3 + r), hy, r, 1.1)); }
+            decorCS = U([decorCS, tcs, ...extras]);
+            if (p.marchio && T.placeMark) {
+              const face = R4(barW + 1, barW + 0.8, Wc - barW - 1, barW + header.h - 0.8);
+              const mk = T.placeMark(face, p, notes, U([tcs, ...extras]), 0.5);
+              if (mk) markM = EXT(mk, sp, sp + lay);
+            }
+          }
+          parts.push({ name: `${nm} · pezzi e telaio`, m: bodyM, role: 'body', color: colB, group: nm });
+          const dm = EXT(decorCS, sp, sp + lay);
+          if (dm) parts.push({ name: `${nm} · decorazioni`, m: dm, role: 'body', color: colD, group: nm });
+          if (markM) parts.push({ name: `${nm} · logo SP`, m: markM, role: 'body', color: p['col' + (T.markCol ? T.markCol(p, 2) : 2)] || colD, group: nm });
+        }
+        if (ci === 0) cardH0 = Hc;
+        maxCardX = cx0 + Wc;
+        cx0 += Wc + 10;
+      });
+
+      // pezzi sciolti (senza telaio): ogni pezzo è un oggetto
+      const flatOf = (it) => ({ b: EXT(it.base, 0, sp), d: EXT(it.decor, sp, sp + lay) });
+      if (!telaio) {
+        for (const it of items) {
+          if (!it.flat) continue;
+          parts.push({ name: it.name, m: EXT(it.flat.bb, 0, sp), role: 'body', color: colB, group: it.name });
+          if (!empty(it.flat.dd)) parts.push({ name: `${it.name} · decorazioni`, m: EXT(it.flat.dd, sp, sp + lay), role: 'body', color: colD, group: it.name });
+        }
+      }
+      return { parts, cards, maxCardX, cardH0, telaio, gW, gH, items };
+    }
+
     function casetta(p) {
       const notes = [], info = [];
       const st = STYLES[p.stile] || STYLES.zenzero, style = STYLES[p.stile] ? p.stile : 'zenzero';
       const pick = (v, d) => (v && v !== 'auto' ? v : d);
       const tetto = pick(p.tetto, st.tetto), pareti = pick(p.pareti, st.pareti), orn = pick(p.ornamento, st.orn), ornB = pick(p.ornamento, st.ornB), sparsi = pick(p.sparsi, st.sparsi);
       const sp = Math.max(0.8, +p.spessore || 1.6), lay = Math.max(0.12, +p.strato || 0.4), tol = Math.max(0, +p.gioco || 0);
+      if (p.prova) return provaKit('pettine', p, sp, lay, tol, notes);
       const W = Math.max(30, +p.larghezza), Dp = Math.max(30, +p.profondita), Hw = Math.max(25, +p.altezza);
       const holed = p.finestre !== 'disegnate', snow = p.neve !== false, seed = (+p.variante | 0) * 7919 + 13;
       const pitch = Math.max(20, Math.min(62, +p.pendenza || st.pitch));
@@ -595,155 +759,9 @@
       const flatList = [];
       for (const it of list) for (let k = 0; k < (it.count || 1); k++) flatList.push({ name: it.count ? `${it.name} ${k + 1}` : it.name, base: it.base, decor: it.decor, place: it.place[k] || it.place[0] });
 
-      // ===== cartolina: pezzi sul telaio, attaccati con canali sottili =====
-      const telaio = p.telaio !== false, bed = Math.max(120, +p.piatto || 220);
-      const gap = telaio ? 2.2 : 5, barW = 2.6, gW = 1.2, gH = Math.min(sp, Math.max(0.4, +p.canale || 0.8));
-      const maxInner = bed - 2 * barW - 1;
-      const items = flatList.map((it) => Object.assign({}, it, { b0: bounds(it.base) }));
-      const tooBig = items.filter(it => Math.min(it.b0.w, it.b0.h) + 2 * gap > maxInner || Math.max(it.b0.w, it.b0.h) + 2 * gap > maxInner);
-      if (tooBig.length) notes.push(`${tooBig.map(t => t.name).join(', ')} più grand${tooBig.length > 1 ? 'i' : 'e'} del piatto da ${fmt(bed)} mm: rimpicciolisci la casa o metti il piatto giusto`);
-      // scritta in testa alla cartolina
-      let header = null;
-      if (telaio && String(p.scritta || '').trim() && T.fitText) {
-        const tf = T.fitText(p, { x: 0, y: 0, w: maxInner - 12, h: Math.max(8, 1.25 * (+p.altTesto || 9) + (String(p.scritta2 || '').trim() ? 1.9 * (+p.altTesto2 || +p.altTesto || 9) : 0)) }, +p.altTesto || 9);
-        if (tf) header = { cs: tf.cs, h: tf.box.h + 7, w: tf.box.w };
-        if (tf && tf.reduced) notes.push('~Scritta della cartolina ridotta per stare nella larghezza del piatto');
-      }
-      // impacchettamento a "skyline": ogni cella (pezzo + spazio) si appoggia sulle celle già messe, separate da una barra.
-      // y verso il basso, dentro la cornice. Restituisce le celle messe e quelle avanzate
-      function pack(list, Wmax, Hmax) {
-        let sky = [{ x: 0, y: 0, w: Wmax + barW }];
-        const placed = [], rest = [];
-        for (const it of list) {
-          let best = null;
-          for (const rot of [0, 90]) {
-            const cw = (rot ? it.b0.h : it.b0.w) + 2 * gap, ch = (rot ? it.b0.w : it.b0.h) + 2 * gap;
-            for (let i = 0; i < sky.length; i++) {
-              const x = sky[i].x;
-              if (x + cw > Wmax + 1e-6) break;
-              let y = 0;
-              for (const sg of sky) if (sg.x < x + cw + barW - 1e-6 && sg.x + sg.w > x + 1e-6) y = Math.max(y, sg.y);
-              if (y + ch > Hmax + 1e-6) continue;
-              const score = (y + ch) * 1000 + x;
-              if (!best || score < best.score) best = { score, x, y, cw, ch, rot };
-            }
-          }
-          if (!best) { rest.push(it); continue; }
-          placed.push(Object.assign({ it }, best));
-          // nuovo tratto dello skyline e taglio di quelli coperti
-          const nx0 = best.x, nx1 = best.x + best.cw + barW, ny = best.y + best.ch + barW, out = [];
-          for (const sg of sky) {
-            if (sg.x + sg.w <= nx0 + 1e-9 || sg.x >= nx1 - 1e-9) { out.push(sg); continue; }
-            if (sg.x < nx0) out.push({ x: sg.x, y: sg.y, w: nx0 - sg.x });
-            if (sg.x + sg.w > nx1) out.push({ x: nx1, y: sg.y, w: sg.x + sg.w - nx1 });
-          }
-          out.push({ x: nx0, y: ny, w: nx1 - nx0 });
-          out.sort((a, b) => a.x - b.x);
-          sky = [];
-          for (const sg of out) { const l = sky[sky.length - 1]; if (l && Math.abs(l.y - sg.y) < 1e-6 && Math.abs(l.x + l.w - sg.x) < 1e-6) l.w += sg.w; else sky.push(Object.assign({}, sg)); }
-        }
-        const W2 = Math.max(0, ...placed.map(q => q.x + q.cw)), H2 = Math.max(0, ...placed.map(q => q.y + q.ch));
-        return { placed, rest, W: W2, H: H2 };
-      }
-      // prima i pezzi grandi; provo varie larghezze e tengo la cartolina più piccola e più quadrata che sta nel piatto
-      const mx2 = (it) => Math.max(it.b0.w, it.b0.h), ar = (it) => it.b0.w * it.b0.h;
-      const orders = [(a, b) => mx2(b) - mx2(a) || ar(b) - ar(a), (a, b) => ar(b) - ar(a), (a, b) => b.b0.h - a.b0.h || ar(b) - ar(a), (a, b) => b.b0.w - a.b0.w || ar(b) - ar(a), (a, b) => Math.min(b.b0.w, b.b0.h) - Math.min(a.b0.w, a.b0.h)];
-      const cards = [];
-      let left = items;
-      while (left.length && cards.length < 6) {
-        const hdr = cards.length === 0 && header ? header.h + barW : 0, Hmax = maxInner - hdr;
-        const minW = Math.max(...left.map(it => Math.min(it.b0.w, it.b0.h) + 2 * gap), header && !cards.length ? header.w + 12 : 0);
-        let best = null;
-        for (const ord of orders) for (let Wt = maxInner; Wt >= minW - 1e-6; Wt -= 4) {
-          const r = pack(left.slice().sort(ord), Wt, Hmax);
-          if (!r.placed.length) continue;
-          const Wc = Math.max(r.W, hdr ? header.w + 12 : 0), sc = (r.rest.length ? 1e9 : 0) - r.placed.length * 1e6 + Wc * (r.H + hdr) + 0.6 * Math.abs(Wc - r.H - hdr) * Math.max(Wc, r.H);
-          if (!best || sc < best.sc) best = Object.assign(r, { sc, Wc });
-        }
-        if (!best) break;
-        cards.push({ placed: best.placed, w: best.Wc + 2 * barW, h: best.H + hdr + 2 * barW, hdr });
-        left = best.rest;
-      }
-      // i pezzi più grandi del piatto vanno comunque nel file, ognuno nella sua cartolina
-      for (const it of left) {
-        const r = pack([it], 1e4, 1e4);
-        if (r.placed.length) cards.push({ placed: r.placed, w: r.W + 2 * barW, h: r.H + 2 * barW, hdr: 0 });
-      }
-
-      const parts = [];
-      let cx0 = 0, maxCardX = 0, cardH0 = 0;
-      const colB = p.col1, colD = p.col2;
-      cards.forEach((c, ci) => {
-        const Wc = c.w, Hc = c.h;
-        // da coordinate della cartolina con y verso il basso a quelle vere (y in alto, cartolina tra x = cx0 e cx0 + Wc)
-        const X = (x) => cx0 + x, Y = (y) => Hc - y;
-        const R4 = (x0, y0, x1, y1) => RECT(X(x0), Y(y1), X(x1), Y(y0));
-        const frame = [D(R4(0, 0, Wc, Hc), R4(barW, barW, Wc - barW, Hc - barW))], gates = [], pcsB = [], pcsD = [];
-        if (c.hdr) frame.push(R4(0, 0, Wc, barW + header.h + barW));
-        for (const q of c.placed) {
-          const it = q.it, x0 = barW + q.x, y0 = barW + c.hdr + q.y, x1 = x0 + q.cw, y1 = y0 + q.ch;
-          const bs = q.rot ? ROT(it.base, 90) : it.base, ds = q.rot ? ROT(it.decor, 90) : it.decor;
-          const bb0 = bounds(bs), dx = X((x0 + x1) / 2) - (bb0.x0 + bb0.x1) / 2, dy = Y((y0 + y1) / 2) - (bb0.y0 + bb0.y1) / 2;
-          const bb = MV(bs, dx, dy), dd = MV(ds, dx, dy);
-          pcsB.push(bb); if (dd) pcsD.push(dd);
-          it.flat = { bb, dd };
-          if (!telaio) continue;
-          frame.push(D(R4(x0 - barW, y0 - barW, x1 + barW, y1 + barW), R4(x0, y0, x1, y1)));
-          // canali: a sinistra e a destra verso la cornice della cella; sopra e sotto se il pezzo è largo
-          const b = bounds(bb), cX0 = X(x0), cX1 = X(x1), cY0 = Y(y1), cY1 = Y(y0);
-          const gate = (side) => {
-            const hor = side === 'l' || side === 'r';
-            const strip = I(bb, side === 'l' ? RECT(b.x0, b.y0, b.x0 + 1.5, b.y1) : side === 'r' ? RECT(b.x1 - 1.5, b.y0, b.x1, b.y1) : side === 'b' ? RECT(b.x0, b.y0, b.x1, b.y0 + 1.5) : RECT(b.x0, b.y1 - 1.5, b.x1, b.y1));
-            if (empty(strip)) return null;
-            const sb = bounds(strip), mid = hor ? (sb.y0 + sb.y1) / 2 : (sb.x0 + sb.x1) / 2;
-            const line = I(bb, hor ? RECT(b.x0, mid - gW / 2, b.x1, mid + gW / 2) : RECT(mid - gW / 2, b.y0, mid + gW / 2, b.y1));
-            if (empty(line)) return null;
-            const lb = bounds(line);
-            if (side === 'l') return RECT(cX0 - 0.01, mid - gW / 2, lb.x0 + 0.6, mid + gW / 2);
-            if (side === 'r') return RECT(lb.x1 - 0.6, mid - gW / 2, cX1 + 0.01, mid + gW / 2);
-            if (side === 'b') return RECT(mid - gW / 2, cY0 - 0.01, mid + gW / 2, lb.y0 + 0.6);
-            return RECT(mid - gW / 2, lb.y1 - 0.6, mid + gW / 2, cY1 + 0.01);
-          };
-          gates.push(gate('l'), gate('r'));
-          if (b.w > 30) gates.push(gate('t'), gate('b'));
-          if (b.h > 40) { gates.push(gate('t')); }
-        }
-        const frameCS = telaio ? D(U(frame), U(pcsB)) : null, gateCS = telaio ? D(U(gates.filter(Boolean)), U(pcsB)) : null;
-        let decorCS = U(pcsD);
-        const nm = cards.length > 1 ? `Cartolina ${ci + 1}` : 'Cartolina';
-        if (telaio) {
-          const bodyM = union([EXT(U(pcsB), 0, sp), EXT(frameCS, 0, sp), gateCS ? EXT(gateCS, 0, gH) : null].filter(Boolean));
-          let markM = null;
-          if (c.hdr) {
-            const hy = Y(barW + header.h / 2), tcs = MV(header.cs, X(Wc / 2), hy);
-            const extras = [], room = (Wc - 2 * barW - header.w) / 2 - 4;
-            if (room > 8) for (const s of [-1, 1]) { const r = Math.min(room - 2, header.h - 3, 13) / 2; extras.push(flake(X(Wc / 2) + s * (header.w / 2 + 3 + r), hy, r, 1.1)); }
-            decorCS = U([decorCS, tcs, ...extras]);
-            if (p.marchio && T.placeMark) {
-              const face = R4(barW + 1, barW + 0.8, Wc - barW - 1, barW + header.h - 0.8);
-              const mk = T.placeMark(face, p, notes, U([tcs, ...extras]), 0.5);
-              if (mk) markM = EXT(mk, sp, sp + lay);
-            }
-          }
-          parts.push({ name: `${nm} · pezzi e telaio`, m: bodyM, role: 'body', color: colB, group: nm });
-          const dm = EXT(decorCS, sp, sp + lay);
-          if (dm) parts.push({ name: `${nm} · decorazioni`, m: dm, role: 'body', color: colD, group: nm });
-          if (markM) parts.push({ name: `${nm} · logo SP`, m: markM, role: 'body', color: p['col' + (T.markCol ? T.markCol(p, 2) : 2)] || colD, group: nm });
-        }
-        if (ci === 0) cardH0 = Hc;
-        maxCardX = cx0 + Wc;
-        cx0 += Wc + 10;
-      });
-
-      // pezzi sciolti (senza telaio): ogni pezzo è un oggetto
+      const { parts, cards, maxCardX, cardH0, telaio, gW, gH, items } = cardify(flatList, p, notes, sp, lay);
       const flatOf = (it) => ({ b: EXT(it.base, 0, sp), d: EXT(it.decor, sp, sp + lay) });
-      if (!telaio) {
-        for (const it of items) {
-          if (!it.flat) continue;
-          parts.push({ name: it.name, m: EXT(it.flat.bb, 0, sp), role: 'body', color: colB, group: it.name });
-          if (!empty(it.flat.dd)) parts.push({ name: `${it.name} · decorazioni`, m: EXT(it.flat.dd, sp, sp + lay), role: 'body', color: colD, group: it.name });
-        }
-      }
+      const colB = p.col1, colD = p.col2;
 
       // casetta montata, a destra della cartolina (solo anteprima)
       const check = !!p.__check;
@@ -783,6 +801,264 @@
       return res;
     }
 
-    return { casetta: (p) => { const N = H.decor && H.decor.NOTES; if (N) N.clear(); const r = casetta(p); if (N) { for (const x of N) r.info.push(['Nota', x]); N.clear(); } return r; } };
+    // ====================== prototipi: lanterna e albero in kit ======================
+    const rotXm = (m) => reg(m.rotate([90, 0, 0]));
+    // parete con gli angoli a pettine (own = denti pari)
+    function fingerPanel(Wd, Hh, sp, tol, n, own) {
+      const hz = Hh / n, e = Wd / 2 - sp - tol / 2, list = [RECT(-e, 0, e, Hh)];
+      for (let k = 0; k < n; k++) {
+        if ((k % 2 === 0) !== own) continue;
+        const v0 = k * hz + (own ? 0 : tol / 2), v1 = (k + 1) * hz - (own ? 0 : tol / 2);
+        list.push(RECT(e - 0.01, v0, Wd / 2, v1), RECT(-Wd / 2, v0, -e + 0.01, v1));
+      }
+      return U(list);
+    }
+    // cartolina + oggetto montato accanto (solo da guardare)
+    // due pezzi in una cella sola, il secondo girato di 180° e accostato al primo finché restano a gap mm (sagome a triangolo)
+    function nestPair(a, b, name, gap = 2.6) {
+      const ba = bounds(a.base), b2 = ROT(b.base, 180), d2 = ROT(b.decor, 180), bb = bounds(b2);
+      const at = (dx) => MV(b2, ba.x1 - bb.x0 + dx, (ba.y0 + ba.y1) / 2 - (bb.y0 + bb.y1) / 2);
+      const grown = OFF(a.base, gap);
+      let lo = -Math.min(ba.w, bb.w), hi = gap;
+      if (empty(I(grown, at(lo)))) hi = lo;
+      else for (let k = 0; k < 22; k++) { const m = (lo + hi) / 2; if (empty(I(grown, at(m)))) hi = m; else lo = m; }
+      const dx = ba.x1 - bb.x0 + hi, dy = (ba.y0 + ba.y1) / 2 - (bb.y0 + bb.y1) / 2;
+      return { name, base: U([a.base, MV(b2, dx, dy)]), decor: U([a.decor, d2 ? MV(d2, dx, dy) : null]) };
+    }
+    function kitFinish(flatList, p, notes, sp, lay, extraModels = [], cardList = null) {
+      const { parts, maxCardX, cardH0, cards } = cardify(cardList || flatList, p, notes, sp, lay);
+      const asmB = [], asmD = [];
+      for (const it of flatList) {
+        const b = EXT(it.base, 0, sp), d = EXT(it.decor, sp, sp + lay);
+        asmB.push(it.place(b)); if (d) asmD.push(it.place(d));
+      }
+      const mb = union(asmB), md = asmD.length ? union(asmD) : null;
+      const bb = mb.boundingBox(), ox = maxCardX + 30 - bb.min[0], oy = cardH0 / 2 - (bb.min[1] + bb.max[1]) / 2;
+      const mv = (m) => reg(m.translate([ox, oy, -bb.min[2]]));
+      if (p.__check) flatList.forEach((it) => { const b = EXT(it.base, 0, sp); parts.push({ name: 'Montata · ' + it.name, m: mv(it.place(b)), role: 'body', color: p.col1 }); });
+      else if (p.anteprima !== 'cartolina') {
+        parts.push({ name: 'Montato', m: mv(mb), role: 'model', color: p.col1 });
+        if (md) parts.push({ name: 'Montato · decorazioni', m: mv(md), role: 'model', color: p.col2 });
+        for (const [m, c] of extraModels) parts.push({ name: 'Esempio', m: mv(m), role: 'model', color: c });
+      }
+      if (p.__check) parts.pieces = flatList.map(it => [it.name, it.base.decompose().length]);
+      return { parts, cards };
+    }
+
+    // ---------------- LANTERNA IN KIT ----------------
+    function kitLanterna(p) {
+      const notes = [], sp = Math.max(0.8, +p.spessore || 1.6), lay = Math.max(0.12, +p.strato || 0.4), tol = Math.max(0, +p.gioco || 0);
+      if (p.prova) return provaKit('pettine', p, sp, lay, tol, notes);
+      const W = Math.max(44, +p.lato || 64), Hh = Math.max(50, +p.altezza || 96), R = rng((+p.variante | 0) * 7919 + 11);
+      const n = Math.max(3, 2 * Math.round((Hh / 10 - 1) / 2) + 1);
+      const wB = Math.min(10, W * 0.18), wT = 8;
+      const tabsB = U([-1, 1].map(s => RECT(s * W / 4 - wB / 2, -sp, s * W / 4 + wB / 2, 0.01)));
+      const dJ = Math.min(12, Hh * 0.12);   // altezza dell'incastro del manico
+      const sx0 = -W / 2 + sp + 5, sx1 = W / 2 - sp - 5, g = 9;   // zona della scena, terreno a g
+      function scene(kind, Fh, Fd) {
+        const sky = RECT(sx0, g + 2, sx1, Hh - 6);
+        const stars = (k, avoid) => { let free = D(OFF(sky, -3), avoid); for (let i = 0; i < 60 && k > 0; i++) { const x = sx0 + (sx1 - sx0) * R(), y = g + 10 + (Hh - g - 18) * R(), r = 1.6 + 1.6 * R(), c = C2(x, y, r + 1.6); if (!empty(D(c, free))) continue; Fh.push(star(x, y, r)); free = D(free, C2(x, y, r + 3)); k--; } };
+        const moon = (x, y, r) => D(C2(x, y, r), C2(x + r * 0.45, y + r * 0.25, r * 0.85));
+        if (kind === 'villaggio') {
+          const houses = [], roofs = [];
+          const defs = [[-0.30, 0.34, 0.30], [0.02, 0.30, 0.42], [0.31, 0.30, 0.26]];
+          for (const [cx, w, hh] of defs) {
+            const x = cx * W, ww = w * W, ht = hh * Hh, rh = ww * 0.55;
+            const body = RECT(x - ww / 2, g - 1, x + ww / 2, g + ht), roof = P2([[x - ww / 2 - 1.5, g + ht - 0.01], [x + ww / 2 + 1.5, g + ht - 0.01], [x, g + ht + rh]]);
+            const hs = U([body, roof]); houses.push(hs);
+            roofs.push(I(D(roof, MV(roof, 0, -2.6)), roof));
+            const nw = ww > 18 ? 2 : 1;
+            for (let k = 0; k < nw; k++) { const wx = x - ww / 2 + (k + 1) * ww / (nw + 1); Fh.push(D(RECT(wx - 2.4, g + ht * 0.42, wx + 2.4, g + ht * 0.42 + 5.4), U([RECT(wx - 0.6, g, wx + 0.6, g + 99), RECT(wx - 9, g + ht * 0.42 + 2.1, wx + 9, g + ht * 0.42 + 3.3)]))); }
+            Fh.push(C2(x, g + ht + rh * 0.42, Math.min(2.2, rh * 0.18)));
+          }
+          const hU = U(houses);
+          Fd.push(D(OFF(hU, 0.9), hU), U(roofs));
+          stars(7, OFF(hU, 2)); Fh.push(moon(sx1 - 7, Hh - 15, 5.5));
+        } else if (kind === 'bosco') {
+          const trees = [];
+          for (const [cx, hh] of [[-0.3, 0.55], [-0.06, 0.72], [0.17, 0.5], [0.33, 0.62]]) {
+            const x = cx * W, ht = hh * (Hh - g - 12), w = ht * 0.5, t = [];
+            for (let k = 0; k < 3; k++) { const y0 = g + 4 + k * ht * 0.27, ww = w * (1 - k * 0.27); t.push(P2([[x - ww / 2, y0], [x + ww / 2, y0], [x, y0 + ht * 0.42]])); }
+            t.push(RECT(x - 1.3, g, x + 1.3, g + 5));
+            trees.push(U(t));
+          }
+          const tU = U(trees); Fh.push(tU);
+          Fd.push(D(OFF(tU, 1.1), tU));
+          stars(9, OFF(tU, 2));
+        } else if (kind === 'slitta' && T.artGeom && T.EMO_BY) {
+          // due renne sulla neve, una davanti all'altra, sotto la luna
+          const sw2 = sx1 - sx0, deer = T.artGeom(T.EMO_BY['deer'], sw2 * 0.5).sil, deer2 = T.artGeom(T.EMO_BY['deer'], sw2 * 0.38).sil;
+          const b1 = bounds(deer), b2 = bounds(deer2);
+          const s1 = MV(deer, sx0 + sw2 * 0.34 - (b1.x0 + b1.x1) / 2, g + 1.5 - b1.y0), s2 = MV(MIRX(deer2), sx1 - sw2 * 0.2 - (b2.x0 + b2.x1) / 2, g + 1.5 - b2.y0);
+          const fig = clean(U([s1, s2]), 1.2); Fh.push(fig);
+          Fh.push(moon(sx1 - 9, Hh - 15, 7)); stars(6, OFF(U([fig, C2(sx1 - 9, Hh - 15, 10)]), 2));
+          // alberelli sul terreno, disegnati
+          for (const x of [-0.28, 0.06, 0.3]) Fd.push(D(P2([[x * W - 5, g], [x * W + 5, g], [x * W, g + 13]]), P2([[x * W - 3.4, g + 1], [x * W + 3.4, g + 1], [x * W, g + 10.5]])));
+        } else if (kind === 'stelle') {
+          const mr = Math.min(12, (sx1 - sx0) * 0.22); Fh.push(moon(0, Hh * 0.62, mr)); stars(16, C2(0, Hh * 0.62, mr + 3));
+        } else if (kind === 'cuori') {
+          let free = OFF(sky, -2);
+          for (let i = 0; i < 80; i++) { const s = 6 + 6 * R(), x = sx0 + (sx1 - sx0) * R(), y = g + 4 + (Hh - g - 12) * R(), c = C2(x, y, s / 2 + 1.6); if (!empty(D(c, free))) continue; Fh.push(heart(x, y, s)); free = D(free, C2(x, y, s / 2 + 3)); }
+        } else {
+          let free = OFF(sky, -2);
+          for (let i = 0; i < 80; i++) { const r = 3.5 + 3.5 * R(), x = sx0 + (sx1 - sx0) * R(), y = g + 4 + (Hh - g - 12) * R(), c = C2(x, y, r + 1.6); if (!empty(D(c, free))) continue; Fh.push(flake(x, y, r, 1.4)); free = D(free, C2(x, y, r + 3)); }
+        }
+      }
+      const panels = [];
+      const sc4 = [p.scena1 || 'villaggio', p.scena2 || 'bosco', p.scena3 || 'slitta', p.scena4 || 'fiocchi'];
+      for (const [nm, kind, own, az] of [['Pannello 1', sc4[0], true, 0], ['Pannello 2', sc4[1], false, 90], ['Pannello 3', sc4[2], true, 180], ['Pannello 4', sc4[3], false, -90]]) {
+        const outline = fingerPanel(W, Hh, sp, tol, n, own), Fh = [], Fd = [];
+        scene(kind, Fh, Fd);
+        const holes = I(U(Fh), OFF(RECT(sx0, 3, sx1, Hh - 3), 0));
+        // cornice e neve sul terreno
+        const fr = D(RECT(-W / 2 + sp + 1, 1, W / 2 - sp - 1, Hh - 1), RECT(-W / 2 + sp + 3, 3, W / 2 - sp - 3, Hh - 3));
+        const ground = U([RECT(-W / 2, 0, W / 2, g - 2), ...Array.from({ length: 9 }, (_, k) => C2(-W / 2 + k * W / 8, g - 2.2, 2 + 1.5 * R(), 20))]);
+        // i trafori non devono lasciare isole staccate (cadrebbero): tengo solo il pezzo più grande
+        let solid = D(outline, holes);
+        const bits = solid.decompose().map(R2);
+        if (bits.length > 1) { bits.sort((a, b) => b.area() - a.area()); solid = bits[0]; }
+        // pannelli dei fianchi: tacca in alto al centro per il manico (incastro a mezzo legno)
+        if (p.manico !== false && !own) solid = D(solid, RECT(-(sp + tol) / 2, Hh - dJ / 2 - tol, (sp + tol) / 2, Hh + 1));
+        let base = U([solid, tabsB]);
+        let decor = U([fr, ground, ...Fd]);
+        decor = clean(D(I(decor, OFF(solid, -0.3)), OFF(holes, 0.5)), 0.8);
+        panels.push({ name: nm, base, decor, place: (m) => reg(reg(rotXm(m).translate([0, -W / 2 + sp, sp])).rotate([0, 0, az])) });
+      }
+      // base e cappello: piastre con le fessure delle linguette
+      const slots = [];
+      for (const s of [-1, 1]) {
+        slots.push(RECT(s * W / 4 - wB / 2 - tol / 2, -W / 2 - tol / 2, s * W / 4 + wB / 2 + tol / 2, -W / 2 + sp + tol / 2), RECT(s * W / 4 - wB / 2 - tol / 2, W / 2 - sp - tol / 2, s * W / 4 + wB / 2 + tol / 2, W / 2 + tol / 2));
+        slots.push(RECT(W / 2 - sp - tol / 2, s * W / 4 - wB / 2 - tol / 2, W / 2 + tol / 2, s * W / 4 + wB / 2 + tol / 2), RECT(-W / 2 - tol / 2, s * W / 4 - wB / 2 - tol / 2, -W / 2 + sp + tol / 2, s * W / 4 + wB / 2 + tol / 2));
+      }
+      const sl = U(slots);
+      const bOut = OFF(OFF(RECT(-W / 2 - 4.5, -W / 2 - 4.5, W / 2 + 4.5, W / 2 + 4.5), -3), 3);
+      const scal = (outC, k) => { const out = [D(outC, OFF(outC, -2, 'Miter'))]; const b = bounds(outC); for (let i = 0; i <= k; i++) for (const [x, y] of [[b.x0 + 2 + i * (b.w - 4) / k, b.y0 + 2], [b.x0 + 2 + i * (b.w - 4) / k, b.y1 - 2], [b.x0 + 2, b.y0 + 2 + i * (b.h - 4) / k], [b.x1 - 2, b.y0 + 2 + i * (b.h - 4) / k]]) out.push(C2(x, y, 2.3, 20)); return I(U(out), outC); };
+      const ring = D(C2(0, 0, 20.6, 64), C2(0, 0, 19.6, 64));
+      const baseP = { name: 'Base', base: D(bOut, sl), decor: clean(D(U([scal(bOut, 10), ring, ...[0, 90, 180, 270].map(a => ROT(MV(star(0, 0, 3), 26, 0), a + 45))]), OFF(sl, 1.2)), 0.8), place: (m) => m };
+      // manico ad arco: i piedi scendono nei pannelli dei fianchi, incastrati a mezzo legno nelle tacche in alto
+      const Rc = W / 2 - sp / 2, hb = 6;
+      const arcCS = I(D(C2(0, 0, Rc + hb / 2, 128), C2(0, 0, Rc - hb / 2, 128)), RECT(-Rc - hb, 0, Rc + hb, Rc + hb));
+      const loop = D(C2(0, Rc + hb / 2 + 3.5, 5.5, 40), C2(0, Rc + hb / 2 + 3.5, 2.8, 32));
+      const feet = U([-1, 1].map(s => D(RECT(s * Rc - hb / 2, -dJ, s * Rc + hb / 2, 0.01), RECT(s * Rc - (sp + tol) / 2, -dJ - 1, s * Rc + (sp + tol) / 2, -dJ / 2 + tol))));
+      const handleCS = U([arcCS, loop, feet]);
+      const handleP = { name: 'Manico', base: handleCS, decor: clean(I(U([...[-60, -30, 0, 30, 60].map(a => ROT(MV(star(0, 0, 1.9), 0, Rc), a))]), OFF(arcCS, -0.4)), 0.8), place: (m) => reg(rotXm(m).translate([0, sp / 2, sp + Hh])) };
+      const flatList = [...panels, baseP];
+      if (p.manico !== false) flatList.push(handleP);
+      // lumino d'esempio
+      const tea = union([reg(reg(H.Manifold.cylinder(15, 19, 19, 48)).translate([0, 0, sp])), reg(reg(H.Manifold.cylinder(9, 2.2, 0.3, 24)).translate([0, 0, sp + 15]))]);
+      const r = kitFinish(flatList, p, notes, sp, lay, [[tea, '#f3d36b']]);
+      const info = [['Lanterna', `${fmt(W)} × ${fmt(W)} × ${fmt(Hh)} mm: 4 pannelli traforati e base${p.manico !== false ? ', manico' : ''}`],
+        ...kitInfo(r.cards, p, sp, lay, tol, n),
+        ['Montaggio', p.manico !== false ? '1) i pannelli nella base, incastrando i denti agli angoli, 2) il manico dall\'alto nelle tacche dei due fianchi: i piedi del manico e i fianchi si incastrano a croce' : 'i pannelli nella base, incastrando i denti agli angoli'],
+        ['Luce', W - 2 * sp >= 40 ? 'lumino LED da 38 mm: sta nel cerchio disegnato sulla base' : 'stretta per un lumino da 38 mm: usa una lucina più piccola'],
+        ['Attenzione', 'solo lumini LED, mai candele vere'], ...notes.map(x => ['Nota', x])];
+      return { parts: r.parts, info, view: [0.15, -1, 0.8] };
+    }
+
+    // ---------------- ALBERO 3D A SAGOME INCROCIATE ----------------
+    function kitAlbero(p) {
+      const notes = [], sp = Math.max(1, +p.spessore || 2), lay = Math.max(0.12, +p.strato || 0.4), tol = Math.max(0, +p.gioco || 0);
+      if (p.prova) return provaKit('croce', p, sp, lay, tol, notes);
+      const h = Math.max(60, +p.altezza || 120), w = h * 0.62, R = rng((+p.variante | 0) * 7919 + 5);
+      const trunkW = Math.max(18, w * 0.22), trunkH = h * 0.08;
+      // sagoma: 5 palchi con il bordo sotto a festoni, tronco
+      const tiers = [], dec = [];
+      let y = trunkH;
+      for (let k = 0; k < 5; k++) {
+        const ww = w * (1 - k * 0.17), th = (h * 0.86 - trunkH) * (k === 4 ? 0.36 : 0.27), apex = Math.min(h * 0.93, y + th * 1.25);
+        const tri = P2([[-ww / 2, y], [ww / 2, y], [0, apex]]);
+        const nb = Math.max(3, Math.round(ww / 9)), bumps = [];
+        for (let i = 0; i <= nb; i++) bumps.push(C2(-ww / 2 + 2 + i * (ww - 4) / nb, y + 1.2, Math.min(4.2, ww / nb / 2 + 0.6), 24));
+        const tier = U([tri, I(U(bumps), RECT(-ww / 2, y - 6, ww / 2, y + 3))]);
+        tiers.push(tier);
+        // festone e palline
+        const yA = y + th * 0.42;
+        if (p.festoni !== false) dec.push(stroke([[-ww * 0.32, yA + 2], [-ww * 0.1, yA - 1.5], [ww * 0.1, yA + 0.8], [ww * 0.3, yA - 2]], 1.2));
+        if (p.palline !== false) for (let i = 0; i < 3; i++) dec.push(C2(-ww * 0.3 + i * ww * 0.3 + (R() - 0.5) * 3, y + 3.5 + R() * th * 0.25, 1.8));
+        y += th * 0.72;
+      }
+      const tree = U([...tiers, RECT(-trunkW / 2, 0, trunkW / 2, trunkH + 2)]);
+      const snowD = p.neve !== false ? I(icing(U(tiers), Math.max(2, h * 0.018), 9, 'goccia'), OFF(tree, -0.5)) : null;
+      const decAll = U([...dec, snowD]);
+      const top = bounds(U(tiers)).y1, stR = h * 0.075;
+      const starCSx = p.stella !== false ? star(0, top + stR * 0.45, stR) : null;
+      const sw = 1.75 * sp + tol, r0 = sp + tol;
+      const tabAt = (x) => RECT(x - 2, -sp, x + 2, 0.01);
+      const tx = trunkW / 2 - 3.2;
+      const A = { base: U([D(tree, RECT(-sw / 2, h / 2 - tol, sw / 2, h * 2)), tabAt(-tx), tabAt(tx)]), decor: decAll };
+      const B = { base: U([D(U([tree, starCSx]), RECT(-sw / 2, -sp - 1, sw / 2, h / 2 + tol)), tabAt(-tx), tabAt(tx)]), decor: U([decAll, starCSx ? OFF(starCSx, -0.01) : null]) };
+      const xc = (r0 + trunkW / 2) / 2;
+      const Cb = U([I(tree, RECT(r0, -1, w, h * 2)), tabAt(xc)]);
+      const C = { base: Cb, decor: I(decAll, RECT(r0 + 0.8, -1, w, h * 2)) };
+      for (const q of [A, B, C]) q.decor = clean(I(q.decor, OFF(q.base, -0.3)), 0.8);
+      const stand = (az) => (m) => reg(reg(rotXm(m).translate([0, sp / 2, sp])).rotate([0, 0, az]));
+      // base tonda con le fessure a raggiera e la scritta
+      const Rb = Math.max(trunkW / 2 + 12, w * 0.36 + 4), bOut = C2(0, 0, Rb, 128), slots = [];
+      const slotR = (x, az) => ROT(RECT(x - 2 - tol / 2, -sp / 2 - tol / 2, x + 2 + tol / 2, sp / 2 + tol / 2), az);
+      for (const az of [0, 60]) { slots.push(slotR(-tx, az), slotR(tx, az)); }
+      slots.push(slotR(xc, 120), slotR(-xc, 120));
+      const sl = U(slots);
+      const scal = []; for (let k = 0; k < 40; k++) { const a = k * 9 * DEG; scal.push(C2(Rb * Math.cos(a) * 0.97, Rb * Math.sin(a) * 0.97, 2.6, 20)); }
+      let txt = null;
+      const baseP = { name: 'Base', base: D(bOut, sl), decor: clean(D(I(U([D(bOut, C2(0, 0, Rb - 1.8, 128)), D(U(scal), txt ? OFF(txt, 1.2) : null), txt]), OFF(bOut, -0.3)), OFF(sl, 1.2)), 0.8), place: (m) => m };
+      const flatList = [
+        { name: 'Sagoma A', ...A, place: stand(0) }, { name: 'Sagoma B', ...B, place: stand(60) },
+        { name: 'Mezza sagoma C 1', ...C, place: stand(120) }, { name: 'Mezza sagoma C 2', ...C, place: stand(300) }, baseP,
+      ];
+      const cardList = [nestPair(flatList[0], flatList[1], 'Sagome A e B'), nestPair(flatList[2], flatList[3], 'Mezze sagome C'), baseP];
+      const r = kitFinish(flatList, p, notes, sp, lay, [], cardList);
+      const info = [['Albero', `alto ${fmt(h + (starCSx ? stR : 0) + sp)} mm, largo ${fmt(w)} mm: 3 sagome incrociate a 60° (6 rami) su una base tonda Ø ${fmt(2 * Rb)} mm`],
+        ...kitInfo(r.cards, p, sp, lay, tol, 0),
+        ['Montaggio', '1) la sagoma A (fessura in alto) nella base, 2) la B (fessura in basso, con la stella) calata dall\'alto sulla A, 3) le due mezze sagome C nelle fessure rimaste'],
+        ...notes.map(x => ['Nota', x])];
+      return { parts: r.parts, info, view: [0.15, -1, 0.6] };
+    }
+
+    // righe comuni del riquadro misure
+    function kitInfo(cards, p, sp, lay, tol, n) {
+      const out = [];
+      if (p.telaio !== false) out.push(['Cartolina', cards.map((c, i) => `${cards.length > 1 ? `n. ${i + 1}: ` : ''}${fmt(c.w)} × ${fmt(c.h)} mm`).join(' · ') + `, spessa ${fmt(sp)} mm + ${fmt(lay)} mm di colore`]);
+      out.push(['Stampante a un colore', `cambio filamento a ${fmt(sp)} mm → colore 2 (le decorazioni)`]);
+      out.push(['Incastri', `gioco ${fmt(tol)} mm${n ? `, angoli a pettine (${n} denti)` : ''}: prima stampa la prova incastri (Spessori → Solo prova incastri)`]);
+      return out;
+    }
+
+    // ---------------- PROVA INCASTRI: pochi pezzi piccoli, veloci da stampare ----------------
+    // 'pettine': un angolo con due pareti a denti e un pezzo di base con le fessure (casetta, lanterna);
+    // 'croce': tre sagome corte con le fessure a metà e la base tonda a raggiera (albero).
+    function provaKit(kind, p, sp, lay, tol, notes) {
+      const list = [];
+      const dot = (x, y) => star(x, y, 2.6);   // un po' di colore: si prova anche il cambio filamento
+      const stand = (az, dy = 0) => (m) => reg(reg(rotXm(m).translate([0, sp / 2 + dy, sp])).rotate([0, 0, az]));
+      if (kind === 'pettine') {
+        const S = 26, Hh = 18, tw = 8;
+        const tab = RECT(-tw / 2, -sp, tw / 2, 0.01);
+        const wallP = (own, name, az) => ({ name, base: U([fingerPanel(S, Hh, sp, tol, 3, own), tab]), decor: dot(0, Hh / 2), place: (m) => reg(reg(rotXm(m).translate([0, -S / 2 + sp, sp])).rotate([0, 0, az])) });
+        list.push(wallP(true, 'Prova · parete A', 0), wallP(false, 'Prova · parete B', 90));
+        const out = OFF(OFF(RECT(-S / 2 - 4, -S / 2 - 4, S / 2 + 4, S / 2 + 4), -2), 2);
+        const sl = U([RECT(-tw / 2 - tol / 2, -S / 2 - tol / 2, tw / 2 + tol / 2, -S / 2 + sp + tol / 2), RECT(S / 2 - sp - tol / 2, -tw / 2 - tol / 2, S / 2 + tol / 2, tw / 2 + tol / 2)]);
+        list.push({ name: 'Prova · base', base: D(out, sl), decor: dot(-S / 4, S / 4), place: (m) => m });
+      } else {
+        const S = 13, Hh = 30, sw = 1.75 * sp + tol, r0 = sp + tol, tx = 6, xc = (r0 + S) / 2;
+        const tabAt = (x) => RECT(x - 2, -sp, x + 2, 0.01);
+        list.push({ name: 'Prova · sagoma A', base: U([D(RECT(-S, 0, S, Hh), RECT(-sw / 2, Hh / 2 - tol, sw / 2, Hh + 1)), tabAt(-tx), tabAt(tx)]), decor: dot(-S / 2, Hh * 0.3), place: stand(0) });
+        list.push({ name: 'Prova · sagoma B', base: U([D(RECT(-S, 0, S, Hh), RECT(-sw / 2, -sp - 1, sw / 2, Hh / 2 + tol)), tabAt(-tx), tabAt(tx)]), decor: dot(-S / 2, Hh * 0.7), place: stand(60) });
+        list.push({ name: 'Prova · mezza sagoma C', base: U([RECT(r0, 0, S, Hh), tabAt(xc)]), decor: null, place: stand(120) });
+        const slotR = (x, az) => ROT(RECT(x - 2 - tol / 2, -sp / 2 - tol / 2, x + 2 + tol / 2, sp / 2 + tol / 2), az);
+        const sl = U([slotR(-tx, 0), slotR(tx, 0), slotR(-tx, 60), slotR(tx, 60), slotR(xc, 120)]);
+        list.push({ name: 'Prova · base', base: D(C2(0, 0, S + 5, 64), sl), decor: null, place: (m) => m });
+      }
+      const r = kitFinish(list, Object.assign({}, p, { scritta: '', marchio: false }), notes, sp, lay);
+      const info = [['Prova incastri', `solo ${list.length} pezzi piccoli${p.telaio !== false ? ' su una cartolina mini, con i canali' : ''}: si stampa in pochi minuti`],
+        ['Come provare', kind === 'pettine' ? 'infila le due pareti nella base e incastra i denti dell\'angolo. Devono entrare con una leggera pressione e restare ferme' : 'infila la A nella base, cala la B dall\'alto sulla A, poi la mezza sagoma C nella sua fessura. Devono entrare con una leggera pressione'],
+        ['Se entrano duri', `aumenta il gioco (ora ${fmt(tol)} mm) di 0,05–0,1 mm; se ballano diminuiscilo. Poi spegni la prova e stampa tutto`],
+        ['Stampante a un colore', `cambio filamento a ${fmt(sp)} mm: le stelline provano anche lo strato colorato`],
+        ...notes.map(x => ['Nota', x])];
+      return { parts: r.parts, info, view: [0.15, -1, 0.7] };
+    }
+
+    const T = H.decor || {};
+    const withN = (fn) => (p) => { const N = H.decor && H.decor.NOTES; if (N) N.clear(); const r = fn(p); if (N) { for (const x of N) r.info.push(['Nota', x]); N.clear(); } return r; };
+    return { casetta: withN(casetta), lanternakit: withN(kitLanterna), alberokit: withN(kitAlbero) };
   });
 })(typeof globalThis !== 'undefined' ? globalThis : this);
