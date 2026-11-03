@@ -423,6 +423,37 @@
       return { parts, cards, maxCardX, cardH0, telaio, gW, gH, items };
     }
 
+    // larghezza dei tratti più sottili di una sezione (quelli che spariscono aprendola: più dell'1% dell'area)
+    function thinnest(c) {
+      const A = c.area(); let lo = 0.01, hi = 3;
+      for (let k = 0; k < 18; k++) { const m = (lo + hi) / 2, o = OFF(OFF(c, -m, 'Round'), m, 'Round'); if ((A - (o ? o.area() : 0)) / A > 0.01) hi = m; else lo = m; }
+      return 2 * lo;
+    }
+    // scritta che sta in un riquadro w × h: una riga o, se viene troppo piccola, due righe spezzate allo spazio più centrale.
+    // I tratti più sottili di due passate dell'ugello vengono ingrossati (se no lo slicer li salta o la pulizia li toglie)
+    function signText(txt, font, w, h, noz) {
+      const T = H.decor || {};
+      const fit = (lines, cap) => {
+        let c = T.textCS(lines, font, cap, noz);
+        if (!c) return null;
+        const b = bounds(c), k = Math.min(1, (w - 1.6) / b.w, (h - 1.2) / b.h);   // margine per l'ingrossamento
+        if (k < 1) c = R2(c.scale([k, k]));
+        return { cs: c, cap: cap * k, lines: lines.length };
+      };
+      let best = fit([txt], Math.min(9, h * 0.62));
+      const sp = [...txt.matchAll(/ /g)].map(m => m.index);
+      if (best && best.cap < 5 && sp.length) {
+        const i = sp.reduce((a, b) => (Math.abs(b - txt.length / 2) < Math.abs(a - txt.length / 2) ? b : a));
+        const two = fit([txt.slice(0, i), txt.slice(i + 1)], Math.min(9, h * 0.36));
+        if (two && two.cap >= best.cap * 0.92) best = two;
+      }
+      if (!best) return null;
+      const wmin = Math.max(0.9, 2 * noz * 1.05), t0 = thinnest(best.cs);
+      best.bold = t0 < wmin;
+      if (best.bold) best.cs = OFF(best.cs, (wmin - t0) / 2 + 0.02, 'Round');
+      return best;
+    }
+
     function casetta(p) {
       const notes = [], info = [];
       const st = STYLES[p.stile] || STYLES.zenzero, style = STYLES[p.stile] ? p.stile : 'zenzero';
@@ -479,7 +510,7 @@
       } else if (ext === 'insegna') {
         const vF = Hw + Hr + Math.max(8, Hr * 0.4);
         extShape = D(U([RECT(-W / 2, Hw, W / 2, vF), C2(0, vF, W * 0.2, 64)]), U([C2(-W / 2, vF, 5, 32), C2(W / 2, vF, 5, 32)]));
-        const sh = Math.min(16, (vF - Hw) * 0.5), sw = W * 0.66, sc = Hw + (vF - Hw) * 0.55;
+        const sh = Math.min(20, (vF - Hw) * 0.62), sw = W - 2 * sp - 9, sc = Hw + (vF - Hw) * 0.5;
         sign = { x0: -sw / 2, x1: sw / 2, y0: sc - sh / 2, y1: sc + sh / 2, vF };
       }
 
@@ -533,18 +564,16 @@
             F.decor.push(D(sg, OFF(sg, -1.2, 'Miter')));
             const txt = String(p.insegna || '').trim();
             if (txt && T.textCS) {
-              const capW = Math.min(sign.y1 - sign.y0 - 5, 9);
-              let tc = T.textCS([txt], p.carattere || 'tondo', capW, +p.ugello || 0.4);
-              if (tc) {
-                const b = bounds(tc), k = Math.min(1, (sign.x1 - sign.x0 - 5) / b.w, (sign.y1 - sign.y0 - 4.4) / b.h);
-                if (k < 1) tc = R2(tc.scale([k, k]));
-                const b2 = bounds(tc);
-                F.decor.push(MV(tc, -(b2.x0 + b2.x1) / 2, (sign.y0 + sign.y1) / 2 - (b2.y0 + b2.y1) / 2));
-                if (k < 0.97) notes.push('~Scritta dell\'insegna ridotta per stare nel riquadro');
+              const st = signText(txt, p.carattere || 'tondo', sign.x1 - sign.x0 - 4.4, sign.y1 - sign.y0 - 4, +p.ugello || 0.4);
+              if (st) {
+                const b2 = bounds(st.cs);
+                F.text = MV(st.cs, -(b2.x0 + b2.x1) / 2, (sign.y0 + sign.y1) / 2 - (b2.y0 + b2.y1) / 2);
+                if (st.lines > 1) notes.push('~Insegna su due righe per stare nel riquadro');
+                if (st.cap < 3.2) notes.push(`Insegna piccola (lettere di ${fmt(st.cap)} mm): ${st.bold ? 'i tratti sono stati ingrossati per stamparli, ' : ''}si legge meglio con meno lettere, con il carattere Tondo o con una casa più larga`);
               }
             }
             F.keep.push(OFF(sg, 2));
-            for (const s of [-1, 1]) F.decor.push(star(s * (sign.x1 + (W / 2 - sign.x1) / 2 + 0.5), (sign.y0 + sign.y1) / 2, Math.min(4.5, (W / 2 - sign.x1) / 2 - 1.5)));
+            if (W / 2 - sign.x1 > 7.5) for (const s of [-1, 1]) F.decor.push(star(s * (sign.x1 + (W / 2 - sign.x1) / 2 + 0.5), (sign.y0 + sign.y1) / 2, Math.min(4.5, (W / 2 - sign.x1) / 2 - 1.5)));
           } else ornament(F, which === 'back' ? ornB : orn, 0, cy, s0, holed);
         }
         // ---- muri ----
@@ -579,6 +608,8 @@
         decor = I(decor, OFF(base, -0.25));
         decor = I(decor, safe);
         decor = clean(decor, 0.8);
+        // la scritta dell'insegna non passa dalla pulizia: è già ingrossata quanto serve (signText)
+        if (F.text) decor = U([D(decor, OFF(F.text, 0.6)), I(F.text, OFF(base, -0.25))]);
         const tabs = U([bottomTabs(Wd), which === 'side' ? sideTopTabs() : (which === 'back' || frontCovered) ? gableTabs() : null]);
         base = U([base, tabs]);
         return { name, base, decor, kind: which };
