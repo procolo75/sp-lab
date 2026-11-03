@@ -811,7 +811,7 @@
       }
       // segnaposto: base con fessura
       if (p.supporto) {
-        const L = Math.max(30, Math.min(b.w * 0.8, 90)), Wd = 16, Hs = 9, sl = t + p.tolleranza;
+        const L = Math.max(30, Math.min(b.w * 0.8, 90)), Wd = 16, Hs = 9, sl = t + 2 * p.tolleranza;   // gioco per lato
         let st = sub(H.slab(L, Wd, 3, 0, Hs), box(-L / 2 + 4, -sl / 2, Hs - 6, L / 2 - 4, sl / 2, Hs + 1));
         parts.push(part('Supporto da tavolo', st, F[0], 'Supporto', { at: [0, b.y0 - Wd / 2 - 8, 0] }));
         info.push(['Supporto', `${fmt(L)} × ${fmt(Wd)} × ${fmt(Hs)} mm, fessura ${fmt(sl)} mm`]);
@@ -992,7 +992,7 @@
         if (dec) dec = sub(dec, cylZ(rh + 3, zT - 6, zT + 1, 0, 0, 32));
         let c = sub(knurled(2 * (rh + 2.6), zT - 4, zT + 5), outer);
         c = sub(c, reg(reg(Manifold.cylinder(4 * rh + 20, 1.3, 1.3, 20, true)).rotate([0, 90, 0]).translate([0, 0, zT + 2.6])));
-        c = union([c, cylZ(rh - p.tolleranza / 2, zT - t - 3, zT + 1, 0, 0, 32)]);   // perno che entra nel foro, unito al cappuccio
+        c = union([c, cylZ(rh - p.tolleranza, zT - t - 3, zT + 1, 0, 0, 32)]);   // perno che entra nel foro, unito al cappuccio (gioco per lato)
         // fessura per il filo delle lucine: taglio verticale dal centro verso il dietro (il nastro passa da sinistra a destra)
         if (p.filoLuci) c = sub(c, box(-p.fessura / 2, 0, zT - t - 4, p.fessura / 2, big, zT + 7));
         cap = c;
@@ -1028,7 +1028,7 @@
           const zF = pr.zBot - 0.8, ext2 = (p.costruzione === 'meta' ? Math.SQRT2 : 1) * (rL + 2);
           let zs = null;
           for (let z = pr.zBot; z < pr.zW; z += 0.25) { if (radiusAt(pr, z) >= ext2) { zs = z; break; } }
-          const plug = reg(EXT(shapeL(-p.tolleranza / 2), zF, z1).intersect(outer));
+          const plug = reg(EXT(shapeL(-p.tolleranza), zF, z1).intersect(outer));
           if (zs !== null && zs - pr.zBot < 4) {
             led.lid = union([sub(EXT(shapeL(2), zF, zs + 0.5), outer), plug]);
             led.flat = true;
@@ -1269,7 +1269,7 @@
       const jTop = Math.max(0, oZs.findIndex(z => z >= zT - 4.5) - 1);
       let cap = sub(knurled(2 * (rh + 2.6), zT - 4, zT + 5), loft(oRows.slice(jTop), oZs[jTop], zT));
       cap = sub(cap, reg(reg(Manifold.cylinder(4 * rh + 20, 1.3, 1.3, 20, true)).rotate([0, 90, 0]).translate([0, 0, zT + 2.6])));
-      cap = union([cap, cylZ(rh - p.tolleranza / 2, zT - t - 3, zT + 1, 0, 0, 32)]);
+      cap = union([cap, cylZ(rh - p.tolleranza, zT - t - 3, zT + 1, 0, 0, 32)]);
       if (p.filoLuci) cap = sub(cap, box(-p.fessura / 2, 0, zT - t - 4, p.fessura / 2, big, zT + 7));
       // ---- fasce colorate: tagli orizzontali a strati interi (0,2 mm dal piatto) ----
       // con un multicolore sono parti dello stesso oggetto; con un solo ugello basta cambiare filamento a quelle altezze
@@ -1305,7 +1305,7 @@
       } else parts.push(part('Pallina a spirale', body, p.col1, 'Pallina'));
       parts.push(part('Cappuccio', cap, p.col2, 'Cappuccio', { print: reg(cap.rotate([180, 0, 0])) }));
       if (rLed > 0 && p.foroLed === 'tappo') {
-        const lid = union([cylZ(rFoot - 0.5, zF - 1.2, zF, 0, 0, 96), cylZ(rLed - p.tolleranza / 2, zF, zF + t + 1.5, 0, 0, 64)]);
+        const lid = union([cylZ(rFoot - 0.5, zF - 1.2, zF, 0, 0, 96), cylZ(rLed - p.tolleranza, zF, zF + t + 1.5, 0, 0, 64)]);
         parts.push(part('Tappo del LED', lid, p.col1, 'Tappo', { at: [R + rFoot + 8, 0, 1.2] }));
       }
       const tramaN = trama === 'dritta' ? 'dritti' : trama === 'v' ? `a V, ${p.inclinazione}°` : `a spirale, ${p.inclinazione}°`;
@@ -1383,7 +1383,7 @@
     }
     function roundCylZ(r, z0, z1) { return H.roundCyl(r, z0, z1, Math.min(1.2, (z1 - z0) / 4), 0.4, 96); }
     function alberoIncastro(p) {
-      const S = p.altezza, tk = p.spessore, sl = tk + p.tolleranza;
+      const S = p.altezza, tk = p.spessore, sl = tk + 2 * p.tolleranza;   // gioco per lato
       // sagoma: l'albero di Natale Fluent; decorazioni (palline, stella) = tutto ciò che non è del verde principale
       const g = artGeom(EMO_BY['christmas-tree'], S), main = EMO_BY['christmas-tree'].pal[0];
       const sh = { base: OFF(OFF(OFF(g.sil, 0.8), 0.4), -0.4), decor: U(Object.entries(g.regions).filter(([hex]) => hex !== main).map(([, cs]) => cs)) };
@@ -1418,7 +1418,7 @@
       let m = star3D(n, R, r, d);
       const info = [['Misure', `Ø ${fmt(2 * R)} mm, spessore ${fmt(2 * d)} mm`]];
       if (p.uso === 'puntale') {
-        const ri = p.attacco / 2 + p.tolleranza / 2, ro = ri + 2.4, zt = -r * Math.cos(Math.PI / n) * 0.6, zb2 = zt - p.lunghezzaAttacco;
+        const ri = p.attacco / 2 + p.tolleranza, ro = ri + 2.4, zt = -r * Math.cos(Math.PI / n) * 0.6, zb2 = zt - p.lunghezzaAttacco;
         const tube = sub(cylZ(ro, zb2, zt, 0, 0, 64), coneZ(ri, ri * 0.75, zb2 - 0.01, zt - 2, 64));
         m = union([sub(m, coneZ(ri, ri * 0.75, zb2 - 0.01, zt - 2, 64)), tube]);
         info.push(['Attacco', `tubo Ø ${fmt(2 * ri)} mm (si stringe verso l'alto), lungo ${fmt(p.lunghezzaAttacco)} mm`]);
@@ -1443,7 +1443,7 @@
       const inR = hex ? (Dl / 2 - w) / Math.cos(Math.PI / 6) : Dl / 2 - w;
       let body = sub(prism(R, 0, Hl), prism(inR, fondo, Hl + 1));
       // sede del lumino e foro per spingerlo fuori
-      const rt = 19.3 + p.tolleranza / 2;
+      const rt = 19.3 + p.tolleranza;   // gioco per lato
       body = union([body, sub(cylZ(rt + 1.6, fondo - 0.01, fondo + 4, 0, 0, 64), cylZ(rt, fondo - 0.1, fondo + 5, 0, 0, 64))]);
       body = sub(body, cylZ(8, -1, fondo + 1, 0, 0, 48));
       // fascia bassa con scritta

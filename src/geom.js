@@ -66,11 +66,11 @@
         for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
           const x = cx + sx * GF.MAG_OFF, y = cy + sy * GF.MAG_OFF;
           if (p.magneti) {
-            const r = p.magDiam / 2 + p.tolleranza / 2;
+            const r = p.magDiam / 2 + p.tolleranza;
             holes.push(dir > 0 ? cylZ(r, zBase - 1, zBase + p.magAlt, x, y) : cylZ(r, zBase - p.magAlt, zBase + 1, x, y));
           }
           if (p.viti) {
-            const r = 1.5 + p.tolleranza / 2;
+            const r = 1.5 + p.tolleranza;
             holes.push(dir > 0 ? cylZ(r, zBase - 1, zBase + 6, x, y, 20) : cylZ(r, zBase - 6, zBase + 1, x, y, 20));
           }
         }
@@ -209,7 +209,7 @@
       const H = GF.UNIT_H * p.altU;
       const lip = !!p.bordo;
       const { solid, W, D, R } = outerBody(p.gridX, p.gridY, H, lip);
-      const t = p.pareti, tol = p.tolleranza;
+      const t = p.pareti, tol = p.tolleranza + 0.15;   // per lato: i cassetti scorrono, 0,15 mm più degli incastri
       const zF = GF.FOOT_H + p.fondo;
       const zC = H - p.cielo;
       const Wi = W - 2 * t;
@@ -310,7 +310,7 @@
       const custom = thick.length > 0;
       if (!custom) thick = Array.from({ length: Math.max(1, p.fessure | 0) }, () => p.spessore);
       thick = thick.slice(0, 40).map(v => Math.min(60, Math.max(2, v)));
-      const gaps = thick.map(s => s + p.gioco);
+      const gaps = thick.map(s => s + 2 * p.gioco);   // gioco per lato
       const ft = p.spSep, hs = p.altSep, a = p.inclinazione, ar = a * Math.PI / 180;
       let L = p.lunghezza; const rf = Math.min(p.raccordo, ft * 1.5);
       // posizione radici separatori lungo y
@@ -376,7 +376,7 @@
       const info = [
         ['Fessure', `${gaps.length}`],
         ['Larghezza fessure', custom ? fmtList(gaps) + ' mm' : `${fmt(gaps[0])} mm`],
-        ['Spessore max dispositivo', custom ? fmtList(thick) + ' mm' : `${fmt(thick[0])} mm (con ${fmt(p.gioco)} mm di gioco)`],
+        ['Spessore max dispositivo', custom ? fmtList(thick) + ' mm' : `${fmt(thick[0])} mm (con ${fmt(p.gioco)} mm di gioco per lato)`],
         ['Ingombro', `${fmt(W)} × ${fmt(D)} × ${fmt(zB + hs * Math.cos(ar))} mm`],
       ];
       if (gf) info.push(['Griglia Gridfinity', `${nx} × ${ny}`]);
@@ -486,7 +486,7 @@
         info.unshift(['Terra (circa)', ml(reg(cavity.intersect(box(-1e4, -1e4, 0, 1e4, 1e4, H - 5))).volume())]);
       } else {
         // ---- autoirrigante: vaso esterno = riserva, vaso interno a fondo piatto, cestelli pescanti separati ----
-        const g = tol + 0.7;
+        const g = 2 * tol + 0.7;
         const rw = p.pescante / 2, tb = 1.6;
         const zwb = f + 2;                                   // fondo del cestello, 2 mm sopra il fondo
         const Sin = (z, extra = 0) => S(z, th + g + extra);  // superficie esterna vaso interno
@@ -504,7 +504,7 @@
           for (let j = 1; j < ncomp; j++) { const x = -Wo / 2 + j * Wo / ncomp; divs.push(box(x - p.spDiv / 2, -dT, zr + 0.5, x + p.spDiv / 2, dT, H - 3)); }
           inner = union([inner, reg(union(divs).intersect(loft(Sin(zr), Sin(H))))]);
         }
-        const rHole = rw + tb + tol / 2 + 0.2;
+        const rHole = rw + tb + tol + 0.2;
         const holesI = cxs.map(cx => cylZ(rHole, zr - 1, zr + fondoI + 1, cx, 0, 48));
         // piccoli fori di aerazione/drenaggio nel fondo
         for (const cx of cxs) for (let i = 0; i < 4; i++) { const a = Math.PI / 4 + i * Math.PI / 2, rr2 = rHole + 9; holesI.push(cylZ(2, zr - 1, zr + fondoI + 1, cx + rr2 * Math.cos(a), rr2 * Math.sin(a), 16)); }
@@ -725,6 +725,7 @@
     }
 
     function screw(p) {
+      p = Object.assign({}, p, { gioco: 2 * (+p.gioco || 0), giocoLato: +p.gioco || 0 });   // per lato → totale
       const sp = threadSpec(p);
       const s = screwSolid(sp, p);
       const { m, print } = printScrew(s.m, p, sp.D, p.testa !== 'nessuna', s.minY);
@@ -767,6 +768,7 @@
     }
 
     function bolt(p) {
+      p = Object.assign({}, p, { gioco: 2 * (+p.gioco || 0), giocoLato: +p.gioco || 0 });   // per lato → totale
       const sp = threadSpec(p), P = sp.P;
       const s = screwSolid(sp, p);
       const sc = printScrew(s.m, p, sp.D, true, s.minY);
@@ -792,7 +794,7 @@
       }
       const grip = (s.zH - (nw && p.testa !== 'svasata' ? sp.hw : 0)) - (zN + mh + (nw > 1 || (nw && p.testa === 'svasata') ? sp.hw : 0));
       if (grip > 0.5) info.push(['Spessore serrabile', `fino a ${fmt(grip)} mm`]);
-      info.push(['Gioco filetto', `${fmt(p.gioco)} mm`]);
+      info.push(['Gioco filetto', `${fmt(p.giocoLato)} mm per lato`]);
       smallNote(sp, info);
       for (const n of s.notes) info.push(['Nota', n]);
       return { parts, info };
@@ -804,7 +806,7 @@
       const parts = [], info = [];
       const plateSide = () => Math.max(2.4 * d + 8, d + 14);
       const hole = (t) => {   // piastrina di prova con foro
-        const a = plateSide(), rh = r + tol / 2;
+        const a = plateSide(), rh = r + tol;
         return sub(slab(a, a, 3, 0, t), union([cylZ(rh, -1, t + 1, 0, 0, seg), coneZ(rh + 1.6, rh, -1, 0.6, seg), coneZ(rh, rh + 1.6, t - 0.6, t + 1, seg)]));
       };
       let m, z0 = 0, headDown = false, name, ext = 0;
@@ -835,7 +837,7 @@
           if (doppio) parts.push({ name: 'Piastrina di prova 2', m: pl, role: 'inner', at: [x0 + a + 6, 0, 0] });
         }
         info.push(['Perno', `Ø ${fmt(d)} × ${fmt(ext)} mm${doppio ? ', doppio' : ', con testa'}`]);
-        info.push(['Foro nei pezzi', `Ø ${fmt(d + tol)} mm`]);
+        info.push(['Foro nei pezzi', `Ø ${fmt(d + 2 * tol)} mm`]);
         info.push(['Spessore da attraversare', `${fmt(g)} mm${doppio ? ' per lato' : ''}`]);
         info.push(['Dentino', `${fmt(lip)} mm, fessura ${fmt(w)} × ${fmt(sl)} mm`]);
         info.push(['Stampa', 'sdraiato sul lato piatto (già orientato)']);
@@ -863,7 +865,7 @@
       if (p.stampa === 'sdraiata') { m = flatCut(m, r - Math.max(0.3, 0.1 * d)); print = reg(m.rotate([90, 0, 0])); }
       else print = headDown ? reg(m.rotate([180, 0, 0])) : m;
       parts.push({ name, m, role: 'body', print });
-      info.push(['Foro consigliato', `Ø ${fmt(d + tol)} mm (scorrevole)`]);
+      info.push(['Foro consigliato', `Ø ${fmt(d + 2 * tol)} mm (scorrevole)`]);
       if (p.prova) {
         const t = Math.max(3, Math.min(10, 0.35 * L));
         parts.push({ name: 'Piastrina di prova', m: hole(t), role: 'inner', at: [plateSide() / 2 + 0.8 * d + 8, 0, 0] });

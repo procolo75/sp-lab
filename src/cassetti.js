@@ -77,7 +77,7 @@
       const bd = smu / 2;
       if (snap) for (const sd of sides) add.push(along(sd, [[0, Hm - smu], [bd, Hm - bd], [0, Hm]], xI, y0, yB));
       const holes = [];
-      for (const x of cx) for (const y of cy) holes.push(cylZ(ds / 2 + gI / 2, -1, tf + 1, x, y, 96));
+      for (const x of cx) for (const y of cy) holes.push(cylZ(ds / 2 + gI, -1, tf + 1, x, y, 96));   // gioco per lato
       const tray = sub(union([sub(box(-W / 2, y0, 0, W / 2, D / 2, Hm), box(-xI, y0 - 1, tf, xI, yB, Hm + 1)), ...add,
         ...(guide ? [-1, 1].map(sx => {   // guide: trapezio a 45° sui fianchi interni, per tutta la profondità del vano
           const x0 = sx * (xI + 0.01), x1 = sx * (xI - GUIDA), pts = [];
@@ -178,7 +178,7 @@
         parts.splice(2, 0, { name: 'Cassetto', m: dm, role: 'drawer', at, size });
         info.push(['Cassetto', `${fmt(dw)} × ${fmt(dd)} × ${fmt(dh)} mm, interno ${fmt(iw)} × ${fmt(id)} × ${fmt(dh - f)} mm`]);
       } else info.push(['Cassetto', 'troppo piccolo']);
-      info.push(['Bottoncini', `${nS} pieni, Ø ${fmt(ds)} alti ${fmt(hb)} mm, stampati sul coperchio; entrano nei fori Ø ${fmt(ds + gI)} del fondo del modulo di sopra`]);
+      info.push(['Bottoncini', `${nS} pieni, Ø ${fmt(ds)} alti ${fmt(hb)} mm, stampati sul coperchio; entrano nei fori Ø ${fmt(ds + 2 * gI)} del fondo del modulo di sopra`]);
       info.push(['Coperchio', snap ? `a scatto: si preme fra le pareti finché il dentino (${fmt(bd)} mm) scatta sul bordo smussato` : 'poggia sul battente: incollalo lungo i bordi']);
       info.push(['Stampa', 'Vaschetta sul fondo, coperchio piatto con i bottoncini in su, cassetto sul fondo, separatori in piano: niente supporti']);
       info.push(['Prova', 'Il gioco dell\'incastro allarga o stringe i fori del fondo (i bottoncini non cambiano): se balla diminuiscilo, se entra duro aumentalo']);

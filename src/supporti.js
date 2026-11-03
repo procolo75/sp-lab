@@ -204,22 +204,22 @@
         } else if (p.fissaggio === 'magneti') {
           const nm = Math.max(1, p.numMag | 0), hm = p.magneteH + 0.2;
           if (T < hm + 0.8) notes.push(`Piastra sottile per magneti alti ${fmt(p.magneteH)} mm: porta lo spessore piastra ad almeno ${fmt(hm + 1)} mm`);
-          for (let i = 0; i < nm; i++) holes.push(magnet(Hp / 2, L * (i + 0.5) / nm, p.magnete + p.tolleranza, Math.min(hm, T - 0.6)));
+          for (let i = 0; i < nm; i++) holes.push(magnet(Hp / 2, L * (i + 0.5) / nm, p.magnete + 2 * p.tolleranza, Math.min(hm, T - 0.6)));
           info.push(['Fissaggio', `${nm} magnet${nm > 1 ? 'i' : 'e'} Ø ${fmt(p.magnete)} × ${fmt(p.magneteH)} mm sul retro (incollali)`]);
         } else info.push(['Fissaggio', `biadesivo sul retro: piastra ${fmt(Hp)} × ${fmt(L)} mm`]);
         ghostM = box(-4, -15, -15, 0, Hp + 15, L + 15);
       } else if (tipo === 'porta') {
-        const T = s, gap = p.porta + p.tolleranza, br = p.ponte;
+        const T = s, gap = p.porta + 2 * p.tolleranza, br = p.ponte;   // gioco per lato
         L = plateW(L);
         const clip = U([RECT(-T, -p.esterno, 0, br), RECT(-T, 0, gap + T, br), RECT(gap, -p.interno, gap + T, br)]);
         plate = EXTZ(soft(clip, Math.min(1, br * 0.3)), 0, L);
         const j = jHook(gap + T - 0.5, -p.interno + s / 2, p.sporgenza, p.raggio, p.punta, p.inclinazione, s, p.pomello);
         hooks.push(j.cs);
         if (br > 3) notes.push(`~Il ponte sopra la porta è ${fmt(br)} mm: controlla che passi nella fessura tra porta e telaio (di solito 2–3 mm)`);
-        info.push(['Porta', `spessore ${fmt(p.porta)} mm + ${fmt(p.tolleranza)} di gioco, ponte ${fmt(br)} mm`]);
+        info.push(['Porta', `spessore ${fmt(p.porta)} mm + ${fmt(p.tolleranza)} di gioco per lato, ponte ${fmt(br)} mm`]);
         ghostM = box(0, -p.interno - 80, -20, p.porta, 0, L + 20);
       } else if (tipo === 'tubo') {
-        const R = p.tubo / 2 + p.tolleranza / 2, T = s;
+        const R = p.tubo / 2 + p.tolleranza, T = s;
         const ring = D(C2(0, 0, R + T, 96), C2(0, 0, R, 96));
         // apertura per agganciarlo al tubo: sul fianco, così il peso appoggia sulla parte chiusa in alto
         const half = Math.asin(Math.min(0.99, p.apertura / 100 * R / (R + T / 2))) * 180 / Math.PI;

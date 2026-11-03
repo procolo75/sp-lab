@@ -157,7 +157,7 @@
       // perni che li tiene più lontani dai fori dell'altra faccia del pezzo, con almeno WALL di parete attorno
       let nP = Math.max(0, Math.min(4, Math.round(+p.perni)));
       const nPasked = nP;
-      const pinD = +p.diamPerno, hd = (pinD + +p.gioco) / 2, WALL = 1.6;
+      const pinD = +p.diamPerno, hd = pinD / 2 + +p.gioco, WALL = 1.6;   // gioco per lato
       let depth = Math.max(3, +p.lungPerno / 2 + 0.5);
       const holeVol = () => Math.PI * hd * hd * depth + Math.PI * hd * hd * hd / 3;
       // distanza di un punto dall'asse del tubo
@@ -275,7 +275,7 @@
       info.push(['Pezzi', `${N}: ${Math.ceil(N / 2)} del colore 1 e ${Math.floor(N / 2)} del colore 2, lunghi ${fmt(pieceLen)} mm sull'asse; tagli inclinati di ${fmt(theta / DEG)}°`]);
       if (nP > 0 && pinOk) {
         info.push(['Perni', `${nPins} (${nP} per giunzione), Ø ${f2(pinD)} × ${fmt(pinL)} mm${p.stampaPerni ? ', nel file, da stampare in piedi' : ': tondino o filamento tagliato a misura'}`]);
-        info.push(['Fori', `Ø ${f2(2 * hd)} mm (perno + ${f2(+p.gioco)} di gioco), profondi ${fmt(depth)} mm per lato, perpendicolari al taglio, con la punta a 45°`]);
+        info.push(['Fori', `Ø ${f2(2 * hd)} mm (perno + ${f2(+p.gioco)} di gioco per lato), profondi ${fmt(depth)} mm per lato, perpendicolari al taglio, con la punta a 45°`]);
       } else info.push(['Montaggio', 'senza perni: incolla i pezzi con colla cianoacrilica']);
       info.push(['Stampa', `ogni pezzo su una faccia di taglio, senza supporti: sbalzo massimo ${fmt(Math.round(worstOv))}°. Riempimento 10–15%, 3 perimetri`]);
       if (worstOv > 45.5) notes.push(`Un pezzo ha uno sbalzo di ${fmt(Math.round(worstOv))}°: metti più pezzi o allarga il manico, così si stampa senza supporti`);

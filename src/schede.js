@@ -62,7 +62,7 @@
       }
 
       // ---- viti M6 (stampate) agli angoli: colonnine dal fondo, boccole filettate sotto il coperchio ----
-      const VT = H.vite, vm = VT.spec(p.viteM || 'M6'), vg = Math.max(0.1, +p.viteGioco || 0.3);
+      const VT = H.vite, vm = VT.spec(p.viteM || 'M6'), vg = 2 * Math.max(0.05, +(p.viteGioco ?? 0.15));   // per lato → totale
       const pr = vm.D / 2 + 2.5, pc = pr + 0.3, bossLen = Math.max(6, 1.5 * vm.D);
       // svasatura sotto il fondo a 55° (a 45° lo slicer mette i supporti); se il cono esce dalla colonnina, sotto c'è un rialzo pieno
       const t55 = Math.tan(55 * Math.PI / 180), rh = (vm.D + 0.8) / 2, r0 = vm.D + 0.5, hcs = (r0 - rh) * t55;

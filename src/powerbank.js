@@ -129,7 +129,7 @@
       const gruppi = pp ? Array.from({ length: Math.max(1, Math.min(6, p.ppN | 0)) }, () => Math.max(1, Math.min(6, p.ppCelle | 0))) : [];
       const dv = p.vite === 'M2.5' ? 2.5 : 3;
       // viti stampate: testa svasata ISO, filetto vero (stesso motore di "Viti e bulloni"); minimo M6 con ugello 0,4
-      const VT = H.vite, vm = viti && p.viteTipo === 'stampata' ? VT.spec(p.viteM || 'M6') : null, vg = Math.max(0.1, +p.viteGioco || 0.3);
+      const VT = H.vite, vm = viti && p.viteTipo === 'stampata' ? VT.spec(p.viteM || 'M6') : null, vg = 2 * Math.max(0.05, +(p.viteGioco ?? 0.15));   // per lato → totale
       const prP = vm ? vm.D / 2 + 2.5 : 0, bossLen = vm ? Math.max(6, 1.5 * vm.D) : 0, pcy = vm ? prP + 0.4 : 3.6;
       // ---- vani delle celle ----
       const Dc = C.D + 0.5, pitch = Dc + 1.2;

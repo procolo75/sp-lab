@@ -459,14 +459,17 @@
       const st = STYLES[p.stile] || STYLES.zenzero, style = STYLES[p.stile] ? p.stile : 'zenzero';
       const pick = (v, d) => (v && v !== 'auto' ? v : d);
       const tetto = pick(p.tetto, st.tetto), pareti = pick(p.pareti, st.pareti), orn = pick(p.ornamento, st.orn), ornB = pick(p.ornamento, st.ornB), sparsi = pick(p.sparsi, st.sparsi);
-      const sp = Math.max(0.8, +p.spessore || 1.6), lay = Math.max(0.12, +p.strato || 0.4), tol = Math.max(0, +p.gioco || 0);
-      if (p.prova) return provaKit('pettine', p, sp, lay, tol, notes);
+      const sp = Math.max(0.8, +p.spessore || 1.6), lay = Math.max(0.12, +p.strato || 0.4); const gl = Math.max(0, +(p.gioco ?? 0.15)), tol = 2 * gl;
+      const slide = p.incastro !== 'pettine';
+      if (p.prova) return provaKit(slide ? 'scorrimento' : 'pettine', p, sp, lay, tol, notes);
       const W = Math.max(30, +p.larghezza), Dp = Math.max(30, +p.profondita), Hw = Math.max(25, +p.altezza);
       const holed = p.finestre !== 'disegnate', snow = p.neve !== false, seed = (+p.variante | 0) * 7919 + 13;
       const pitch = Math.max(20, Math.min(62, +p.pendenza || st.pitch));
       const th = pitch * DEG, ca = Math.cos(th), sa = Math.sin(th);
       const Hr = (W / 2) * Math.tan(th), Ls = (W / 2) / ca;
-      const ovE = st.ovE, ovF = st.ovF, Lr = Ls + ovE;
+      // a scorrimento le pareti si incrociano agli angoli e sporgono di eC: la falda deve coprire le teste dei timpani
+      const eC = slide ? Math.max(3, 2.5 * sp) : 0;
+      const ovE = Math.max(st.ovE, slide ? (eC + 1.5) / ca : 0), ovF = st.ovF, Lr = Ls + ovE;
       const ext = st.ext, frontCovered = !ext;   // con torre o insegna la falda parte dietro la facciata
       const tF = ext ? -Dp / 2 + sp + tol : -Dp / 2 - ovF, tB = Dp / 2 + ovF;
       const bw = Math.max(2.4, Math.min(4.5, W * 0.06));   // fascia di neve sui bordi
@@ -478,6 +481,15 @@
 
       // ===== pareti (u verso destra di chi guarda, v in alto, v = 0 sulla base) =====
       function wallOutline(Wd, gable) {
+        if (slide) {
+          // a scorrimento: fessure fino a metà altezza dove passa l'altra parete, dal basso nella facciata e nel retro,
+          // dall'alto nei fianchi. Le teste sporgenti del timpano seguono la pendenza del tetto
+          const hw2 = Wd / 2 + eC, tn = Hr / (W / 2);
+          const body = gable ? P2([[-hw2, 0], [hw2, 0], [hw2, Hw - eC * tn], [0, Hw + Hr], [-hw2, Hw - eC * tn]]) : RECT(-hw2, 0, hw2, Hw);
+          const sl = U([-1, 1].map(s => gable ? RECT(s * (Wd / 2 - sp / 2) - (sp + tol) / 2, -1, s * (Wd / 2 - sp / 2) + (sp + tol) / 2, Hw / 2 + tol / 2)
+            : RECT(s * (Wd / 2 - sp / 2) - (sp + tol) / 2, Hw / 2 - tol / 2, s * (Wd / 2 - sp / 2) + (sp + tol) / 2, Hw + 1)));
+          return D(body, sl);
+        }
         const e = Wd / 2 - sp - tol / 2, list = [RECT(-e, 0, e, Hw)];
         for (let k = 0; k < n; k++) {
           if ((k % 2 === 0) !== gable) continue;
@@ -607,6 +619,7 @@
         if (grooves) decor = D(decor, D(grooves, OFF(keepAll, 0)));
         decor = I(decor, OFF(base, -0.25));
         decor = I(decor, safe);
+        if (slide) decor = D(decor, crossFree(Wd, Hw, sp, tol));
         decor = clean(decor, 0.8);
         // la scritta dell'insegna non passa dalla pulizia: è già ingrossata quanto serve (signText)
         if (F.text) decor = U([D(decor, OFF(F.text, 0.6)), I(F.text, OFF(base, -0.25))]);
@@ -662,10 +675,12 @@
       // ===== base =====
       const nT = Math.max(0, Math.min(2, p.alberi | 0)), snowman = !!p.pupazzo, gift = !!p.regalo;
       const hT = Math.max(18, Math.min(Hw * 0.95, 70)), twT = hT * 0.62;
-      const mx = nT ? twT + 7 : 6, mf = snowman || gift ? Math.max(14, Hw * 0.3) : 6, mb = 6;
+      // alberi fuori dalla gronda; pupazzo e regalo davanti alle teste sporgenti dei fianchi
+      const tGap = Math.max(3, ovE * ca + 1);
+      const mx = nT ? tGap + twT + 4 : Math.max(6, eC + 3), mf = snowman || gift ? Math.max(14, Hw * 0.3, 2 * (eC + sp) + 6) : Math.max(6, eC + 3), mb = Math.max(6, eC + 3);
       const bx0 = -W / 2 - mx, bx1 = W / 2 + mx, by0 = -Dp / 2 - mf, by1 = Dp / 2 + mb;
       const accs = [];   // accessori: { name, base, decor, x, y }
-      const houseFoot = RECT(-W / 2 - 0.01, -Dp / 2 - 0.01, W / 2 + 0.01, Dp / 2 + 0.01);
+      const houseFoot = RECT(-W / 2 - eC - 0.01, -Dp / 2 - eC - 0.01, W / 2 + eC + 0.01, Dp / 2 + eC + 0.01);
       const baseSlots = [];
       const slotRect = (x0, y0, x1, y1) => RECT(x0 - tol / 2, y0 - tol / 2, x1 + tol / 2, y1 + tol / 2);
       for (const s of [-1, 1]) {
@@ -726,7 +741,7 @@
         const t = treePiece(hT);
         for (let k = 0; k < nT; k++) {
           const s = k === 0 ? -1 : 1;
-          accs.push({ name: nT > 1 ? `Albero ${k + 1}` : 'Albero', ...t, x: s * (W / 2 + 3 + twT / 2), y: -Dp / 6 });
+          accs.push({ name: nT > 1 ? `Albero ${k + 1}` : 'Albero', ...t, x: s * (W / 2 + tGap + twT / 2), y: -Dp / 6 });
         }
       }
       const hS = Math.max(16, Math.min(Hw * 0.55, 40));
@@ -766,7 +781,8 @@
         dl.push(...F2.decor);
         baseDecor = I(U(dl), OFF(baseCS, -0.4));
         baseDecor = D(baseDecor, OFF(U([houseFoot, baseSlotCS]), 1.2, 'Miter'));
-        for (const a of accs) baseDecor = D(baseDecor, RECT(a.x - a.tabW / 2 - 1.6, a.y - sp / 2 - 1.6, a.x + a.tabW / 2 + 1.6, a.y + sp / 2 + 1.6));
+        // sotto gli accessori in piedi (tutta la loro larghezza) niente colore
+        for (const a of accs) { const ab = bounds(a.base); baseDecor = D(baseDecor, RECT(a.x + ab.x0 - 1.2, a.y - sp / 2 - 1.6, a.x + ab.x1 + 1.2, a.y + sp / 2 + 1.6)); }
         baseDecor = clean(baseDecor, 0.8);
       }
 
@@ -821,11 +837,11 @@
       if (telaio) info.push(['Cartolina', cards.map((c, i) => `${cards.length > 1 ? `n. ${i + 1}: ` : ''}${fmt(c.w)} × ${fmt(c.h)} mm`).join(' · ') + `, spessa ${fmt(sp)} mm + ${fmt(lay)} mm di colore`]);
       info.push(['Stampante a un colore', `cambio filamento a ${fmt(sp)} mm → colore 2 (le decorazioni)`]);
       info.push(['Canali', telaio ? `larghi ${fmt(gW)} mm e alti ${fmt(gH)} mm: si spezzano con le dita, rifinisci con una lima o un tronchesino` : 'niente telaio: i pezzi sono sciolti']);
-      info.push(['Incastri', `gioco ${fmt(tol)} mm: angoli a pettine (${n} denti), linguette nella base e nelle asole del tetto. Se entrano duri aumenta il gioco; un punto di colla li blocca`]);
-      info.push(['Montaggio', '1) facciata e retro nelle fessure della base, 2) i fianchi tra i denti, 3) le falde sulle linguette, 4) alberi, pupazzo e regalo nelle loro fessure']);
+      info.push(['Incastri', `${slide ? `angoli a scorrimento (le pareti si incrociano e sporgono di ${fmt(eC)} mm)` : `angoli a pettine (${n} denti)`}, linguette nella base e nelle asole del tetto; gioco ${fmt(gl)} mm per lato. Prima stampa la prova incastri`]);
+      info.push(['Montaggio', `1) facciata e retro nelle fessure della base, 2) i fianchi ${slide ? 'calati dall\'alto nelle fessure di facciata e retro' : 'tra i denti'}, 3) le falde sulle linguette, 4) alberi, pupazzo e regalo nelle loro fessure`]);
       if (holed) info.push(['Luce', W - 2 * sp >= 40 && Dp - 2 * sp >= 40 ? 'dentro ci sta un lumino LED da 38 mm: le finestre si illuminano' : 'per un lumino LED da 38 mm servono almeno 44 mm di larghezza e profondità']);
       if (lay < 0.4) notes.push('~Strato colorato sotto 0,4 mm: con colori chiari su scuri si vede il colore sotto');
-      if (sp < 1.2) notes.push('Pezzi sotto 1,2 mm di spessore: gli incastri sono fragili');
+      if (sp < 1.4) notes.push('Pezzi sotto 1,4 mm di spessore: gli incastri sono delicati, meglio 1,6 mm');
       for (const x of notes) info.push(['Nota', x]);
       const res = { parts, info, view: [0.15, -1, 0.75] };
       if (check) res.pieces = flatList.map(it => [it.name, it.base.decompose().length, it.decor ? +it.decor.area().toFixed(0) : 0]);
@@ -835,6 +851,15 @@
     // ====================== prototipi: lanterna e albero in kit ======================
     const rotXm = (m) => reg(m.rotate([90, 0, 0]));
     // parete con gli angoli a pettine (own = denti pari)
+    // parete a scorrimento: sporge di e oltre l'angolo; fessura larga sp + tol dove passa l'altra parete, fino a metà altezza
+    // (own = dal basso, come facciata e retro; altrimenti dall'alto)
+    function slidePanel(Wd, Hh, sp, tol, own, e) {
+      e = e ?? Math.max(3, 2.5 * sp);
+      const c = Wd / 2 - sp / 2, sl = U([-1, 1].map(s => own ? RECT(s * c - (sp + tol) / 2, -1, s * c + (sp + tol) / 2, Hh / 2 + tol / 2) : RECT(s * c - (sp + tol) / 2, Hh / 2 - tol / 2, s * c + (sp + tol) / 2, Hh + 1)));
+      return D(RECT(-Wd / 2 - e, 0, Wd / 2 + e, Hh), sl);
+    }
+    // dove passa l'altra parete (a scorrimento) la faccia decorata deve restare libera per tutta l'altezza
+    const crossFree = (Wd, Hh, sp, tol) => U([-1, 1].map(s => RECT(s * (Wd / 2 - sp / 2) - (sp + tol) / 2 - 0.7, -2, s * (Wd / 2 - sp / 2) + (sp + tol) / 2 + 0.7, Hh + 0.5)));
     function fingerPanel(Wd, Hh, sp, tol, n, own) {
       const hz = Hh / n, e = Wd / 2 - sp - tol / 2, list = [RECT(-e, 0, e, Hh)];
       for (let k = 0; k < n; k++) {
@@ -866,7 +891,11 @@
       const mb = union(asmB), md = asmD.length ? union(asmD) : null;
       const bb = mb.boundingBox(), ox = maxCardX + 30 - bb.min[0], oy = cardH0 / 2 - (bb.min[1] + bb.max[1]) / 2;
       const mv = (m) => reg(m.translate([ox, oy, -bb.min[2]]));
-      if (p.__check) flatList.forEach((it) => { const b = EXT(it.base, 0, sp); parts.push({ name: 'Montata · ' + it.name, m: mv(it.place(b)), role: 'body', color: p.col1 }); });
+      if (p.__check) flatList.forEach((it) => {
+        const b = EXT(it.base, 0, sp), d = EXT(it.decor, sp, sp + lay);
+        parts.push({ name: 'Montata · ' + it.name, m: mv(it.place(b)), role: 'body', color: p.col1 });
+        if (d) parts.push({ name: 'Montata · ' + it.name + ' · decorazioni', m: mv(it.place(d)), role: 'body', color: p.col2 });
+      });
       else if (p.anteprima !== 'cartolina') {
         parts.push({ name: 'Montato', m: mv(mb), role: 'model', color: p.col1 });
         if (md) parts.push({ name: 'Montato · decorazioni', m: mv(md), role: 'model', color: p.col2 });
@@ -878,10 +907,11 @@
 
     // ---------------- LANTERNA IN KIT ----------------
     function kitLanterna(p) {
-      const notes = [], sp = Math.max(0.8, +p.spessore || 1.6), lay = Math.max(0.12, +p.strato || 0.4), tol = Math.max(0, +p.gioco || 0);
-      if (p.prova) return provaKit('pettine', p, sp, lay, tol, notes);
+      const notes = [], sp = Math.max(0.8, +p.spessore || 1.6), lay = Math.max(0.12, +p.strato || 0.4); const gl = Math.max(0, +(p.gioco ?? 0.15)), tol = 2 * gl;
+      const slide = p.incastro !== 'pettine';
+      if (p.prova) return provaKit(slide ? 'scorrimento' : 'pettine', p, sp, lay, tol, notes);
       const W = Math.max(44, +p.lato || 64), Hh = Math.max(50, +p.altezza || 96), R = rng((+p.variante | 0) * 7919 + 11);
-      const n = Math.max(3, 2 * Math.round((Hh / 10 - 1) / 2) + 1);
+      const n = Math.max(3, 2 * Math.round((Hh / 10 - 1) / 2) + 1), eL = slide ? Math.max(3, 2.5 * sp) : 0;
       const wB = Math.min(10, W * 0.18), wT = 8;
       const tabsB = U([-1, 1].map(s => RECT(s * W / 4 - wB / 2, -sp, s * W / 4 + wB / 2, 0.01)));
       const dJ = Math.min(12, Hh * 0.12);   // altezza dell'incastro del manico
@@ -938,12 +968,12 @@
       const panels = [];
       const sc4 = [p.scena1 || 'villaggio', p.scena2 || 'bosco', p.scena3 || 'slitta', p.scena4 || 'fiocchi'];
       for (const [nm, kind, own, az] of [['Pannello 1', sc4[0], true, 0], ['Pannello 2', sc4[1], false, 90], ['Pannello 3', sc4[2], true, 180], ['Pannello 4', sc4[3], false, -90]]) {
-        const outline = fingerPanel(W, Hh, sp, tol, n, own), Fh = [], Fd = [];
+        const outline = slide ? slidePanel(W, Hh, sp, tol, own) : fingerPanel(W, Hh, sp, tol, n, own), Fh = [], Fd = [];
         scene(kind, Fh, Fd);
         const holes = I(U(Fh), OFF(RECT(sx0, 3, sx1, Hh - 3), 0));
         // cornice e neve sul terreno
         const fr = D(RECT(-W / 2 + sp + 1, 1, W / 2 - sp - 1, Hh - 1), RECT(-W / 2 + sp + 3, 3, W / 2 - sp - 3, Hh - 3));
-        const ground = U([RECT(-W / 2, 0, W / 2, g - 2), ...Array.from({ length: 9 }, (_, k) => C2(-W / 2 + k * W / 8, g - 2.2, 2 + 1.5 * R(), 20))]);
+        const ground = U([RECT(-W / 2 - eL, 0, W / 2 + eL, g - 2), ...Array.from({ length: 9 }, (_, k) => C2(-W / 2 + k * W / 8, g - 2.2, 2 + 1.5 * R(), 20))]);
         // i trafori non devono lasciare isole staccate (cadrebbero): tengo solo il pezzo più grande
         let solid = D(outline, holes);
         const bits = solid.decompose().map(R2);
@@ -952,7 +982,7 @@
         if (p.manico !== false && !own) solid = D(solid, RECT(-(sp + tol) / 2, Hh - dJ / 2 - tol, (sp + tol) / 2, Hh + 1));
         let base = U([solid, tabsB]);
         let decor = U([fr, ground, ...Fd]);
-        decor = clean(D(I(decor, OFF(solid, -0.3)), OFF(holes, 0.5)), 0.8);
+        decor = clean(D(D(I(decor, OFF(solid, -0.3)), OFF(holes, 0.5)), slide ? crossFree(W, Hh, sp, tol) : null), 0.8);
         panels.push({ name: nm, base, decor, place: (m) => reg(reg(rotXm(m).translate([0, -W / 2 + sp, sp])).rotate([0, 0, az])) });
       }
       // base e cappello: piastre con le fessure delle linguette
@@ -962,10 +992,12 @@
         slots.push(RECT(W / 2 - sp - tol / 2, s * W / 4 - wB / 2 - tol / 2, W / 2 + tol / 2, s * W / 4 + wB / 2 + tol / 2), RECT(-W / 2 - tol / 2, s * W / 4 - wB / 2 - tol / 2, -W / 2 + sp + tol / 2, s * W / 4 + wB / 2 + tol / 2));
       }
       const sl = U(slots);
-      const bOut = OFF(OFF(RECT(-W / 2 - 4.5, -W / 2 - 4.5, W / 2 + 4.5, W / 2 + 4.5), -3), 3);
+      const bm = Math.max(4.5, eL + 3.5), bOut = OFF(OFF(RECT(-W / 2 - bm, -W / 2 - bm, W / 2 + bm, W / 2 + bm), -3), 3);
       const scal = (outC, k) => { const out = [D(outC, OFF(outC, -2, 'Miter'))]; const b = bounds(outC); for (let i = 0; i <= k; i++) for (const [x, y] of [[b.x0 + 2 + i * (b.w - 4) / k, b.y0 + 2], [b.x0 + 2 + i * (b.w - 4) / k, b.y1 - 2], [b.x0 + 2, b.y0 + 2 + i * (b.h - 4) / k], [b.x1 - 2, b.y0 + 2 + i * (b.h - 4) / k]]) out.push(C2(x, y, 2.3, 20)); return I(U(out), outC); };
       const ring = D(C2(0, 0, 20.6, 64), C2(0, 0, 19.6, 64));
-      const baseP = { name: 'Base', base: D(bOut, sl), decor: clean(D(U([scal(bOut, 10), ring, ...[0, 90, 180, 270].map(a => ROT(MV(star(0, 0, 3), 26, 0), a + 45))]), OFF(sl, 1.2)), 0.8), place: (m) => m };
+      // niente colore sotto i pannelli (e le loro teste sporgenti)
+      const under = D(RECT(-W / 2 - eL - 1.2, -W / 2 - eL - 1.2, W / 2 + eL + 1.2, W / 2 + eL + 1.2), RECT(-W / 2 + sp + 1.2, -W / 2 + sp + 1.2, W / 2 - sp - 1.2, W / 2 - sp - 1.2));
+      const baseP = { name: 'Base', base: D(bOut, sl), decor: clean(D(U([scal(bOut, 10), ring, ...[0, 90, 180, 270].map(a => ROT(MV(star(0, 0, 3), Math.min(26, W / 2 - sp - 6), 0), a + 45))]), U([OFF(sl, 1.2), under])), 0.8), place: (m) => m };
       // manico ad arco: i piedi scendono nei pannelli dei fianchi, incastrati a mezzo legno nelle tacche in alto
       const Rc = W / 2 - sp / 2, hb = 6;
       const arcCS = I(D(C2(0, 0, Rc + hb / 2, 128), C2(0, 0, Rc - hb / 2, 128)), RECT(-Rc - hb, 0, Rc + hb, Rc + hb));
@@ -979,8 +1011,8 @@
       const tea = union([reg(reg(H.Manifold.cylinder(15, 19, 19, 48)).translate([0, 0, sp])), reg(reg(H.Manifold.cylinder(9, 2.2, 0.3, 24)).translate([0, 0, sp + 15]))]);
       const r = kitFinish(flatList, p, notes, sp, lay, [[tea, '#f3d36b']]);
       const info = [['Lanterna', `${fmt(W)} × ${fmt(W)} × ${fmt(Hh)} mm: 4 pannelli traforati e base${p.manico !== false ? ', manico' : ''}`],
-        ...kitInfo(r.cards, p, sp, lay, tol, n),
-        ['Montaggio', p.manico !== false ? '1) i pannelli nella base, incastrando i denti agli angoli, 2) il manico dall\'alto nelle tacche dei due fianchi: i piedi del manico e i fianchi si incastrano a croce' : 'i pannelli nella base, incastrando i denti agli angoli'],
+        ...kitInfo(r.cards, p, sp, lay, tol, slide ? -1 : n),
+        ['Montaggio', p.manico !== false ? (slide ? '1) i pannelli 1 e 3 nella base, poi il 2 e il 4 calati dall\'alto nelle loro fessure' : '1) i pannelli nella base, incastrando i denti agli angoli') + ', 2) il manico dall\'alto nelle tacche dei due fianchi: i piedi del manico e i fianchi si incastrano a croce' : (slide ? 'i pannelli 1 e 3 nella base, poi il 2 e il 4 calati dall\'alto nelle loro fessure' : 'i pannelli nella base, incastrando i denti agli angoli')],
         ['Luce', W - 2 * sp >= 40 ? 'lumino LED da 38 mm: sta nel cerchio disegnato sulla base' : 'stretta per un lumino da 38 mm: usa una lucina più piccola'],
         ['Attenzione', 'solo lumini LED, mai candele vere'], ...notes.map(x => ['Nota', x])];
       return { parts: r.parts, info, view: [0.15, -1, 0.8] };
@@ -988,7 +1020,7 @@
 
     // ---------------- ALBERO 3D A SAGOME INCROCIATE ----------------
     function kitAlbero(p) {
-      const notes = [], sp = Math.max(1, +p.spessore || 2), lay = Math.max(0.12, +p.strato || 0.4), tol = Math.max(0, +p.gioco || 0);
+      const notes = [], sp = Math.max(1, +p.spessore || 2), lay = Math.max(0.12, +p.strato || 0.4); const gl = Math.max(0, +(p.gioco ?? 0.15)), tol = 2 * gl;
       if (p.prova) return provaKit('croce', p, sp, lay, tol, notes);
       const h = Math.max(60, +p.altezza || 120), w = h * 0.62, R = rng((+p.variante | 0) * 7919 + 5);
       const trunkW = Math.max(18, w * 0.22), trunkH = h * 0.08;
@@ -1021,6 +1053,8 @@
       const xc = (r0 + trunkW / 2) / 2;
       const Cb = U([I(tree, RECT(r0, -1, w, h * 2)), tabAt(xc)]);
       const C = { base: Cb, decor: I(decAll, RECT(r0 + 0.8, -1, w, h * 2)) };
+      // vicino all'asse passano le altre sagome: lì niente colore
+      for (const q of [A, B]) q.decor = D(q.decor, RECT(-sw / 2 - 1.6, -5, sw / 2 + 1.6, h * 2));
       for (const q of [A, B, C]) q.decor = clean(I(q.decor, OFF(q.base, -0.3)), 0.8);
       const stand = (az) => (m) => reg(reg(rotXm(m).translate([0, sp / 2, sp])).rotate([0, 0, az]));
       // base tonda con le fessure a raggiera e la scritta
@@ -1050,42 +1084,52 @@
       const out = [];
       if (p.telaio !== false) out.push(['Cartolina', cards.map((c, i) => `${cards.length > 1 ? `n. ${i + 1}: ` : ''}${fmt(c.w)} × ${fmt(c.h)} mm`).join(' · ') + `, spessa ${fmt(sp)} mm + ${fmt(lay)} mm di colore`]);
       out.push(['Stampante a un colore', `cambio filamento a ${fmt(sp)} mm → colore 2 (le decorazioni)`]);
-      out.push(['Incastri', `gioco ${fmt(tol)} mm${n ? `, angoli a pettine (${n} denti)` : ''}: prima stampa la prova incastri (Spessori → Solo prova incastri)`]);
+      out.push(['Incastri', `${n === -1 ? 'angoli a scorrimento, ' : n ? `angoli a pettine (${n} denti), ` : ''}gioco ${fmt(tol / 2)} mm per lato: prima stampa la prova incastri (Spessori → Solo prova incastri)`]);
       return out;
     }
 
-    // ---------------- PROVA INCASTRI: pochi pezzi piccoli, veloci da stampare ----------------
-    // 'pettine': un angolo con due pareti a denti e un pezzo di base con le fessure (casetta, lanterna);
-    // 'croce': tre sagome corte con le fessure a metà e la base tonda a raggiera (albero).
+    // ---------------- PROVA INCASTRI: pezzetti minimi, veloci da stampare ----------------
+    // Solo l'incastro, niente telaio: 'scorrimento' e 'pettine' = un angolo di due pareti basse + una piastrina con le fessure
+    // (casetta, lanterna); 'croce' = due sagome corte a 60° con la fessura a metà + un dischetto (albero)
     function provaKit(kind, p, sp, lay, tol, notes) {
-      const list = [];
-      const dot = (x, y) => star(x, y, 2.6);   // un po' di colore: si prova anche il cambio filamento
-      const stand = (az, dy = 0) => (m) => reg(reg(rotXm(m).translate([0, sp / 2 + dy, sp])).rotate([0, 0, az]));
-      if (kind === 'pettine') {
-        const S = 26, Hh = 18, tw = 8;
-        const tab = RECT(-tw / 2, -sp, tw / 2, 0.01);
-        const wallP = (own, name, az) => ({ name, base: U([fingerPanel(S, Hh, sp, tol, 3, own), tab]), decor: dot(0, Hh / 2), place: (m) => reg(reg(rotXm(m).translate([0, -S / 2 + sp, sp])).rotate([0, 0, az])) });
-        list.push(wallP(true, 'Prova · parete A', 0), wallP(false, 'Prova · parete B', 90));
-        const out = OFF(OFF(RECT(-S / 2 - 4, -S / 2 - 4, S / 2 + 4, S / 2 + 4), -2), 2);
-        const sl = U([RECT(-tw / 2 - tol / 2, -S / 2 - tol / 2, tw / 2 + tol / 2, -S / 2 + sp + tol / 2), RECT(S / 2 - sp - tol / 2, -tw / 2 - tol / 2, S / 2 + tol / 2, tw / 2 + tol / 2)]);
-        list.push({ name: 'Prova · base', base: D(out, sl), decor: dot(-S / 4, S / 4), place: (m) => m });
+      const list = [], gl = tol / 2;
+      const dot = (x, y) => star(x, y, 2.2);   // un po' di colore: si prova anche il cambio filamento
+      const tab = (x, w = 6) => RECT(x - w / 2, -sp, x + w / 2, 0.01);
+      const slot = (x, y, w, az = 0) => ROT(RECT(-w / 2 - gl, -sp / 2 - gl, w / 2 + gl, sp / 2 + gl), az) && MV(ROT(RECT(-w / 2 - gl, -sp / 2 - gl, w / 2 + gl, sp / 2 + gl), az), x, y);
+      // parete in piedi nel piano y = y0 (spessore centrato), u lungo x
+      const standAt = (x, y, az) => (m) => reg(reg(reg(rotXm(m).translate([0, sp / 2, sp])).rotate([0, 0, az])).translate([x, y, 0]));
+      if (kind === 'scorrimento') {
+        const S = 20, Hh = 12, e = Math.max(3, 2.5 * sp), c = S / 2 - sp / 2;
+        // la parete A sta nel piano y = 0, la B nel piano x = c e incrocia la A vicino alla sua testa
+        list.push({ name: 'Prova · parete A', base: U([slidePanel(S, Hh, sp, tol, true, e), tab(-2)]), decor: dot(-2, Hh * 0.62), place: standAt(0, 0, 0) });
+        list.push({ name: 'Prova · parete B', base: U([slidePanel(S, Hh, sp, tol, false, e), tab(2)]), decor: dot(2, Hh * 0.3), place: (m) => reg(standAt(0, 0, 90)(m).translate([c, -c, 0])) });
+        // piastrina: solo sotto le due linguette
+        const pl = U([RECT(-7, -4, 4, 4), RECT(c - 4, -c - 2 - 4, c + 4, -c - 2 + 6)]);
+        list.push({ name: 'Prova · piastrina', base: D(OFF(HULL([pl]), 0), U([slot(-2, 0, 6), slot(c, -c + 2, 6, 90)])), decor: null, place: (m) => m });
+      } else if (kind === 'pettine') {
+        const S = 20, Hh = 12, n = 3;
+        list.push({ name: 'Prova · parete A', base: U([fingerPanel(S, Hh, sp, tol, n, true), tab(0)]), decor: dot(0, Hh / 2), place: (m) => reg(reg(rotXm(m).translate([0, -S / 2 + sp, sp]))) });
+        list.push({ name: 'Prova · parete B', base: U([fingerPanel(S, Hh, sp, tol, n, false), tab(0)]), decor: dot(0, Hh / 2), place: (m) => reg(reg(rotXm(m).translate([0, -S / 2 + sp, sp])).rotate([0, 0, 90])) });
+        const pl = RECT(-S / 2 - 1.5, -S / 2 - 1.5, S / 2 + 1.5, S / 2 + 1.5), hole = RECT(-S / 2 + sp + 4, -S / 2 + sp + 4, S / 2 - sp - 4, S / 2 - sp - 4);
+        list.push({ name: 'Prova · piastrina', base: D(D(pl, hole), U([slot(0, -S / 2 + sp / 2, 6), slot(S / 2 - sp / 2, 0, 6, 90)])), decor: null, place: (m) => m });
       } else {
-        const S = 13, Hh = 30, sw = 1.75 * sp + tol, r0 = sp + tol, tx = 6, xc = (r0 + S) / 2;
-        const tabAt = (x) => RECT(x - 2, -sp, x + 2, 0.01);
-        list.push({ name: 'Prova · sagoma A', base: U([D(RECT(-S, 0, S, Hh), RECT(-sw / 2, Hh / 2 - tol, sw / 2, Hh + 1)), tabAt(-tx), tabAt(tx)]), decor: dot(-S / 2, Hh * 0.3), place: stand(0) });
-        list.push({ name: 'Prova · sagoma B', base: U([D(RECT(-S, 0, S, Hh), RECT(-sw / 2, -sp - 1, sw / 2, Hh / 2 + tol)), tabAt(-tx), tabAt(tx)]), decor: dot(-S / 2, Hh * 0.7), place: stand(60) });
-        list.push({ name: 'Prova · mezza sagoma C', base: U([RECT(r0, 0, S, Hh), tabAt(xc)]), decor: null, place: stand(120) });
-        const slotR = (x, az) => ROT(RECT(x - 2 - tol / 2, -sp / 2 - tol / 2, x + 2 + tol / 2, sp / 2 + tol / 2), az);
-        const sl = U([slotR(-tx, 0), slotR(tx, 0), slotR(-tx, 60), slotR(tx, 60), slotR(xc, 120)]);
-        list.push({ name: 'Prova · base', base: D(C2(0, 0, S + 5, 64), sl), decor: null, place: (m) => m });
+        const S = 9, Hh = 16, sw = 1.75 * sp + tol;
+        list.push({ name: 'Prova · sagoma A', base: U([D(RECT(-S, 0, S, Hh), RECT(-sw / 2, Hh / 2 - tol, sw / 2, Hh + 1)), tab(-5, 4)]), decor: dot(-4.6, Hh * 0.62), place: standAt(0, 0, 0) });
+        list.push({ name: 'Prova · sagoma B', base: U([D(RECT(-S, 0, S, Hh), RECT(-sw / 2, -sp - 1, sw / 2, Hh / 2 + tol)), tab(-5, 4)]), decor: dot(4.6, Hh * 0.3), place: standAt(0, 0, 60) });
+        const sl = U([slot(-5, 0, 4, 0), MV(ROT(slot(-5, 0, 4, 0), 60), 0, 0)]);
+        list.push({ name: 'Prova · dischetto', base: D(C2(0, 0, 8, 48), sl), decor: null, place: (m) => m });
       }
-      const r = kitFinish(list, Object.assign({}, p, { scritta: '', marchio: false }), notes, sp, lay);
-      const info = [['Prova incastri', `solo ${list.length} pezzi piccoli${p.telaio !== false ? ' su una cartolina mini, con i canali' : ''}: si stampa in pochi minuti`],
-        ['Come provare', kind === 'pettine' ? 'infila le due pareti nella base e incastra i denti dell\'angolo. Devono entrare con una leggera pressione e restare ferme' : 'infila la A nella base, cala la B dall\'alto sulla A, poi la mezza sagoma C nella sua fessura. Devono entrare con una leggera pressione'],
-        ['Se entrano duri', `aumenta il gioco (ora ${fmt(tol)} mm) di 0,05–0,1 mm; se ballano diminuiscilo. Poi spegni la prova e stampa tutto`],
+      const pp = Object.assign({}, p, { scritta: '', marchio: false, telaio: false });
+      const r = kitFinish(list, pp, notes, sp, lay);
+      const how = kind === 'croce' ? 'infila la A nel dischetto e cala la B dall\'alto sulla A: le fessure si incrociano a metà'
+        : kind === 'scorrimento' ? 'infila la A nella piastrina, poi cala la B dall\'alto: le due fessure si incrociano a metà altezza'
+        : 'infila le due pareti nella piastrina e incastra i denti dell\'angolo';
+      const info = [['Prova incastri', `${list.length} pezzetti sciolti, solo l'incastro: pochi minuti di stampa`],
+        ['Come provare', how + '. Devono entrare con una leggera pressione e restare fermi senza ballare'],
+        ['Se entrano duri', `aumenta il gioco (ora ${fmt(gl)} mm per lato) di 0,05 mm; se ballano diminuiscilo. Poi spegni la prova e stampa tutto con lo stesso gioco`],
         ['Stampante a un colore', `cambio filamento a ${fmt(sp)} mm: le stelline provano anche lo strato colorato`],
         ...notes.map(x => ['Nota', x])];
-      return { parts: r.parts, info, view: [0.15, -1, 0.7] };
+      return { parts: r.parts, info, view: [0.3, -1, 0.7] };
     }
 
     const T = H.decor || {};

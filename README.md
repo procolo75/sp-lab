@@ -97,7 +97,7 @@ Tutti gli oggetti di Natale possono avere **fino a tre colori** (abbinamenti pro
   - *Decorazioni:* lo stile di ogni casa si può cambiare: tetto (mattoncini, tegole a scaglie, scandole, coperto di neve, liscio), pareti (lisce, assi, mattoni in basso, pietre agli angoli), ornamento nel timpano (cuore o stella traforati, finestra tonda, rosone, fiocco, ghirlanda), fiocchi, stelline traforate o cuoricini sparsi sui muri, neve sui bordi (glassa, ghiaccioli sulla gronda, bordo a festoni sulla base). Le finestre sono traforate: con un lumino LED da 38 mm dentro si illuminano.
   - *Strato colorato:* le decorazioni sono uno strato sopra i pezzi, di spessore regolabile (0,4 mm di base, a multipli dell'altezza dello strato). Con una stampante a un colore si cambia filamento alla fine dei pezzi. Linee di almeno 0,9 mm e spazi di almeno 0,6 mm: con ugello 0,4 vengono puliti.
   - *Accessori:* fino a due alberi ai lati, pupazzo di neve e pacco regalo davanti, ognuno con la sua fessura nella base.
-  - *Incastro degli angoli:* **a scorrimento** (predefinito): facciata e retro hanno le fessure dal basso fino a metà altezza, i fianchi dall'alto, e si calano uno nell'altro come l'albero da incastrare; le pareti si incrociano e sporgono di qualche millimetro agli angoli. Robusto e facile anche con pezzi sottili. Oppure **a pettine**: angoli a filo con i denti, più preciso (almeno 1,6 mm). Il *gioco* è per lato (0,2 mm di base).
+  - *Incastro degli angoli:* **a scorrimento** (predefinito): facciata e retro hanno le fessure dal basso fino a metà altezza, i fianchi dall'alto, e si calano uno nell'altro come l'albero da incastrare; le pareti si incrociano e sporgono di qualche millimetro agli angoli. Robusto e facile anche con pezzi sottili. Oppure **a pettine**: angoli a filo con i denti, più preciso (almeno 1,6 mm). Il *gioco* è per lato (0,15 mm di base).
   - *Prova incastri:* in *Spessori* stampi solo l'incastro: due pareti basse e una piastrina con le fessure, pezzetti sciolti che si stampano in pochi minuti, per tarare il gioco prima di stampare tutto. C'è anche nella lanterna e nell'albero in kit (due sagome corte e un dischetto).
   - *Cartolina:* il telaio segue i pezzi, che si incastrano per stare nel piatto scelto (se non ci stanno la cartolina si divide), con una scritta in testa (anche il logo SP). Altezza dei canali regolabile; senza telaio i pezzi escono sciolti. L'anteprima mostra la cartolina e accanto la casetta montata, che è solo da guardare: nel file c'è la cartolina.
 - **Lanterna in kit:** quattro pannelli che si incastrano agli angoli (a scorrimento o a pettine) e si infilano nella base, ognuno con la sua scena traforata (paesino con le finestre, bosco di abeti, renne sotto la luna, fiocchi di neve, luna e stelle, cuori), cornice e neve nello strato colorato. Il manico ad arco si incastra a mezzo legno nelle tacche dei due pannelli laterali. Sulla base il cerchio per il lumino LED da 38 mm. Con il piatto da 220 sta in una cartolina sola fino a circa 50 × 90 mm (56 × 90 a pettine).
@@ -296,7 +296,7 @@ Per usare un tablet **senza custodia** come schermo di Home Assistant. Scegli il
 ![Bullone M8 con rondella e dado](docs/img/bullone.png)
 - **Filetto metrico ISO** a passo grosso, da M3 a M30; con *Altro* scegli diametro e passo liberi. Filetto destro o sinistro.
 - Il filetto è un'elica vera, non un'approssimazione: vite e dado dello stesso file si avvitano.
-- **Gioco filetto** regolabile (0,3 mm all'inizio): è lo spazio tra i fianchi di vite e dado.
+- **Gioco filetto per lato** regolabile (0,15 mm all'inizio): è lo spazio su ogni fianco tra vite e dado.
 - **Lunghezza filettata**: tutta, oppure solo in punta con il resto del gambo liscio.
 - **Teste:** esagonale, cilindrica, svasata a 90°, zigrinata da girare a mano, oppure senza testa (grano o barra filettata). Impronta a esagono incassato o a taglio. Le misure della testa sono quelle standard ISO, oppure le scegli tu con *Misure testa su misura* (larghezza o chiave, e altezza).
 - **Bullone:** dado esagonale, zigrinato o ad alette, dado alto (×1,5) e da zero a due rondelle. L'anteprima mostra il bullone montato e lo spessore che puoi serrare.
@@ -307,7 +307,7 @@ Per usare un tablet **senza custodia** come schermo di Home Assistant. Scegli il
 - **A scatto:** si infila nel foro e si aggancia da solo con due dentini elastici. Doppio, per unire due pezzi, oppure con testa. Imposti diametro e spessore del pezzo da attraversare; il file è già orientato sdraiato sul lato piatto.
 - **Spina liscia** con estremità smussate, per centrare due pezzi.
 - **Con testa**, con foro per la coppiglia: per cerniere e snodi.
-- Il riquadro misure indica il **foro da fare nei tuoi pezzi** (diametro + tolleranza).
+- Il riquadro misure indica il **foro da fare nei tuoi pezzi** (diametro + il gioco su entrambi i lati).
 - **Piastrina di prova:** un pezzetto con il foro giusto, per provare l'incastro prima di stampare il progetto vero.
 
 ---
@@ -346,10 +346,9 @@ I valori che imposti restano salvati nel browser. **Ripristina valori** torna a 
 ## Consigli di stampa
 
 ### Tarare la tolleranza
-Ogni stampante è diversa. Il parametro **Tolleranza stampante** (0,3 mm all'inizio) è il gioco usato negli incastri: cassetti, fori per magneti, vaso interno e cestello.
-1. Stampa un pezzo piccolo, per esempio una cassettiera 1×2 con un cassetto.
-2. Se il cassetto entra troppo stretto, aumenta la tolleranza di 0,05–0,1 mm.
-3. Se balla troppo, diminuiscila.
+In tutto SP Lab il **gioco è sempre per lato**: è lo spazio su ogni lato tra due pezzi che si incastrano (o tra un pezzo e l'oggetto che deve contenere). Per gli incastri tra pezzi stampati (perni, filetti di viti e dadi, coperchi, fessure, kit di Natale, fori dei magneti) parte da **0,15 mm**. Lo spazio per gli oggetti veri (telefono, tablet, schede, porte USB, lumino, porta, tubo) e per le parti che devono scorrere o girare (cassetti, tappo del barattolo, timbro della formina) ha il suo valore, anche quello per lato. Ogni stampante è diversa:
+1. Stampa un contenitore 1×1 e una base, o la *prova incastri* dei kit.
+2. Se entra troppo stretto aumenta il gioco di 0,05 mm, se balla diminuiscilo.
 
 ### Per tipo di oggetto
 - **Decorazioni piatte e palle piatte:** strati da 0,2 mm, 3 mm di spessore. Spessore, spessore della scritta e rilievo vanno a multipli di 0,2 e di 0,28 mm (0,28 · 0,56 · 0,84 · 1,12…): con − e + si passa al valore vicino, così ogni colore cade su strati interi anche se stampi il primo strato a 0,28. Per scritte piccole ugello da 0,4 mm e lettere di almeno 5 mm. La scritta in corsivo regge meglio se è almeno 8 mm.
