@@ -52,6 +52,8 @@
   // disegni: Fluent Emoji (libreria) e SVG caricati dall'utente
   const EMOJI = window.SPLAB_EMOJI || [], EMO_BY = Object.fromEntries(EMOJI.map(e => [e.id, e]));
   const isArtId = (k) => k === 'svg' || !!EMO_BY[k];
+  // colori di un SVG caricato (null se non ci sono forme), con o senza lo sfondo
+  const svgPal = (text, noBg) => { try { const pk = window.SPLAB_SVG.pack(window.SPLAB_SVG.parse(text, { noBg })); return pk && pk.pal; } catch (e) { return null; } };
   // i 4 colori del disegno scelto (per l'abbinamento "Colori del disegno")
   const artPal = (v, key = 'forma') => {
     const k = v[key];
@@ -1162,6 +1164,7 @@
             ${using ? '<button type="button" class="btn unuse">Usa la libreria</button>' : ''}
             ${cur && cur.name ? '<button type="button" class="btn clear">Togli</button>' : ''}
           </div>
+          ${cur && cur.bg ? `<label class="svg-nobg"><input type="checkbox" class="nobg"${cur.noBg ? ' checked' : ''}> Togli lo sfondo</label>` : ''}
           <input id="${idAttr}" type="file" accept=".svg,image/svg+xml" hidden>
           <p class="help">Il tuo disegno vettoriale al posto di quelli della libreria: i colori vanno sui tuoi filamenti, i tratti diventano linee piene.</p>
         </div>`;
@@ -1177,10 +1180,13 @@
           const rd = new FileReader();
           rd.onload = () => {
             const text = String(rd.result || '');
-            let pal = null;
-            try { const pk = window.SPLAB_SVG.pack(window.SPLAB_SVG.parse(text)); pal = pk && pk.pal; } catch (err) { pal = null; }
+            // se c'è un riquadro di sfondo (foto convertita in SVG) lo tolgo subito: si rimette con la casella
+            let bg = false;
+            try { bg = !!window.SPLAB_SVG.parse(text).bg; } catch (err) { bg = false; }
+            const pal = svgPal(text, bg);
             if (!pal) { setStatus('Nel file non ho trovato forme da usare: serve un SVG con aree colorate o tratti', 'err'); return; }
-            apply({ name: file.name, text, pal }, p.use);
+            apply({ name: file.name, text, pal, bg, noBg: bg }, p.use);
+            if (bg) setStatus('Ho tolto lo sfondo del disegno: se ti serve, rimettilo con la casella "Togli lo sfondo"');
           };
           rd.readAsText(file);
         };
@@ -1191,6 +1197,8 @@
         card.addEventListener('drop', (e) => { e.preventDefault(); card.classList.remove('drag'); load(e.dataTransfer.files && e.dataTransfer.files[0]); });
         const u = row.querySelector('.use'); if (u) u.addEventListener('click', () => apply(cur, p.use));
         const n = row.querySelector('.unuse'); if (n) n.addEventListener('click', () => apply(cur, p.unuse));
+        const nb = row.querySelector('.nobg');
+        if (nb) nb.addEventListener('change', () => { const pal = svgPal(cur.text, nb.checked); if (pal) apply(Object.assign({}, cur, { noBg: nb.checked, pal })); });
         const cl = row.querySelector('.clear'); if (cl) cl.addEventListener('click', () => apply(null, p.unuse));   // via il file: si torna al disegno di prima
       } else if (p.type === 'pad') {
         // croce di frecce per spostare la scritta: 1 mm a clic (0,2 mm tenendo premuto Maiusc), il centro la rimette al centro.

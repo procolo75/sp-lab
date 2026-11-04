@@ -272,10 +272,36 @@
         shapes.push({ stroke: s.stroke, width: (s.sw === undefined ? 1 : s.sw) * scale, lines: polys });
     }
     visit(svg, { M: I.slice(), color: '#000000' }, 0);
+    // sfondo: la prima forma piena è un rettangolo che copre tutto il disegno (tipico delle foto convertite in SVG).
+    // Con opts.noBg lo tolgo; se sotto non resta niente di un altro colore, il disegno erano i suoi buchi e li riempio
+    const bg = findBg(shapes);
+    if (bg >= 0 && opts.noBg) {
+      const B = shapes[bg], others = shapes.filter((sh, i) => i !== bg), outer = bigRing(B.polys);
+      const diff = others.filter(sh => (sh.fill || sh.stroke) !== B.fill);
+      if (diff.length) shapes.splice(0, shapes.length, ...others);
+      else {
+        // buchi dello sfondo + isole dello stesso colore, con pari/dispari: i buchi pieni, le isole vuote, i buchi delle isole pieni
+        const rings = B.polys.filter(q => q !== outer).concat(...others.filter(sh => sh.polys).map(sh => sh.polys));
+        shapes.splice(0, shapes.length, ...(rings.length ? [{ fill: B.fill, rule: 'evenodd', polys: rings }] : []));
+      }
+    }
     // riquadro del disegno
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const sh of shapes) for (const q of (sh.polys || sh.lines.map(l => l.pts))) for (const [x, y] of q) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
-    return { shapes, viewBox: vb, bounds: isFinite(x0) ? [x0, y0, x1, y1] : null };
+    return { shapes, viewBox: vb, bounds: isFinite(x0) ? [x0, y0, x1, y1] : null, bg: bg >= 0 };
+  }
+  const bboxOf = (qs) => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const q of qs) for (const [x, y] of q) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); } return [x0, y0, x1, y1]; };
+  const bigRing = (qs) => qs.reduce((a, q) => (ringArea(q) > ringArea(a) ? q : a), qs[0]);
+  // indice della forma di sfondo, o -1: la prima forma piena, con il contorno esterno quasi rettangolare
+  // che copre tutto il resto, e con qualcosa sopra (altre forme) o dentro (buchi)
+  function findBg(shapes) {
+    const i = shapes.findIndex(sh => sh.polys && sh.polys.length);
+    if (i < 0) return -1;
+    const B = shapes[i], outer = bigRing(B.polys), [a0, b0, a1, b1] = bboxOf([outer]), w = a1 - a0, h = b1 - b0;
+    if (!(w > 0 && h > 0) || ringArea(outer) < 0.97 * w * h) return -1;
+    const [x0, y0, x1, y1] = bboxOf(shapes.flatMap(sh => sh.polys || sh.lines.map(l => l.pts)));
+    if (w < 0.97 * (x1 - x0) || h < 0.97 * (y1 - y0)) return -1;
+    return shapes.length > 1 || B.polys.length > 1 ? i : -1;
   }
   function parseCSS(text, css) {
     const re = /([^{}]+)\{([^}]*)\}/g;

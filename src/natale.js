@@ -271,8 +271,9 @@
       if (id === 'svg') {
         const txt = svgVal && svgVal.text;
         if (!txt || !SVGL) return null;
-        if (!svgCache.has(txt)) { let a = null; try { a = SVGL.pack(SVGL.parse(txt)); } catch (e) { a = null; } svgCache.clear(); svgCache.set(txt, a); }
-        return svgCache.get(txt);
+        const key = (svgVal.noBg ? '1' : '0') + txt;   // "togli lo sfondo" cambia le forme
+        if (!svgCache.has(key)) { let a = null; try { a = SVGL.pack(SVGL.parse(txt, { noBg: !!svgVal.noBg })); } catch (e) { a = null; } svgCache.clear(); svgCache.set(key, a); }
+        return svgCache.get(key);
       }
       return EMO_BY[id] || EMO_BY[OLD[id]] || null;
     }
