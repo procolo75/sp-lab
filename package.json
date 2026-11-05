@@ -1,8 +1,8 @@
 {
   "name": "sp-lab",
-  "version": "2.29.0",
+  "version": "2.30.0",
   "private": true,
-  "description": "Generatore parametrico di oggetti per la stampa 3D, nel browser: palle piatte, decorazioni di Natale multicolore, bastoncini di zucchero a pezzi, casette, lanterne e alberi in kit da montare, reggimensole, ganci, contenitori Gridfinity, cassettiere, basi, rack e cover per telefoni, vasi, viti, bulloni e perni, barattoli con tappo a vite, scatole per powerbank e per schede ESP con sensori e LED, antivibrazione per racchette da tennis e padel. Esporta 3MF e STL.",
+  "description": "Generatore parametrico di oggetti per la stampa 3D, nel browser: palle piatte, decorazioni di Natale multicolore, bastoncini di zucchero a pezzi, casette, lanterne e alberi in kit da montare, reggimensole, ganci, contenitori Gridfinity, cassettiere, basi, rack e cover per telefoni, vasi, viti, bulloni e perni, barattoli con tappo a vite, raccordi per tubi con filetto gas e portagomma, O-ring e guarnizioni in TPU, scatole per powerbank e per schede ESP con sensori e LED, antivibrazione per racchette da tennis e padel. Esporta 3MF e STL.",
   "scripts": {
     "build": "python3 build.py",
     "fonts": "node tools/make-fonts.mjs",

@@ -12,7 +12,7 @@ SP Lab è un generatore parametrico di oggetti da stampare in 3D che funziona in
 
 ## Cosa puoi generare
 
-La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la categoria scritta sopra il titolo. Alcuni riquadri raccolgono più generatori, che trovi come schede in alto: Natale (pallina, pallina a spirale, palla piatta, decorazione, albero, stella, bastoncino, casetta, lanterna kit, albero kit, lanterna, formina), Gridfinity (contenitore, cassettiera, base), Reggimensole e ganci (reggimensola, gancio), Antivibrazione (tennis, padel) e Viti e bulloni (vite, bullone, perno).
+La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la categoria scritta sopra il titolo. Alcuni riquadri raccolgono più generatori, che trovi come schede in alto: Natale (pallina, pallina a spirale, palla piatta, decorazione, albero, stella, bastoncino, casetta, lanterna kit, albero kit, lanterna, formina), Gridfinity (contenitore, cassettiera, base), Reggimensole e ganci (reggimensola, gancio), Tubi e guarnizioni (raccordi, O-ring), Antivibrazione (tennis, padel) e Viti e bulloni (vite, bullone, perno).
 
 | Generatore | Cos'è | Parti nel file |
 |---|---|---|
@@ -39,6 +39,8 @@ La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la 
 | **Gancio** | Gancio a muro o appendiabiti con più ganci, sopra porta o anta, per tubo o bastone, a S; fissaggio a viti, biadesivo o magneti | 1 |
 | **Powerbank** | Scatola per un powerbank fai-da-te: portapile già pronto (o contatti a molla), cinque schede di ricarica con le porte già al loro posto, coperchio a slitta o a viti nascoste con scritta, loghi e il tuo SVG | scatola e coperchio (anche a colori) |
 | **Barattolo** | Barattolo tondo con tappo a vite che si chiude con un giro: cinque misure pronte o le tue, filetto grosso senza supporti, scritta, loghi e il tuo SVG sul tappo | barattolo e tappo (anche a colori) |
+| **Raccordi** | Raccordi per tubi, fontane e irrigazione: dritti o riduzioni, gomito 90° e 45°, T, Y e tappi, con filetto gas da 1/8" a 2" (maschio G o R, femmina), portagomma per tubi morbidi e attacco a incastro con O-ring per le fontane | 1, più le fascette |
+| **O-ring** | O-ring con sigla AS568, misure tue o calcolate dalla sede, anelli a sezione quadra e guarnizioni piatte per i raccordi gas, da stampare in TPU | quanti ne vuoi |
 | **Supporto tablet** | Cornice con base per usare un tablet senza custodia come schermo di Home Assistant: Fire HD 10 (2021), Fire HD 8 (2018), Fire 7 (2017) o misure tue, orizzontale o verticale | cornice (o 2 metà) e 2 piedini |
 | **Antivibrazione tennis** | Antivibrazione per le corde, a bottone (10 forme, i disegni della libreria o il tuo SVG) o a verme, per schemi 16×19, 18×20 o con le tue misure, con una scritta | 1 |
 | **Antivibrazione padel** | Tappo per i fori della racchetta, o passante per tutto lo spessore, con una scritta sulla testa | quanti ne vuoi |
@@ -229,6 +231,22 @@ Si stampano **sdraiati sul fianco**: gli strati seguono il profilo, così la squ
   - per tutti: larghezza e spessore del gancio, sporgenza, raggio della curva, altezza della punta, inclinazione e pallino in punta;
   - orientamento di stampa sul fianco (robusto) o sulla schiena (comodo per gli appendiabiti lunghi).
 
+### Tubi e guarnizioni
+Due schede: **Raccordi** e **O-ring**. Le misure sono quelle standard, così i pezzi stampati si avvitano su rubinetti, pompe e raccordi comprati.
+
+- **Raccordi:** forma *dritto o riduzione*, *gomito 90°*, *gomito 45°*, *T*, *Y* o *tappo*; per ogni uscita scegli l'attacco:
+  - *filetto gas maschio* da 1/8" a 2" (BSP, profilo Whitworth 55°): **G cilindrico** (ISO 228) con la tenuta sull'**O-ring** (cava sotto l'esagono, la sigla AS568 è nel riquadro misure), su una **guarnizione piatta** o col **teflon** (lato dell'esagono a 45°), oppure **R conico** 1:16 (ISO 7) da stringere col teflon;
+  - *filetto gas femmina* (G, ci va anche un maschio conico), fondo piatto per la guarnizione o a 45°;
+  - *portagomma* per tubi morbidi: silicone e acquario (4/6, 6/8, 8/12, 10/14, 12/16, 16/22, 19/25), tubo da giardino 1/2" (13 mm), 5/8" (15), 3/4" (19), 1" (25) o misura tua; dentini a dente di sega con il fianco ripido a 45°.
+  - *a incastro con O-ring*, per le fontane senza filetto, al posto dell'adattatore a pressione che manca: **maschio** che entra nel foro della fontana o **femmina** che riceve il suo tubetto. Dai il Ø e la profondità misurati col calibro; il *gioco dell'incastro* (0,2 mm per lato) si toglie da solo e una o due cave per l'O-ring fanno la tenuta (misura dell'O-ring e sigla AS568, se c'è, nel riquadro misure).
+  - *fascette* per i portagomma, una per tubo e già della sua misura (dal Ø esterno tipico del tubo o da quello che misuri): **a vite**, due metà strette da due viti M3 (M4 sopra Ø 22) con dado, la più sicura e si riapre; oppure **a cremagliera**, un pezzo solo a spirale che esce già agganciato e si stringe con la pinza sulle due alette. Escono accanto al raccordo, piatte.
+  - Lunghezza del filetto dalla norma ISO 7 (1/2" = 13,2 mm) o a scelta; *gioco del filetto* per lato come in Viti e bulloni (0,15 mm).
+  - Si stampa **senza supporti**: il dritto in piedi (sul piatto va da solo l'uscita che si stampa meglio), il gomito 90° appoggiato a V con le due uscite a 45°, il gomito 45° e la Y con il gambo in giù. Tutti i cambi di diametro dentro sono a 45°. Solo il braccio laterale del T vuole i supporti.
+- **O-ring:** sezione *tonda* (fondo appena appiattito per stare sul piatto), *quadra* o *guarnizione piatta*.
+  - Misura dalla **sigla AS568** (ISO 3601: serie 0xx corda 1,78, 1xx 2,62, 2xx 3,53, 3xx 5,33), con le **tue misure** (Ø interno e corda) o **dalla sede**: dai il Ø del foro (cava sul pezzo che entra) o dell'albero (cava nel foro) e calcola O-ring e cava con il 20 % di schiacciamento e la cava larga 1,4 volte la corda.
+  - Guarnizioni piatte pronte per le femmine gas da 1/8" a 2" (3/4": 23,8 × 17 × 2 mm) o con le tue misure; più copie sul piatto.
+  - *Correzione del Ø interno*: dopo la prima prova, se l'anello esce stretto o largo.
+
 ### Powerbank
 - **Schede**, solo quelle con le misure pubblicate dal venditore. Le posizioni delle porte sono ricavate in scala dalle foto dall'alto, e i fori seguono le misure standard dei connettori con un **gioco** regolabile (0,6 mm per lato):
 
@@ -366,6 +384,8 @@ In tutto SP Lab il **gioco è sempre per lato**: è lo spazio su ogni lato tra d
 - **Viti e bulloni:** stampa prima un bullone M8 corto per tarare il *Gioco filetto*. Usa 4 o più perimetri (o riempimento 100%) e strati sottili (0,12–0,16 mm). Sotto M6 il filetto stampato è delicato. Per viti che lavorano, PETG o nylon.
 - **Powerbank:** PETG o ASA, non PLA (in auto al sole si deforma). Stampa prima la *prova del fronte*. Prima di collegare le celle in parallelo portale alla stessa tensione e rispetta la polarità sulle piazzole B+ e B−: al contrario la scheda si brucia.
 - **Antivibrazione:** TPU morbido (85A–95A) o TPE: più è morbido più smorza, il PLA non smorza. 20 mm/s, 3 pareti, riempimento gyroid 30–50% (meno riempimento = più morbido), brim perché il TPU tende a sollevarsi. Stampa prima un pezzo e prova l'incastro: se scivola aumenta la *Presa*, se non entra diminuiscila.
+- **Raccordi:** PETG, 4 o più perimetri e riempimento alto vicino ai filetti; strati da 0,12–0,16 mm (il 1/8" ha il passo di 0,9 mm). Sul portagomma con l'acqua in pressione metti una fascetta. Le fascette in PETG, non in PLA (si allenta col tempo e al sole), con 4 perimetri e riempimento 100 %; infilale sul tubo prima di spingerlo sul portagomma. Se il filetto è duro aumenta il *Gioco del filetto* di 0,05.
+- **O-ring e guarnizioni:** TPU 95A o più morbido, riempimento 100 %, 20–30 mm/s. Sotto 1,5 mm di corda il TPU con ugello 0,4 viene male.
 - **Perni a scatto:** se il perno entra troppo duro aumenta la tolleranza; se la fessura è corta (lo segnala il riquadro misure) il perno resta rigido.
 
 ---
@@ -390,6 +410,7 @@ In tutto SP Lab il **gioco è sempre per lato**: è lo spazio su ogni lato tra d
 │   ├── racchette.js antivibrazione per racchette da tennis e padel
 │   ├── cassetti.js cassetti modulari a mattoncino
 │   ├── barattolo.js barattoli tondi con tappo a vite
+│   ├── raccordi.js raccordi con filetto gas e portagomma, O-ring e guarnizioni
 │   ├── bastoncino.js bastoncino di zucchero a pezzi con perni
 │   ├── casetta.js  kit di Natale (casetta, lanterna, albero) su una cartolina col telaio, con la prova incastri
 │   ├── fonts.js    contorni dei caratteri (generato)

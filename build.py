@@ -30,6 +30,7 @@ parts = [
   rd('src/cassetti.js'),
   rd('src/tablet.js'),
   rd('src/barattolo.js'),
+  rd('src/raccordi.js'),
   rd('src/bastoncino.js'),
   rd('src/app.js'),
 ]

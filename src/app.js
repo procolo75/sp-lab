@@ -262,6 +262,14 @@
 
   // processori e moduli (misure in dati/schede-misure.js)
   const SCHEDE_DB = (window.SCHEDE_MISURE && window.SCHEDE_MISURE.SCHEDE) || {};
+  // tubi e guarnizioni: tabelle in raccordi.js (TUBI_DATI)
+  const TUBI = window.TUBI_DATI || { IN: 25.4, AS568: {}, BSP: {} };
+  const mm2 = (v) => (Math.round(v * 100) / 100).toString().replace('.', ',');
+  const tubiAs568 = () => Object.entries(TUBI.AS568).sort((x, y) => +x[0] - +y[0]).map(([k, [id, cs]]) => [k, `${k} · ${mm2(id * TUBI.IN)} × ${mm2(cs * TUBI.IN)} mm`]);
+  const tubiBsp = () => Object.entries(TUBI.BSP).map(([k, b]) => [k, `${b[4]} · Ø ${mm2(b[0])} mm, ${b[1]} filetti/pollice`]);
+  const racUscite = (p) => (p.forma === 'tappo' ? ['A'] : p.forma === 't' || p.forma === 'y' ? ['A', 'B', 'C'] : ['A', 'B']);   // uscite attive del raccordo
+  const TUBI_GOMMA = [['4', '4 mm · silicone 4/6, aria dell\'acquario'], ['6', '6 mm · silicone 6/8'], ['8', '8 mm · silicone 8/12'], ['10', '10 mm · silicone 10/14'], ['12', '12 mm · silicone 12/16, pompe da fontana'],
+    ['13', '13 mm · tubo da giardino 1/2"'], ['15', '15 mm · tubo da giardino 5/8"'], ['16', '16 mm · silicone 16/22'], ['19', '19 mm · tubo da giardino 3/4", silicone 19/25'], ['25', '25 mm · tubo 1"'], ['mio', 'Misura mia']];
   const schedeOpts = (ruolo) => Object.entries(SCHEDE_DB).filter(([, v]) => v.ruolo === ruolo).map(([k, v]) => [k, `${v.nome} · ${String(v.L).replace('.', ',')} × ${String(v.W).replace('.', ',')} mm`]);
   const MODES = {
     bin: {
@@ -842,6 +850,76 @@
         { sec: 'Stampa', id: 'stampa', label: 'Orientamento', type: 'select', def: 'sdraiata', options: [['sdraiata', 'Sdraiato'], ['piedi', 'In piedi']], show: p => p.tipo !== 'scatto', help: 'Sdraiato (con un lato piatto) gli strati corrono lungo il perno: molto più robusto.' },
       ],
     },
+    oring: {
+      label: 'O-ring',
+      params: [
+        { sec: 'Guarnizione', id: 'sezione', label: 'Tipo', type: 'select', def: 'tonda', options: [['tonda', 'O-ring (sezione tonda)'], ['quadra', 'Anello a sezione quadra'], ['piatta', 'Guarnizione piatta']],
+          help: 'O-ring: nelle cave di tappi, pompe, filtri. Sezione quadra: tiene di più se l\'O-ring si torce. Piatta: la rondella in fondo ai raccordi a vite (rubinetti, tubi da giardino).' },
+        { sec: 'Misura', id: 'misura', label: 'Come la scegli', type: 'select', def: 'as568', options: [['as568', 'Sigla AS568 (le misure che si comprano)'], ['mia', 'Misure mie'], ['sede', 'Dalla sede: foro o albero']], show: p => p.sezione !== 'piatta',
+          help: 'AS568 (ISO 3601) è la serie standard: la sigla è stampata sulla bustina. Dalla sede: dai il Ø del foro o dell\'albero e calcola l\'O-ring e la cava giusta.' },
+        { sec: 'Misura', id: 'sigla', label: 'Sigla', type: 'select', menu: true, def: '020', options: tubiAs568(), show: p => p.sezione !== 'piatta' && p.misura === 'as568', help: 'Ø interno × corda in mm. Serie 0xx corda 1,78, 1xx 2,62, 2xx 3,53, 3xx 5,33.' },
+        { sec: 'Misura', id: 'sede', label: 'Dove va', type: 'select', def: 'pistone', options: [['pistone', 'In una cava sul pezzo che entra nel foro'], ['stelo', 'In una cava nel foro, attorno a un albero']], show: p => p.sezione !== 'piatta' && p.misura === 'sede',
+          help: 'Il caso più comune è il primo: tappi, pistoni, coperchi a pressione. Il secondo: un albero che passa in un foro (perni, assi che girano piano).' },
+        { sec: 'Misura', id: 'dSede', label: 'Ø del foro o dell\'albero', type: 'num', min: 4, max: 300, step: 0.5, def: 30, unit: 'mm', show: p => p.sezione !== 'piatta' && p.misura === 'sede',
+          help: 'Il Ø del foro (primo caso) o dell\'albero (secondo caso), dove scorre l\'O-ring. Nel riquadro misure trovi la cava da fare.' },
+        { sec: 'Misura', id: 'piatta', label: 'Per raccordo', type: 'select', def: 'g34', options: [...tubiBsp(), ['mia', 'Misure mie']], show: p => p.sezione === 'piatta',
+          help: 'Misure per stare in fondo a una femmina gas di quella misura (il tubo da giardino e i rubinetti sono da 3/4" o 1/2").' },
+        { sec: 'Misura', id: 'dInt', label: 'Ø interno', type: 'num', min: 2, max: 300, step: 0.1, def: 20, unit: 'mm', show: p => (p.sezione !== 'piatta' && p.misura === 'mia') || (p.sezione === 'piatta' && p.piatta === 'mia') },
+        { sec: 'Misura', id: 'dEst', label: 'Ø esterno', type: 'num', min: 4, max: 320, step: 0.1, def: 26, unit: 'mm', show: p => p.sezione === 'piatta' && p.piatta === 'mia' },
+        { sec: 'Misura', id: 'spessore', label: 'Spessore', type: 'num', min: 0.8, max: 6, step: 0.1, def: 2, unit: 'mm', show: p => p.sezione === 'piatta' && p.piatta === 'mia' },
+        { sec: 'Misura', id: 'corda', label: 'Corda (spessore dell\'anello)', type: 'select', def: 'auto', options: [['auto', 'Automatica'], ...['1.5', '1.78', '2', '2.5', '2.62', '3', '3.53', '4', '5', '5.33', '6', '6.99'].map(v => [v, v.replace('.', ',') + ' mm'])],
+          show: p => p.sezione !== 'piatta' && (p.misura === 'mia' || p.misura === 'sede'), help: 'Automatica: 1,78 fino a Ø 10, 2,62 fino a 30, 3,53 fino a 70, poi 5,33. Le corde in pollici (1,78, 2,62, 3,53, 5,33, 6,99) sono quelle della serie AS568.' },
+        { sec: 'Stampa', id: 'fondoPiatto', label: 'Fondo appena appiattito', type: 'bool', def: true, show: p => p.sezione === 'tonda', help: 'Toglie un decimo della corda sotto, così l\'anello sta sul piatto invece di toccarlo su una riga.' },
+        { sec: 'Stampa', id: 'correzione', label: 'Correzione del Ø interno', type: 'num', min: -1, max: 1, step: 0.05, def: 0, unit: 'mm',
+          help: 'Dopo la prima prova: se l\'anello esce stretto metti un valore positivo, se esce largo negativo. Il TPU cambia un po\' da una bobina all\'altra.' },
+        { sec: 'Stampa', id: 'copie', label: 'Quanti', type: 'int', min: 1, max: 30, def: 1 },
+      ],
+    },
+    raccordo: {
+      label: 'Raccordi',
+      params: [
+        { sec: 'Forma', id: 'forma', label: 'Forma', type: 'select', def: 'dritto', options: [['dritto', 'Dritto o riduzione'], ['gomito90', 'Gomito 90°'], ['gomito45', 'Gomito 45°'], ['t', 'T'], ['y', 'Y (sdoppiatore)'], ['tappo', 'Tappo']],
+          help: 'Tutto si stampa senza supporti: il dritto in piedi, il gomito 90° appoggiato a V, la Y con il gambo in giù. Solo il braccio laterale del T li vuole.' },
+        ...['A', 'B', 'C'].flatMap(k => {
+          const on = (p) => k === 'A' || (k === 'B' && p.forma !== 'tappo') || (k === 'C' && (p.forma === 't' || p.forma === 'y'));
+          const sec = k === 'A' ? 'Uscita A' : k === 'B' ? 'Uscita B' : 'Uscita C';
+          return [
+            { sec, id: 'tipo' + k, label: 'Attacco', type: 'select', def: k === 'A' ? 'maschio' : 'portagomma', options: [['maschio', 'Filetto gas maschio'], ['femmina', 'Filetto gas femmina'], ['portagomma', 'Portagomma (tubo morbido)'], ['incastro', 'A incastro con O-ring (fontane)']], show: on,
+              help: k === 'A' ? 'Filetto gas (BSP): rubinetti, pompe, irrigazione. Per sapere la misura: Ø esterno del maschio circa 9,7 = 1/8", 13,2 = 1/4", 16,7 = 3/8", 21 = 1/2", 26,4 = 3/4", 33,2 = 1". A incastro: per le fontane senza filetto, al posto dell\'adattatore a pressione che manca; le misure le prendi col calibro.' : undefined },
+            { sec, id: 'misura' + k, label: 'Misura', type: 'select', def: k === 'C' ? 'g12' : 'g12', options: tubiBsp(), show: p => on(p) && (p['tipo' + k] === 'maschio' || p['tipo' + k] === 'femmina') },
+            { sec, id: 'filetto' + k, label: 'Filetto', type: 'select', def: 'G', options: [['G', 'G cilindrico (ISO 228)'], ['R', 'R conico (ISO 7)']], show: p => on(p) && p['tipo' + k] === 'maschio',
+              help: 'G: tiene con l\'O-ring o la guarnizione sulla battuta, si avvita in tutte le femmine. R: si stringe sul filetto con il teflon, come i raccordi idraulici.' },
+            { sec, id: 'tenuta' + k, label: 'Tenuta', type: 'select', def: 'oring', options: [['oring', 'O-ring sulla battuta'], ['piatta', 'Battuta piatta (guarnizione)'], ['teflon', 'Teflon (battuta a 45°)']], show: p => on(p) && p['tipo' + k] === 'maschio' && p['filetto' + k] !== 'R',
+              help: 'O-ring: cava sotto l\'esagono, la sigla dell\'O-ring è nel riquadro misure (lo stampi nella scheda O-ring). Battuta piatta: per la guarnizione piatta della femmina. Teflon: niente battuta, il lato dell\'esagono è a 45°.' },
+            { sec, id: 'tenutaF' + k, label: 'Fondo', type: 'select', def: 'piatta', options: [['piatta', 'Piatto, per la guarnizione'], ['teflon', 'A 45° (teflon sul maschio)']], show: p => on(p) && p['tipo' + k] === 'femmina',
+              help: 'Piatto: ci va la guarnizione piatta (scheda O-ring, guarnizione piatta della stessa misura). A 45°: per i maschi conici col teflon; si stampa meglio quando la femmina sta sul piatto.' },
+            { sec, id: 'incastro' + k, label: 'Incastro', type: 'select', def: 'maschio', options: [['maschio', 'Entra in un foro (della fontana)'], ['femmina', 'Riceve un tubo (della fontana)']], show: p => on(p) && p['tipo' + k] === 'incastro',
+              help: 'Guarda sotto la fontana: se c\'è un buco, il raccordo ci entra (maschio); se sporge un tubetto, il raccordo lo riceve (femmina).' },
+            { sec, id: 'dInc' + k, label: 'Ø misurato', type: 'num', min: 4, max: 80, step: 0.1, def: 20, unit: 'mm', show: p => on(p) && p['tipo' + k] === 'incastro',
+              help: 'Col calibro. Foro: il Ø interno del foro. Tubetto: il Ø esterno del tubetto. Il gioco si toglie da solo.' },
+            { sec, id: 'profInc' + k, label: 'Profondità dell\'incastro', type: 'num', min: 5, max: 80, step: 0.5, def: 20, unit: 'mm', show: p => on(p) && p['tipo' + k] === 'incastro',
+              help: 'Quanto è profondo il foro, o quanto è lungo il tubetto. Mettine un paio di mm in meno, così il raccordo non tocca il fondo.' },
+            { sec, id: 'oringInc' + k, label: 'O-ring per la tenuta', type: 'select', def: '1', options: [['0', 'Nessuno'], ['1', 'Uno'], ['2', 'Due']], show: p => on(p) && p['tipo' + k] === 'incastro',
+              help: 'La cava si fa da sola; la misura dell\'O-ring (e la sigla AS568 se esiste) è nel riquadro misure. Lo compri o lo stampi nella scheda O-ring.' },
+            { sec, id: 'cordaInc' + k, label: 'Corda dell\'O-ring', type: 'select', def: 'auto', options: [['auto', 'Automatica'], ...['1.5', '1.78', '2', '2.5', '2.62', '3', '3.53'].map(v => [v, v.replace('.', ',') + ' mm'])], show: p => on(p) && p['tipo' + k] === 'incastro' && p['oringInc' + k] !== '0' },
+            { sec, id: 'lung' + k, label: 'Lunghezza filetto', type: 'num', min: 0, max: 40, step: 0.5, def: 0, unit: 'mm', show: p => on(p) && (p['tipo' + k] === 'maschio' || p['tipo' + k] === 'femmina'), help: '0 = quella della norma ISO 7 (1/2" = 13,2 mm, 3/4" = 14,5 mm).' },
+            { sec, id: 'tubo' + k, label: 'Tubo (Ø interno)', type: 'select', def: k === 'C' ? '13' : '13', options: TUBI_GOMMA, show: p => on(p) && p['tipo' + k] === 'portagomma',
+              help: 'Il Ø interno del tubo. Silicone e acquario: interno/esterno. Tubo da giardino: 1/2" = 13 mm, 5/8" = 15, 3/4" = 19.' },
+            { sec, id: 'tuboMio' + k, label: 'Ø interno del tubo', type: 'num', min: 3, max: 40, step: 0.5, def: 13, unit: 'mm', show: p => on(p) && p['tipo' + k] === 'portagomma' && p['tubo' + k] === 'mio' },
+            { sec, id: 'tuboEst' + k, label: 'Ø esterno del tubo', type: 'num', min: 0, max: 50, step: 0.5, def: 0, unit: 'mm', show: p => on(p) && p['tipo' + k] === 'portagomma' && p.fascetta && p.fascetta !== 'nessuna',
+              help: '0 = quello tipico del tubo scelto (13 → 19, 19 → 25…). Se il tuo è diverso misuralo col calibro: la fascetta si fa su questa misura.' },
+          ];
+        }),
+        { sec: 'Fascette', id: 'fascetta', label: 'Fascetta per il portagomma', type: 'select', def: 'nessuna', options: [['nessuna', 'Nessuna'], ['vite', 'A vite, due metà (la più sicura)'], ['cremagliera', 'A cremagliera, si stringe con la pinza']],
+          show: p => racUscite(p).some(k => p['tipo' + k] === 'portagomma'),
+          help: 'Una per ogni portagomma, già della misura del suo tubo, accanto al raccordo sul piatto. A vite: 2 viti M3 (M4 sopra Ø 22) con dado, si stringe e si riapre. A cremagliera: un pezzo solo, si chiude con la pinza e non si riapre. In PETG, non PLA.' },
+        { sec: 'Stampa', id: 'dentini', label: 'Dentini del portagomma', type: 'int', min: 2, max: 6, def: 3, show: p => racUscite(p).some(k => p['tipo' + k] === 'portagomma'), help: 'Più dentini, più tiene, ma il tubo entra con più fatica. Con l\'acqua in pressione metti anche una fascetta.' },
+        { sec: 'Stampa', id: 'giocoInc', label: 'Gioco dell\'incastro per lato', type: 'num', min: 0, max: 0.6, step: 0.05, def: 0.2, unit: 'mm', show: p => racUscite(p).some(k => p['tipo' + k] === 'incastro'),
+          help: 'Spazio tra il raccordo e la fontana, per lato. La tenuta la fa l\'O-ring: deve entrare senza forzare.' },
+        { sec: 'Stampa', id: 'gioco', label: 'Gioco del filetto per lato', type: 'num', min: 0.05, max: 0.5, step: 0.05, def: 0.15, unit: 'mm', show: p => racUscite(p).some(k => p['tipo' + k] === 'maschio' || p['tipo' + k] === 'femmina'),
+          help: 'Spazio su ogni fianco del filetto, come in Viti e bulloni. Se è duro aumentalo di 0,05, se balla riducilo.' },
+      ],
+    },
     base: {
       label: 'Base',
       params: [
@@ -1058,6 +1136,7 @@
     { id: 'vasi', title: 'Vasi', cat: 'Casa e giardino', desc: 'Vasi e fioriere per aromatiche, normali con sottovaso o autoirriganti.', modes: ['vaso'], thumb: 'vaso' },
     { id: 'barattoli', title: 'Barattoli', cat: 'Casa e giardino', desc: 'Barattoli tondi con tappo a vite: filetto grosso che si chiude con un giro solo, cinque misure o le tue, scritta, loghi e il tuo SVG sul tappo. Senza supporti.', modes: ['barattolo'], thumb: 'barattolo' },
     { id: 'supporti', title: 'Reggimensole e ganci', cat: 'Casa e giardino', desc: 'Squadre per mensole con rinforzo e viti, ganci a muro, appendiabiti, ganci sopra porta, per tubi e a S.', modes: ['mensola', 'gancio'], thumb: 'gancio' },
+    { id: 'tubi', title: 'Tubi e guarnizioni', cat: 'Casa e giardino', desc: 'Raccordi per tubi, fontane e irrigazione con filetto gas da 1/8" a 2", portagomma e incastro con O-ring per le fontane, dritti, a gomito, a T, a Y e tappi; O-ring AS568, anelli e guarnizioni piatte da stampare in TPU.', modes: ['raccordo', 'oring'], thumb: 'raccordo' },
     { id: 'powerbank', title: 'Powerbank', cat: 'Elettronica', desc: 'Scatola per un powerbank fai-da-te: celle 18650 con contatti a molla come le pile, quattro schede di ricarica con le porte già al loro posto, coperchio a slitta o a viti nascoste.', modes: ['powerbank'], thumb: 'powerbank' },
     { id: 'schede', title: 'Box schede ESP', cat: 'Elettronica', desc: 'Scatola per un processore ESP e i suoi moduli, in fila sul fondo nei loro alloggi, piedini in su, USB che esce dalla parete. In costruzione, un passo alla volta.', modes: ['schede'], thumb: 'schede' },
     { id: 'tablet', title: 'Supporto tablet', cat: 'Elettronica', desc: 'Cornice con base per usare un tablet senza custodia come schermo di Home Assistant: Fire HD 10, HD 8, Fire 7 o misure tue, orizzontale o verticale, lato aperto per presa e tasti. Se non entra nel piatto si divide in due con gli incastri.', modes: ['tablet'], thumb: 'tablet' },
@@ -1677,6 +1756,13 @@ ${build}</build>
     if (state.mode === 'cover') { const nm = String(v.scritta || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24); return `cover_${v.modello}_${v.materiale}${v.tipo === 'cavalletto' ? '_cavalletto' : ''}${v.prova !== 'nessuna' ? '_prova-' + v.prova : ''}${nm ? '_' + nm : ''}`; }
     if (state.mode === 'powerbank') return `powerbank_${v.scheda}_${v.contatti === 'portapile' ? v.ppN * v.ppCelle : v.celle}celle_${v.coperchio}${v.prova && v.prova !== 'nessuna' ? '_prova-' + v.prova : ''}`;
     if (state.mode === 'barattolo') { const nm = String(v.scritta || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24); return `barattolo_${v.formato === 'misura' ? Math.round(v.diametro) + 'x' + Math.round(v.altezza) : v.formato}${nm ? '_' + nm : ''}`; }
+    if (state.mode === 'oring') { const B = (window.TUBI_DATI || {}).BSP || {}; return v.sezione === 'piatta' ? `guarnizione-piatta_${v.piatta === 'mia' ? v.dInt + 'x' + v.dEst + 'x' + v.spessore : (B[v.piatta] ? B[v.piatta][4].replace(/[" ]/g, '').replace('/', '-') : v.piatta)}` : `${v.sezione === 'quadra' ? 'anello-quadro' : 'oring'}_${v.misura === 'as568' ? 'AS568-' + v.sigla : v.misura === 'sede' ? v.sede + '-' + v.dSede : v.dInt + 'x' + v.corda}`.replace(/\./g, ','); }
+    if (state.mode === 'raccordo') {
+      const B = (window.TUBI_DATI || {}).BSP || {};
+      const one = (k) => v['tipo' + k] === 'incastro' ? 'incastro' + (v['incastro' + k] === 'femmina' ? 'F' : 'M') + v['dInc' + k] : v['tipo' + k] === 'portagomma' ? 'pg' + (v['tubo' + k] === 'mio' ? v['tuboMio' + k] : v['tubo' + k]) : (v['tipo' + k] === 'maschio' ? 'M' : 'F') + (B[v['misura' + k]] ? B[v['misura' + k]][4].replace(/[" ]/g, '').replace('/', '-') : '');
+      const ks = v.forma === 'tappo' ? ['A'] : v.forma === 't' || v.forma === 'y' ? ['A', 'B', 'C'] : ['A', 'B'];
+      return `raccordo_${v.forma}_${ks.map(one).join('_')}`.replace(/\./g, ',');
+    }
     if (state.mode === 'tablet') return `supporto-tablet_${v.modello === 'misura' ? Math.round(v.larghezza) + 'x' + Math.round(v.altezza) : v.modello}_${v.orientamento}`;
     if (state.mode === 'schede') return `box_${v.cpu}${[1, 2, 3, 4, 5].map(i => v['mod' + i]).filter(k => k && k !== 'nessuno').map(k => '_' + k).join('')}`;
     if (s) return s;
