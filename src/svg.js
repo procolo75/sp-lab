@@ -358,7 +358,14 @@
       }
     }
     if (!f.length) return null;
-    return { f, h: [], pal: reduceColors(Object.entries(w).map(([hex, ww]) => ({ hex, w: ww })), 4) };
+    // colori quasi uguali (foto convertite: #fefefe, #fafafa, #f9f9f9 per lo stesso bianco) diventano uno solo, il più esteso:
+    // sennò lo stesso bianco finisce su filamenti diversi e nello slicer una parte del disegno sparisce
+    const by = Object.keys(w).sort((a, b) => w[b] - w[a]), to = {}, keep = [];
+    for (const hex of by) { const t = keep.find(c => dist(c, hex) < 8); to[hex] = t || hex; if (!t) keep.push(hex); }
+    const w2 = {};
+    for (const it of f) it[0] = to[it[0]] || it[0];
+    for (const hex of by) w2[to[hex]] = (w2[to[hex]] || 0) + w[hex];
+    return { f, h: [], pal: reduceColors(Object.entries(w2).map(([hex, ww]) => ({ hex, w: ww })), 4) };
   }
 
   const API = { parse, parseColor, lab, nearest, reduceColors, dist, simplify, simplifyRing, pack };

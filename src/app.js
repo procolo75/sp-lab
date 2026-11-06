@@ -62,7 +62,8 @@
     // sui coperchi e sulle cover un disegno di un solo colore non cambia i colori scelti: va comunque su un colore diverso dal pezzo (vedi artSlots)
     if (key === 'disegno' && pal.length === 1) return {};
     // con più colori vanno sui colori 2–4: il colore 1 resta quello del pezzo (sennò il colore principale del disegno diventa il pezzo e sparisce)
-    if (key === 'disegno') { const o2 = {}; pal.slice(0, 3).forEach((c, i) => { o2['col' + (i + 2)] = c; }); return o2; }
+    // i colori del disegno uguali al pezzo (lo sfondo nero di un logo su una cover nera) restano del pezzo: non occupano un filamento
+    if (key === 'disegno') { const o2 = {}, S = window.SPLAB_SVG, c1 = v.col1; pal.filter(c => !(c1 && S && S.dist(c, c1) < 8)).slice(0, 3).forEach((c, i) => { o2['col' + (i + 2)] = c; }); return o2; }
     const out = {}; pal.slice(0, 4).forEach((c, i) => { out['col' + (i + 1)] = c; });
     return out;
   };
@@ -1251,7 +1252,20 @@
           const cur2 = Object.assign({}, values(state.mode), { [p.id]: val }, extra || {});
           const upd = cur2.tavolozza === 'disegno' ? artPal(cur2, p.palKey) : null;
           Object.assign((state.values[state.mode] ||= {}), { [p.id]: val }, extra || {}, upd || {});
+          // disegno nuovo (o sfondo tolto/rimesso): se è troppo piccolo per stamparne i dettagli lo porto alla misura minima stampabile
+          let grown = null;
+          if (val && val.text) {
+            const sp = MODES[state.mode].params.find(q => q.id === 'altDisegno' || (q.id === 'altezza' && MODES[state.mode].params.some(o => o.id === 'forma')));
+            const cv = sp && values(state.mode), r = sp && minSizeOf(sp, cv);
+            if (r && r.val) {
+              const st = sp.step || 0.5, want = Math.min(sp.max, Math.ceil(r.val / st - 1e-9) * st);
+              if (+cv[sp.id] < want - 1e-9) { state.values[state.mode][sp.id] = +want.toFixed(4); grown = want; }
+            }
+          }
           save(); renderParams(); schedule(60);
+          const gm = grown ? `Disegno portato a ${fmtNum(grown, 0.5).replace('.', ',')} mm, la misura minima perché i dettagli si stampino` : '';
+          if (gm) setStatus(gm);
+          return gm;
         };
         const load = (file) => {
           if (!file) return;
@@ -1264,8 +1278,8 @@
             try { bg = !!window.SPLAB_SVG.parse(text).bg; } catch (err) { bg = false; }
             const pal = svgPal(text, bg);
             if (!pal) { setStatus('Nel file non ho trovato forme da usare: serve un SVG con aree colorate o tratti', 'err'); return; }
-            apply({ name: file.name, text, pal, bg, noBg: bg }, p.use);
-            if (bg) setStatus('Ho tolto lo sfondo del disegno: se ti serve, rimettilo con la casella "Togli lo sfondo"');
+            const gm = apply({ name: file.name, text, pal, bg, noBg: bg }, p.use);
+            if (bg) setStatus('Ho tolto lo sfondo del disegno: se ti serve, rimettilo con la casella "Togli lo sfondo"' + (gm ? '. ' + gm : ''));
           };
           rd.readAsText(file);
         };
@@ -1354,10 +1368,12 @@
           bar.querySelector('button').addEventListener('click', () => {
             const r = minSizeOf(p, values(state.mode)), msg = bar.querySelector('.minmsg');
             if (!r) { msg.textContent = 'Non riesco a calcolarla'; return; }
-            const st = step || 0.5, want = Math.ceil(r.val / st - 1e-9) * st;
-            commit(want);
+            // porta la misura almeno alla minima: se è già più grande la lascia com'è (non rimpicciolisce mai)
+            const st = step || 0.5, want = Math.ceil(r.val / st - 1e-9) * st, now = +values(state.mode)[p.id] || 0, ok = now >= want - 1e-9;
+            if (!ok) commit(want);
             const got = values(state.mode)[p.id], wtxt = fmtNum(r.kind === 'art' ? 2 * r.r : r.w, 0.01).replace('.', ',');
-            msg.textContent = (want > p.max + 1e-9 ? `servirebbero ${fmtNum(want, st).replace('.', ',')} mm, qui il massimo è ${fmtNum(p.max, st).replace('.', ',')}: ` : '')
+            msg.textContent = (ok ? `già stampabile (la minima è ${fmtNum(want, st).replace('.', ',')} mm): ` : '')
+              + (want > p.max + 1e-9 ? `servirebbero ${fmtNum(want, st).replace('.', ',')} mm, qui il massimo è ${fmtNum(p.max, st).replace('.', ',')}: ` : '')
               + `${fmtNum(got, st).replace('.', ',')} mm, ${r.kind === 'logo' ? `linee del logo larghe almeno ${fmtNum(2 * r.w, 0.01).replace('.', ',')} mm (due passate) e spazi almeno ${wtxt} mm` : `dettagli del disegno larghi almeno ${wtxt} mm`}`;
           });
           row.appendChild(bar);
