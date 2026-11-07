@@ -1196,9 +1196,11 @@
     for (const p of MODES[mode].params) {
       if (!sections.has(p.sec)) {
         const det = document.createElement('details');
-        det.className = 'sec'; det.open = !(p.sec === 'Incastri e magneti' && state.collapsedMag);
+        // sezioni chiuse tranne la prima (e quella del proprio SVG); poi si ricorda cosa ha aperto l'utente
+        const os = ((state.openSecs ||= {})[mode] ||= [MODES[mode].params[0].sec, ...MODES[mode].params.filter(q => q.type === 'svg').map(q => q.sec)]);
+        det.className = 'sec'; det.open = os.includes(p.sec);
         det.innerHTML = `<summary>${p.sec}</summary><div class="rows"></div>`;
-        if (p.sec === 'Incastri e magneti') det.addEventListener('toggle', () => { state.collapsedMag = !det.open; save(); });
+        det.addEventListener('toggle', () => { const l = state.openSecs[mode] = state.openSecs[mode].filter(x => x !== p.sec); if (det.open) l.push(p.sec); save(); });
         panel.appendChild(det); sections.set(p.sec, det.querySelector('.rows'));
       }
       const row = document.createElement('div');
@@ -1328,16 +1330,12 @@
           set(p, d === 'c' ? [0, 0] : [clamp(x + dx * st), clamp(y + dy * st)]);
           show();
         }));
-      } else if (p.type === 'select' && p.menu) {
-        // elenco lungo: menu a tendina con i gruppi
-        row.classList.add('sel');
-        const groups = [...new Set(p.options.map(o => o[2] || ''))];
-        row.innerHTML = `<label for="${idAttr}">${p.label}</label><select class="txt" id="${idAttr}">${groups.map(g => `${g ? `<optgroup label="${esc(g)}">` : ''}${p.options.filter(o => (o[2] || '') === g).map(([k, l]) => `<option value="${k}"${v[p.id] === k ? ' selected' : ''}>${esc(l)}</option>`).join('')}${g ? '</optgroup>' : ''}`).join('')}</select>`;
-        row.querySelector('select').addEventListener('change', (e) => set(p, e.target.value));
       } else if (p.type === 'select') {
-        row.classList.add('sel');
-        row.innerHTML = `<label for="${idAttr}">${p.label}</label><div class="seg" id="${idAttr}" role="radiogroup">${p.options.map(([k, l]) => `<button type="button" role="radio" aria-checked="${v[p.id] === k}" data-k="${k}">${l}</button>`).join('')}</div>`;
-        row.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { set(p, b.dataset.k); row.querySelectorAll('button').forEach(x => x.setAttribute('aria-checked', x === b)); }));
+        // menu a tendina: gli elenchi lunghi (menu) a tutta larghezza con i gruppi, gli altri accanto all'etichetta
+        row.classList.add(p.menu ? 'sel' : 'pick');
+        const groups = [...new Set(p.options.map(o => o[2] || ''))];
+        row.innerHTML = `<label for="${idAttr}">${p.label}</label><select class="txt" id="${idAttr}">${groups.map(g => `${g ? `<optgroup label="${esc(g)}">` : ''}${p.options.filter(o => (o[2] || '') === g).map(([k, l]) => `<option value="${k}"${v[p.id] === k ? ' selected' : ''}>${esc(l)}</option>`).join('')}${g ? '</optgroup>' : ''}`).join('')}</select>${!p.menu && p.unit ? `<span class="unit">${p.unit}</span>` : ''}`;
+        row.querySelector('select').addEventListener('change', (e) => set(p, e.target.value));
       } else {
         const step = p.type === 'int' ? (p.step || 1) : p.step, stops = p.stops;
         const show = (n) => (stops ? String(+(+n).toFixed(2)) : fmtNum(n, step));
@@ -1813,6 +1811,17 @@ ${build}</build>
     return downloadsCap;
   }
   async function deliver(name, data, mime) {
+    // Chrome ed Edge: la finestra del Mac per scegliere nome e cartella (come "Salva con nome")
+    if (canPick) {
+      const ext = (name.match(/\.[a-z0-9]+$/i) || ['.bin'])[0].toLowerCase();
+      const desc = { '.3mf': 'Modello 3MF', '.stl': 'Modello STL', '.json': 'Impostazioni SP Lab' }[ext] || 'File';
+      try {
+        const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: desc, accept: { [mime]: [ext] } }] });
+        const w = await h.createWritable(); await w.write(data); await w.close();
+        setStatus('Salvato: ' + h.name, 'ok');
+      } catch (e) { setStatus(e && e.name === 'AbortError' ? 'Salvataggio annullato' : 'Salvataggio non riuscito', e && e.name === 'AbortError' ? 'ok' : 'err'); }
+      return;
+    }
     const dl = await getDownloads();
     if (dl) {
       // la pagina online accetta solo alcuni formati: il file va dentro uno zip
@@ -1836,8 +1845,8 @@ ${build}</build>
     $('#groupTitle').textContent = g.title;
     const tabs = $('#subtabs');
     tabs.hidden = g.modes.length < 2;
-    tabs.innerHTML = g.modes.map(m => `<button class="tab" role="tab" type="button" data-mode="${m}" id="tab-${m}" aria-selected="${m === state.mode}">${MODES[m].label}</button>`).join('');
-    tabs.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => go(t.dataset.mode)));
+    tabs.innerHTML = `<label for="modeSel">Tipo di oggetto</label><select class="txt" id="modeSel">${g.modes.map(m => `<option value="${m}"${m === state.mode ? ' selected' : ''}>${esc(MODES[m].label)}</option>`).join('')}</select>`;
+    tabs.querySelector('select').addEventListener('change', (e) => go(e.target.value));
   }
   const hashFor = (mode) => { const g = groupOf(mode); return g.modes.length > 1 && mode !== g.modes[0] ? `${g.id}-${mode}` : g.id; };
   let wanted = null;  // scheda scelta: la prima di un gruppo ha come indirizzo quello del gruppo
@@ -1865,12 +1874,16 @@ ${build}</build>
 
   // pagina iniziale: schede con anteprima generata dal motore
   function renderHome() {
-    // una sola griglia, tre schede per riga; la categoria è scritta sulla scheda
-    $('#cats').innerHTML = `<div class="cards">${GROUPS.map(g => `
-      <button class="card" type="button" data-group="${g.id}" id="card-${g.id}">
-        <div class="thumb"><img alt="" hidden><span class="ph">anteprima…</span></div>
-        <div class="body"><span class="kicker">${esc(g.cat)}</span><h3>${esc(g.title)}</h3><p>${esc(g.desc)}</p>${g.modes.length > 1 ? `<div class="chips">${g.modes.map(m => `<span class="chip">${esc(MODES[m].label)}</span>`).join('')}</div>` : ''}</div>
-      </button>`).join('')}</div>`;
+    // tessere piccole raggruppate per categoria, tutte in una schermata; la descrizione si legge passando sopra
+    const cats = [...new Set(GROUPS.map(g => g.cat))];
+    $('#cats').innerHTML = cats.map(c => {
+      const gs = GROUPS.filter(g => g.cat === c);
+      return `<section class="cat" style="--n:${gs.length}"><h2 class="kicker">${esc(c)}</h2><div class="cards">${gs.map(g => `
+        <button class="card" type="button" data-group="${g.id}" id="card-${g.id}" title="${esc(g.desc)}" aria-description="${esc(g.desc)}">
+          <div class="thumb"><img alt="" hidden><span class="ph">…</span></div>
+          <h3>${esc(g.title)}</h3>
+        </button>`).join('')}</div></section>`;
+    }).join('');
     // dalla pagina iniziale si torna all'ultima scheda usata nel gruppo
     document.querySelectorAll('.card').forEach(c => c.addEventListener('click', () => {
       const g = GROUPS.find(x => x.id === c.dataset.group);
@@ -1894,7 +1907,7 @@ ${build}</build>
   function makeThumb(mode) {
     const defs = {}; for (const p of MODES[mode].params) defs[p.id] = p.def;
     const res = G.build(mode, defs);
-    if (!thumbR) { thumbR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); thumbR.setPixelRatio(1); thumbR.setSize(540, 360, false); }
+    if (!thumbR) { thumbR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); thumbR.setPixelRatio(1); thumbR.setSize(320, 320, false); }
     const sc = new THREE.Scene();
     sc.add(new THREE.HemisphereLight(0xffffff, 0x8a8f99, 0.62));
     const l1 = new THREE.DirectionalLight(0xffffff, 0.6); l1.position.set(-1, -1.6, 2.4); sc.add(l1);
@@ -1912,7 +1925,7 @@ ${build}</build>
     }
     grp.updateMatrixWorld(true);
     const bb = new THREE.Box3().setFromObject(grp);
-    const cam = new THREE.PerspectiveCamera(30, 1.5, 1, 5000); cam.up.set(0, 0, 1);
+    const cam = new THREE.PerspectiveCamera(30, 1, 1, 5000); cam.up.set(0, 0, 1);
     const c = bb.getCenter(new THREE.Vector3()), r = bb.getSize(new THREE.Vector3()).length() / 2;
     const dist = r / Math.sin((cam.fov * Math.PI / 180) / 2) * 0.92;
     cam.position.copy(c).addScaledVector(new THREE.Vector3(...(res.view || [-0.55, -0.95, 0.75])).normalize(), dist);
@@ -1923,6 +1936,10 @@ ${build}</build>
 
   // ================= EVENTI =================
   $('#reset').addEventListener('click', () => { delete state.values[state.mode]; save(); renderParams(); schedule(0); });
+  // chiude tutte le sezioni, anche la prima e quella del proprio SVG
+  $('#foldSecs').addEventListener('click', () => { (state.openSecs ||= {})[state.mode] = []; save(); document.querySelectorAll('#params details.sec').forEach(d => { d.open = false; }); state.openSecs[state.mode] = []; save();
+    const as = $('aside'); as.scrollTop = 0; if (as.getBoundingClientRect().top < 0) as.scrollIntoView({ block: 'start' });   // sul telefono scorre la pagina: torno all'inizio dei parametri
+  });
   // ---- menu File: le impostazioni del generatore si salvano in un file .json, col nome scelto al momento di salvare.
   // Con le API dei file (Chrome, Edge) si apre la finestra di sistema; altrove (Safari, Firefox, claude.ai) si scarica
   const canPick = typeof window.showSaveFilePicker === 'function' && !inArtifact;
