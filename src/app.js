@@ -809,6 +809,7 @@
         { sec: 'Porta', id: 'ponte', label: 'Spessore sopra la porta', type: 'num', min: 1.2, max: 6, step: 0.2, def: 2.4, unit: 'mm', show: p => p.tipo === 'porta', help: 'Deve passare nella fessura tra porta e telaio.' },
         { sec: 'Porta', id: 'esterno', label: 'Lato esterno', type: 'num', min: 8, max: 120, step: 1, def: 25, unit: 'mm', show: p => p.tipo === 'porta', help: 'Quanto scende dal lato opposto ai ganci.' },
         { sec: 'Porta', id: 'interno', label: 'Lato dei ganci', type: 'num', min: 15, max: 300, step: 1, def: 70, unit: 'mm', show: p => p.tipo === 'porta' },
+        { sec: 'Porta', id: 'prova', label: 'Solo prova aggancio', type: 'bool', def: false, show: p => p.tipo === 'porta', help: 'Stampa solo la parte che abbraccia la porta: striscia di 10 mm, senza ganci, pochi minuti. Provala sulla porta e regola il gioco prima di stampare il gancio.' },
         { sec: 'Tubo', id: 'tubo', label: 'Diametro tubo', type: 'num', min: 6, max: 60, step: 0.5, def: 25, unit: 'mm', show: p => p.tipo === 'tubo' },
         { sec: 'Tubo', id: 'apertura', label: 'Apertura', type: 'int', min: 60, max: 98, step: 1, def: 85, unit: '%', show: p => p.tipo === 'tubo', help: 'Larghezza dell\'imbocco rispetto al tubo: più bassa, più forte lo scatto.' },
         { sec: 'Stampa', id: 'tolleranza', label: 'Gioco per lato', type: 'num', min: 0, max: 2, step: 0.1, def: 0.2, unit: 'mm', show: p => p.tipo === 'porta' || p.tipo === 'tubo' || (p.tipo === 'muro' && p.fissaggio === 'magneti'), help: 'Spazio su ogni lato attorno a porta, tubo o magneti.' },
@@ -1798,7 +1799,7 @@ ${build}</build>
     if (state.mode === 'padel') return `antivibrazione-padel_${v.tipo}_${String(v.foro).replace('.', ',')}mm${nm}`;
     const mis = v.misura === 'custom' ? `M${String(v.diam).replace('.', ',')}x${String(v.passo).replace('.', ',')}` : v.misura;
     if (state.mode === 'mensola') return `reggimensola_${v.profondita}x${v.altezza}_${v.tipo}`;
-    if (state.mode === 'gancio') return `gancio_${v.tipo}${v.tipo === 'muro' || v.tipo === 'porta' ? '_' + v.numero : ''}`;
+    if (state.mode === 'gancio') return v.tipo === 'porta' && v.prova ? 'gancio_porta_prova' : `gancio_${v.tipo}${v.tipo === 'muro' || v.tipo === 'porta' ? '_' + v.numero : ''}`;
     if (state.mode === 'vite') return `vite_${mis}x${v.lunghezza}_${v.testa}`;
     if (state.mode === 'bullone') return `bullone_${mis}x${v.lunghezza}_dado-${v.dado}`;
     return v.tipo === 'scatto' ? `perno_scatto_${v.diam}mm_${v.estremita}` : `perno_${v.tipo}_${v.diam}x${v.lunghezza}`;

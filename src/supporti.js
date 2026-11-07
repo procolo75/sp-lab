@@ -210,11 +210,16 @@
         ghostM = box(-4, -15, -15, 0, Hp + 15, L + 15);
       } else if (tipo === 'porta') {
         const T = s, gap = p.porta + 2 * p.tolleranza, br = p.ponte;   // gioco per lato
-        L = plateW(L);
-        const clip = U([RECT(-T, -p.esterno, 0, br), RECT(-T, 0, gap + T, br), RECT(gap, -p.interno, gap + T, br)]);
+        // prova: solo il ponte che abbraccia la porta, striscia di 10 mm con le gambe corte, senza ganci
+        const test = !!p.prova, ext = test ? Math.min(p.esterno, 15) : p.esterno, inn = test ? Math.min(p.interno, 15) : p.interno;
+        L = test ? 10 : plateW(L);
+        const clip = U([RECT(-T, -ext, 0, br), RECT(-T, 0, gap + T, br), RECT(gap, -inn, gap + T, br)]);
         plate = EXTZ(soft(clip, Math.min(1, br * 0.3)), 0, L);
-        const j = jHook(gap + T - 0.5, -p.interno + s / 2, p.sporgenza, p.raggio, p.punta, p.inclinazione, s, p.pomello);
-        hooks.push(j.cs);
+        if (test) info.push(['Prova', 'solo l\'aggancio: striscia di 10 mm, gambe di 15 mm, senza ganci. Se non entra sulla porta aumenta il gioco, se balla diminuiscilo']);
+        else {
+          const j = jHook(gap + T - 0.5, -p.interno + s / 2, p.sporgenza, p.raggio, p.punta, p.inclinazione, s, p.pomello);
+          hooks.push(j.cs);
+        }
         if (br > 3) notes.push(`~Il ponte sopra la porta è ${fmt(br)} mm: controlla che passi nella fessura tra porta e telaio (di solito 2–3 mm)`);
         info.push(['Porta', `spessore ${fmt(p.porta)} mm + ${fmt(p.tolleranza)} di gioco per lato, ponte ${fmt(br)} mm`]);
         ghostM = box(0, -p.interno - 80, -20, p.porta, 0, L + 20);
@@ -245,15 +250,16 @@
       let m = U3(solids);
       if (holes.length) m = sub(m, union(holes));
       const print = tipo === 'muro' && p.stampa === 'schiena' ? toBack(m) : m;
-      const parts = [part(n > 1 ? `Gancio ×${n}` : 'Gancio', toUse(m, L), { print })];
+      const test = tipo === 'porta' && !!p.prova;
+      const parts = [part(test ? 'Prova aggancio' : n > 1 ? `Gancio ×${n}` : 'Gancio', toUse(m, L), { print })];
       if (ghostM) parts.push(ghost(toUse(ghostM, L)));
       const nameT = { muro: 'a muro', porta: 'sopra porta o anta', tubo: 'per tubo o bastone', esse: 'a S' }[tipo];
       info.unshift(['Misure', dims(toUse(m, L))]);
-      info.splice(1, 0, ['Gancio', `${nameT}${n > 1 ? `, ${n} ganci ogni ${fmt(ia)} mm` : ''}, spessore ${fmt(s)} mm`]);
-      if (tipo !== 'esse') info.push(['Sporgenza', `${fmt(p.sporgenza)} mm, punta ${fmt(p.punta)} mm`]);
-      info.push(['Stampa', print === m ? 'sul fianco: gli strati seguono la curva, il gancio non si spezza' : 'sulla schiena: più comodo, ma il gancio è meno robusto']);
-      if (p.interasse < W + 4 && n > 1) notes.push(`~Interasse portato a ${fmt(ia)} mm: i ganci si toccavano`);
-      if (s < 4) notes.push('Gancio sottile: per giacche e borse almeno 6 mm');
+      if (!test) info.splice(1, 0, ['Gancio', `${nameT}${n > 1 ? `, ${n} ganci ogni ${fmt(ia)} mm` : ''}, spessore ${fmt(s)} mm`]);
+      if (tipo !== 'esse' && !test) info.push(['Sporgenza', `${fmt(p.sporgenza)} mm, punta ${fmt(p.punta)} mm`]);
+      info.push(['Stampa', test ? 'sul fianco, come il gancio vero: così provi lo stesso incastro' : print === m ? 'sul fianco: gli strati seguono la curva, il gancio non si spezza' : 'sulla schiena: più comodo, ma il gancio è meno robusto']);
+      if (p.interasse < W + 4 && n > 1 && !test) notes.push(`~Interasse portato a ${fmt(ia)} mm: i ganci si toccavano`);
+      if (s < 4 && !test) notes.push('Gancio sottile: per giacche e borse almeno 6 mm');
       for (const x of notes) info.push(['Nota', x]);
       return { parts, info, view: [0.8, -0.85, 0.45] };
     }

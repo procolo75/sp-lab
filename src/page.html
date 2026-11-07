@@ -40,7 +40,7 @@ button { font: inherit; color: inherit; }
 .app { height: 100%; display: grid; grid-template-rows: auto 1fr; }
 header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .brand { display: flex; align-items: center; gap: 10px; min-width: 0; color: inherit; text-decoration: none; }
-.brand .logo { width: 40px; height: 33px; flex: none; color: var(--accent); }
+.brand .logo { width: 27px; height: 40px; flex: none; color: var(--ink); opacity: .9; }
 .brand .logo svg { display: block; width: 100%; height: 100%; }
 .brand .names { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 /* firma in fondo alla pagina iniziale */
@@ -54,7 +54,7 @@ header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding
 .crumbs strong { font: 600 15px/1 var(--f-head); }
 .btn.back { padding: 5px 10px; font-size: 13px; }
 header .hright { margin-left: auto; display: flex; align-items: center; gap: 14px; }
-header .face-top { width: 27px; height: 40px; color: var(--ink); opacity: .9; flex: none; }
+header .face-top { width: 40px; height: 33px; color: var(--accent); flex: none; }
 header .face-top svg { display: block; width: 100%; height: 100%; }
 /* pulsanti per inserire i loghi nelle scritte */
 .svg-row { display: block; }
@@ -209,7 +209,7 @@ dl#info dd { margin: 0; font: 500 12px var(--f-num); font-variant-numeric: tabul
 
 <div class="app">
   <header>
-    <a class="brand" href="#" id="brand" aria-label="SP Lab, torna alla pagina iniziale"><span class="logo" aria-hidden="true"><!--LOGO_SP--></span><span class="names"><h1>SP Lab</h1><span class="tagline">generatore parametrico per la stampa 3D</span></span></a>
+    <a class="brand" href="#" id="brand" aria-label="SP Lab, torna alla pagina iniziale"><span class="logo" aria-hidden="true"><!--LOGO_VOLTO--></span><span class="names"><h1>SP Lab</h1><span class="tagline">generatore parametrico per la stampa 3D</span></span></a>
     <div class="crumbs" id="crumbs" hidden>
       <button class="btn back" id="back" type="button">← Tutti</button>
       <strong id="groupTitle"></strong>
@@ -236,7 +236,7 @@ dl#info dd { margin: 0; font: 500 12px var(--f-num); font-variant-numeric: tabul
         <button class="btn" id="expstl" type="button">STL</button>
         <button class="btn primary" id="exp3mf" type="button">Scarica 3MF</button>
       </div>
-      <span class="face-top" aria-hidden="true"><!--LOGO_VOLTO--></span>
+      <span class="face-top" aria-hidden="true"><!--LOGO_SP--></span>
     </div>
   </header>
   <section class="home" id="home" aria-label="Scegli cosa generare">
