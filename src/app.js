@@ -987,6 +987,41 @@
           help: 'Pezzi piccoli che si stampano in pochi minuti prima della scatola intera. Fronte: la parete con porte e pulsante, per vedere se la scheda combacia. Chiusura: con la slitta un tratto di guida e un pezzo di coperchio da far scorrere; con le viti un angolo con la colonnina e il suo pezzo di coperchio da avvitare.' },
       ],
     },
+    collare: {
+      label: 'Medaglietta collare',
+      params: [
+        { sec: 'Forma', id: 'forma', label: 'Forma', type: 'select', def: 'osso', options: [['osso', 'Osso'], ['zampa2', 'Tondo con zampa'], ['cuore', 'Cuore'], ['tondo', 'Tondo'], ['ovale', 'Ovale'], ['scudo', 'Scudo'], ['rettangolo', 'Rettangolo'], ['stella', 'Stella']] },
+        { sec: 'Forma', id: 'misura', label: 'Larghezza', type: 'num', min: 20, max: 70, step: 1, def: 38, unit: 'mm', help: 'Per un gatto o un cane piccolo 25–30 mm, per un cane medio 35–40, grande 45–50.' },
+        layerP({ sec: 'Forma', id: 'spessore', label: 'Spessore', min: 1.6, max: 5, def: 3, help: 'Deve contenere le due scritte più almeno 0,6 mm in mezzo.' }),
+        { sec: 'Davanti', id: 'davanti', label: 'Riga 1', type: 'text', def: 'Fido', placeholder: 'il nome' },
+        { sec: 'Davanti', id: 'altDavanti', label: 'Altezza riga 1', type: 'num', min: 2.5, max: 20, step: 0.5, def: 8, unit: 'mm', help: 'Altezza delle maiuscole. Se non ci sta viene ridotta da sola.' },
+        { sec: 'Davanti', id: 'davanti2', label: 'Riga 2', type: 'text', def: '', placeholder: 'facoltativa' },
+        { sec: 'Davanti', id: 'altDavanti2', label: 'Altezza riga 2', type: 'num', min: 2.5, max: 20, step: 0.5, def: 4, unit: 'mm', show: p => String(p.davanti2 || '').trim() !== '' },
+        { sec: 'Davanti', id: 'stileDavanti', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo, colorata'], ['incisa', 'Incisa']],
+          help: 'A filo: lettere di un altro colore, superficie liscia che non si consuma (serve una stampante multicolore). Incisa: scavata, va bene con un colore solo.' },
+        layerP({ sec: 'Davanti', id: 'profDavanti', label: 'Profondità', min: 0.2, max: 2, def: 0.2, help: 'A filo basta uno strato (0,2 mm). Incisa si legge meglio più fonda: 0,6–1 mm.' }),
+        { sec: 'Dietro', id: 'dietro', label: 'Riga 1', type: 'text', def: '333 123 4567', placeholder: 'es. il telefono', show: p => p.aggancio !== 'fessure' },
+        { sec: 'Dietro', id: 'altDietro', label: 'Altezza riga 1', type: 'num', min: 2.5, max: 15, step: 0.5, def: 4, unit: 'mm', show: p => p.aggancio !== 'fessure' },
+        { sec: 'Dietro', id: 'dietro2', label: 'Riga 2', type: 'text', def: '', placeholder: 'facoltativa', show: p => p.aggancio !== 'fessure' },
+        { sec: 'Dietro', id: 'altDietro2', label: 'Altezza riga 2', type: 'num', min: 2.5, max: 15, step: 0.5, def: 3.5, unit: 'mm', show: p => p.aggancio !== 'fessure' && String(p.dietro2 || '').trim() !== '' },
+        { sec: 'Dietro', id: 'stileDietro', label: 'Stile', type: 'select', def: 'filo', options: [['filo', 'A filo, colorata'], ['incisa', 'Incisa']], show: p => p.aggancio !== 'fessure',
+          help: 'Dietro la scritta è a specchio sul pezzo: si legge giusta girando la medaglietta. A filo sta nei primi strati, sul piatto.' },
+        layerP({ sec: 'Dietro', id: 'profDietro', label: 'Profondità', min: 0.2, max: 2, def: 0.2, help: 'A filo basta uno strato (0,2 mm). Incisa si legge meglio più fonda: 0,6–1 mm.', show: p => p.aggancio !== 'fessure' }),
+        { sec: 'Scritte', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
+        { sec: 'Collare', id: 'aggancio', label: 'Aggancio', type: 'select', def: 'foro', options: [['foro', 'Foro per l\'anellino'], ['asola', 'Asola sopra'], ['fessure', 'Due fessure (sta piatta sul collare)']],
+          help: 'Foro: si appende con un anellino. Asola: il collare passa nella fessura in alto. Due fessure: il collare entra davanti da una, passa dietro e riesce dall\'altra; la medaglietta sta piatta e non sbatte, ma il dietro non si vede.' },
+        { sec: 'Collare', id: 'diamForo', label: 'Diametro foro', type: 'num', min: 2, max: 8, step: 0.5, def: 4, unit: 'mm', show: p => p.aggancio === 'foro' },
+        { sec: 'Collare', id: 'paretForo', label: 'Materiale attorno al foro', type: 'num', min: 1.6, max: 4, step: 0.2, def: 2.2, unit: 'mm', show: p => p.aggancio === 'foro' },
+        { sec: 'Collare', id: 'largCollare', label: 'Larghezza collare', type: 'num', min: 6, max: 40, step: 0.5, def: 15, unit: 'mm', show: p => p.aggancio !== 'foro' },
+        { sec: 'Collare', id: 'spCollare', label: 'Spessore collare', type: 'num', min: 1, max: 6, step: 0.1, def: 2.5, unit: 'mm', show: p => p.aggancio !== 'foro' },
+        { sec: 'Collare', id: 'gioco', label: 'Gioco per lato', type: 'num', min: 0, max: 1, step: 0.05, def: 0.3, unit: 'mm', show: p => p.aggancio !== 'foro' },
+        ...markP(false),
+        { sec: 'Colori', id: 'col1', label: 'Colore 1 · medaglietta', type: 'color', def: '#1d4e89' },
+        { sec: 'Colori', id: 'col2', label: 'Colore 2 · scritta davanti', type: 'color', def: '#ffffff' },
+        { sec: 'Colori', id: 'colDietro', label: 'Scritta dietro', type: 'select', def: '2', options: [['2', 'Colore 2'], ['3', 'Colore 3']], show: p => p.aggancio !== 'fessure' },
+        { sec: 'Colori', id: 'col3', label: 'Colore 3 · scritta dietro', type: 'color', def: '#e3b341', show: p => p.colDietro === '3' && p.aggancio !== 'fessure' },
+      ],
+    },
     tablet: {
       label: 'Supporto tablet',
       params: [
@@ -1135,6 +1170,7 @@
     { id: 'lego', title: 'Cassetti modulari', cat: 'Organizzazione', desc: 'Mattoncini con cassetto che si impilano come i Lego: vaschetta e coperchio con i bottoncini, a scatto o incollato, cassetto con o senza guide e separatori estraibili. Poca plastica, tutto stampato dritto.', modes: ['lego'], thumb: 'lego' },
     { id: 'rack', title: 'Rack telefoni', cat: 'Organizzazione', desc: 'Rack a fessure per riporre telefoni e tablet, anche di spessori diversi.', modes: ['rack'], thumb: 'rack' },
     { id: 'cover', title: 'Cover telefono', cat: 'Accessori', desc: 'Cover per iPhone dal 12 al 17 con le misure dei disegni Apple, OnePlus Nord, o per qualsiasi telefono con le tue misure. TPU o PLA/PETG a scatto, cornice per le lenti, cavalletto, scritta e il tuo SVG sul retro.', modes: ['cover'], thumb: 'cover' },
+    { id: 'animali', title: 'Animali', cat: 'Accessori', desc: 'Medagliette per i collari di cani e gatti: osso, cuore, tondo, tondo con la zampa e altre forme, nome davanti e telefono dietro, a filo colorati o incisi; foro per l\'anellino, asola o fessure per far passare il collare.', modes: ['collare'], thumb: 'collare' },
     { id: 'vasi', title: 'Vasi', cat: 'Casa e giardino', desc: 'Vasi e fioriere per aromatiche, normali con sottovaso o autoirriganti.', modes: ['vaso'], thumb: 'vaso' },
     { id: 'barattoli', title: 'Barattoli', cat: 'Casa e giardino', desc: 'Barattoli tondi con tappo a vite: filetto grosso che si chiude con un giro solo, cinque misure o le tue, scritta, loghi e il tuo SVG sul tappo. Senza supporti.', modes: ['barattolo'], thumb: 'barattolo' },
     { id: 'supporti', title: 'Reggimensole e ganci', cat: 'Casa e giardino', desc: 'Squadre per mensole con rinforzo e viti, ganci a muro, appendiabiti, ganci sopra porta, per tubi e a S.', modes: ['mensola', 'gancio'], thumb: 'gancio' },
@@ -1499,6 +1535,44 @@
     scene.add(gridObj);
   }
 
+  // quote: ingombro dei pezzi veri (senza oggetti di esempio) in larghezza, profondità e altezza, con le frecce e la misura in mm
+  let dimsOn = !!state.misure, dimsObj = null;
+  function makeDims() {
+    if (dimsObj) { scene.remove(dimsObj); dimsObj.traverse(o => { o.geometry && o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); dimsObj = null; }
+    if (!dimsOn) return;
+    const bb = new THREE.Box3();
+    for (const g of modelGroup.children) { const pt = g.userData.part; if (pt && pt.role !== 'ghost' && pt.role !== 'model') bb.expandByObject(g); }
+    if (bb.isEmpty()) return;
+    const sz = bb.getSize(new THREE.Vector3()), L = Math.max(sz.x, sz.y, sz.z), off = Math.max(4, L * 0.1), tick = off * 0.35, h = Math.max(3, L * 0.07);
+    const col = cssVar('--accent') || '#1f5fbf', pos = [];
+    const seg = (a, b) => pos.push(...a, ...b);
+    // linea di quota da a a b, con le linee di richiamo (ext) e le frecce
+    const dim = (a, b, ext, txt, at) => {
+      const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), E = new THREE.Vector3(...ext), d = B.clone().sub(A).normalize();
+      seg(a, b);
+      seg(A.clone().sub(E).toArray(), A.clone().addScaledVector(E.clone().normalize(), tick).toArray());
+      seg(B.clone().sub(E).toArray(), B.clone().addScaledVector(E.clone().normalize(), tick).toArray());
+      const n = E.clone().normalize().multiplyScalar(tick * 0.5);
+      for (const [P, s] of [[A, 1], [B, -1]]) { const q = P.clone().addScaledVector(d, s * tick); seg(P.toArray(), q.clone().add(n).toArray()); seg(P.toArray(), q.clone().sub(n).toArray()); }
+      const c = document.createElement('canvas'); c.width = 320; c.height = 96; const g = c.getContext('2d');
+      g.font = '700 56px system-ui, sans-serif'; const w = Math.min(316, g.measureText(txt).width + 36);
+      g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.roundRect((320 - w) / 2, 6, w, 84, 20); g.fill();
+      g.fillStyle = col; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, 160, 50);
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false, depthWrite: false }));
+      sp.scale.set(h * 320 / 96, h, 1); sp.position.set(...at); sp.renderOrder = 5000; dimsObj.add(sp);
+    };
+    const mm = (v) => (Math.round(v * 10) / 10).toString().replace('.', ',') + ' mm';
+    dimsObj = new THREE.Group();
+    const { min: m, max: M } = bb, y0 = m.y - off, x0 = m.x - off, zb = m.z;
+    dim([m.x, y0, zb], [M.x, y0, zb], [0, off, 0], mm(sz.x), [(m.x + M.x) / 2, y0 - h * 0.7, zb]);                 // larghezza, davanti
+    dim([x0, m.y, zb], [x0, M.y, zb], [off, 0, 0], mm(sz.y), [x0 - h * 1.6, (m.y + M.y) / 2, zb]);                 // profondità, a sinistra
+    dim([x0, y0, m.z], [x0, y0, M.z], [off, off, 0], mm(sz.z), [x0 - h * 1.2, y0 - h * 0.4, (m.z + M.z) / 2]);     // altezza, nell'angolo davanti a sinistra
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    const ln = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: col, depthTest: false, transparent: true })); ln.renderOrder = 4999;
+    dimsObj.add(ln);
+    scene.add(dimsObj);
+  }
+
   const capGeo = new THREE.PlaneGeometry(1, 1);
   const geoCache = new WeakMap();
   function geomFor(mesh) {
@@ -1564,6 +1638,7 @@
     }
     const size = bb.getSize(new THREE.Vector3());
     makeGrid(bbAll);
+    makeDims();
     const key = state.mode;
     if (!fitted || fitted.key !== key || size.length() > fitted.len * 1.3 || size.length() < fitted.len / 1.5) { fitView(bbAll, res.view); fitted = { key, len: size.length() }; }
     // info
@@ -1778,6 +1853,7 @@ ${build}</build>
       const ks = v.forma === 'tappo' ? ['A'] : v.forma === 't' || v.forma === 'y' ? ['A', 'B', 'C'] : ['A', 'B'];
       return `raccordo_${v.forma}_${ks.map(one).join('_')}`.replace(/\./g, ',');
     }
+    if (state.mode === 'collare') { const nm = String(v.davanti || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24); return `medaglietta_${v.forma}${nm ? '_' + nm : ''}`; }
     if (state.mode === 'tablet') return `supporto-tablet_${v.modello === 'misura' ? Math.round(v.larghezza) + 'x' + Math.round(v.altezza) : v.modello}_${v.orientamento}`;
     if (state.mode === 'schede') return `box_${v.cpu}${[1, 2, 3, 4, 5].map(i => v['mod' + i]).filter(k => k && k !== 'nessuno').map(k => '_' + k).join('')}`;
     if (s) return s;
@@ -2022,6 +2098,8 @@ ${build}</build>
     else if (k === 'o' && !e.shiftKey) { e.preventDefault(); openFile(); }
   });
   $('#section').addEventListener('click', () => { sectionOn = !sectionOn; $('#section').setAttribute('aria-pressed', sectionOn); if (current) showResult(current); });
+  $('#dims').setAttribute('aria-pressed', dimsOn);
+  $('#dims').addEventListener('click', () => { dimsOn = !dimsOn; state.misure = dimsOn; save(); $('#dims').setAttribute('aria-pressed', dimsOn); makeDims(); });
   $('#fit').addEventListener('click', () => { fitted = null; if (current) showResult(current); });
   // riquadro delle informazioni: si apre col pulsante in alto a destra, così non copre l'anteprima
   const showInfo = (on) => { state.info = on; $('#infoPanel').hidden = !on; $('#infoBtn').setAttribute('aria-pressed', on); save(); };

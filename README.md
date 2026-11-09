@@ -41,6 +41,7 @@ La pagina iniziale mostra un riquadro per ogni generatore, tre per riga, con la 
 | **Barattolo** | Barattolo tondo con tappo a vite che si chiude con un giro: cinque misure pronte o le tue, filetto grosso senza supporti, scritta, loghi e il tuo SVG sul tappo | barattolo e tappo (anche a colori) |
 | **Raccordi** | Raccordi per tubi, fontane e irrigazione: dritti o riduzioni, gomito 90° e 45°, T, Y e tappi, con filetto gas da 1/8" a 2" (maschio G o R, femmina), portagomma per tubi morbidi e attacco a incastro con O-ring per le fontane | 1, più le fascette |
 | **O-ring** | O-ring con sigla AS568, misure tue o calcolate dalla sede, anelli a sezione quadra e guarnizioni piatte per i raccordi gas, da stampare in TPU | quanti ne vuoi |
+| **Medaglietta collare** | Medaglietta per il collare di cani e gatti: osso, cuore, tondo, tondo con la zampa, ovale, scudo, rettangolo o stella; nome davanti e telefono dietro, a filo colorati o incisi; foro per l'anellino, asola o due fessure per il collare | 1 (anche a colori) |
 | **Supporto tablet** | Cornice con base per usare un tablet senza custodia come schermo di Home Assistant: Fire HD 10 (2021), Fire HD 8 (2018), Fire 7 (2017) o misure tue, orizzontale o verticale | cornice (o 2 metà) e 2 piedini |
 | **Antivibrazione tennis** | Antivibrazione per le corde, a bottone (10 forme, i disegni della libreria o il tuo SVG) o a verme, per schemi 16×19, 18×20 o con le tue misure, con una scritta | 1 |
 | **Antivibrazione padel** | Tappo per i fori della racchetta, o passante per tutto lo spessore, con una scritta sulla testa | quanti ne vuoi |
@@ -290,6 +291,13 @@ Barattolo **tondo** con **tappo a vite**. Scegli la **misura** (Piccolo Ø 50 ×
 - **Tappo a filo:** il collo è più stretto del corpo di quanto servono filetto e gonna del tappo, così da chiuso il tappo è a filo con il barattolo; dentro, sotto il collo, c'è un raccordo a 45°. Il tappo chiude battendo sull'orlo del collo. *Righe per la presa* sulla gonna (si possono togliere).
 - **Tappo decorato:** scritta su due righe (con altezza, posizione e rotazione), i visi nelle scritte, il **logo SP** e **il tuo SVG**, come sul coperchio del Powerbank: **a filo** (a colori, nei primi strati del tappo) o **inciso**. Quello che esce dal cerchio del tappo viene tagliato e compare una nota.
 
+### Medaglietta collare
+Medaglietta per il collare del cane o del gatto, piatta, senza supporti. Scegli la **forma** (osso, cuore, tondo, tondo con l'impronta della zampa, ovale, scudo, rettangolo, stella), la **larghezza** (38 mm di base: 25–30 per un gatto, 45–50 per un cane grande) e lo spessore (3 mm).
+- **Davanti** il nome (due righe), **dietro** il telefono (due righe). Dietro la scritta è a specchio sul pezzo, così si legge giusta girando la medaglietta. Le scritte stanno sempre al centro e si rimpiccioliscono da sole se non ci stanno.
+- **A filo:** lettere di un altro colore nella superficie liscia, che non si consumano (serve una stampante multicolore); bastano 0,2 mm, uno strato. **Incisa:** scavata, va bene con un colore solo (meglio 0,6–1 mm). Davanti e dietro possono avere stili diversi; tra le due scritte restano almeno 0,6 mm di pezzo.
+- **Aggancio:** foro per l'anellino (dentro la forma o su una linguetta, se lassù è stretta), **asola** sopra dove passa il collare, oppure **due fessure** ai lati: il collare entra davanti da una, passa dietro e riesce dall'altra, e la medaglietta sta piatta sul collare (il dietro non si vede). Per asola e fessure scrivi larghezza e spessore del collare.
+- **Colori:** medaglietta, scritta davanti e, se vuoi, un colore diverso per la scritta dietro. Logo SP facoltativo, dietro.
+
 ### Supporto tablet
 Per usare un tablet **senza custodia** come schermo di Home Assistant. Scegli il **modello** (Fire HD 10 11ª gen. 2021, Fire HD 8 8ª gen. 2018, Fire 7 7ª gen. 2017, con le misure ufficiali) oppure le tue misure, poi **orizzontale o verticale** e l'**inclinazione** (20° di base).
 - **Cornice:** abbraccia il tablet con 0,3 mm di gioco per lato e davanti ha i labbri che coprono solo il bordo nero: **sotto, sopra, sinistra e destra si regolano ognuno per conto suo** (3,5 mm di base, 0 = niente labbro; quello del lato aperto non c'è). Si stampa sulla schiena, senza supporti; dietro ha una grande finestra per risparmiare plastica.
@@ -341,6 +349,7 @@ Per usare un tablet **senza custodia** come schermo di Home Assistant. Scegli il
 
 **Comandi dell'anteprima**
 - Trascina per ruotare, rotella per lo zoom, tasto destro per spostare.
+- **Misure** mostra larghezza, profondità e altezza dei pezzi, con le quote in mm (si accende e si spegne).
 - **Sezione** taglia il modello a metà per vedere com'è fatto dentro.
 - **Centra vista** riporta la camera sul modello.
 
@@ -408,6 +417,7 @@ In tutto SP Lab il **gioco è sempre per lato**: è lo spazio su ogni lato tra d
 │   ├── telefoni.js misure dei telefoni per le cover
 │   ├── powerbank.js scatola per powerbank: celle, schede e connettori
 │   ├── racchette.js antivibrazione per racchette da tennis e padel
+│   ├── collari.js  medagliette per i collari di cani e gatti
 │   ├── cassetti.js cassetti modulari a mattoncino
 │   ├── barattolo.js barattoli tondi con tappo a vite
 │   ├── raccordi.js raccordi con filetto gas e portagomma, O-ring e guarnizioni

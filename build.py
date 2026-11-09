@@ -20,6 +20,7 @@ parts = [
   rd('src/telefoni.js'),
   rd('src/geom.js'),
   rd('src/natale.js'),
+  rd('src/collari.js'),
   rd('src/casetta.js'),
   rd('src/supporti.js'),
   rd('src/cover.js'),
