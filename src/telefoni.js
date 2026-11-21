@@ -15,6 +15,7 @@
 //   sp   fori di altoparlanti e microfoni sul fondo [x0, x1]; piano: distanza dal bordo dove il vetro diventa piatto
 //   mag  centro del MagSafe dalla cima, se non è al centro del telefono
 //   cima fori sulla cima [centro x, larghezza] (microfoni), se servono
+//   lati fori piccoli sui fianchi [lato −1 sinistra / 1 destra guardando lo schermo, centro dall'alto, larghezza], se servono
 // Altri telefoni (marca diversa da Apple): niente disegni quotati pubblici. `misure` dice da dove vengono le quote:
 // ingombri dalla scheda tecnica, contorno, fotocamera e tasti in scala dalla foto ufficiale del retro, il resto stimato.
 (function (root) {
@@ -40,6 +41,9 @@
   // rialzo largo quanto il telefono, con i bordi arrotondati. Forma presa dagli originali Anycubic (cover stampata e provata):
   // b0 = rettangolo di riferimento [rientro dalla cima, fine dalla cima, raggio], largo quanto il telefono;
   // tasca = [profondità dal retro del telefono, rientro da b0] della tasca della copertura (gioco di 0,6 mm compreso)
+  // svasa: isola con i fianchi che si allargano fino ai bordi del telefono. f = angolo interno della faccia [x, y, raggio]
+  // (quote del retro, l'isola va dal bordo fino a lì); p = [profondità dal retro del telefono, distanza dal bordo del telefono,
+  // allargamento verso il centro] della tasca della copertura (gioco di 0,6 mm compreso)
   const CAM17P = { r: [0, 0, 0, 48.75, 0], tutto: true, h: 2.55, v: 4.43,
     b0: [0.21, 47.97, 14.85], tasca: [[0, 2.3], [0.5, 2.95], [1.2, 3.86], [2.0, 4.46], [2.4, 4.65]] };
 
@@ -152,6 +156,25 @@
       // microfono in cima: verso il lato della fotocamera, 40–42,5 mm dal fianco sinistro nella foto del bordo (gsmarena, in
       // prospettiva), 42,8 nella cover di riferimento. Asola larga che li comprende tutti e due
       usb: [36.65, 12.45, 6.60, 3.25], sp: [25.6, 64.6], cima: [[41.6, 5]], piano: 1.0 },   // fondo come la cover di riferimento: microfono e USB, altoparlante
+    // Motorola Edge 60 Neo (2025). 154,1 × 71,2 × 8,1 mm dalla scheda tecnica (GSMArena, GSMChoice 154,11 × 71,24 × 8,09).
+    // Tutto il resto misurato sulla cover HardShell V3 già stampata (Documenti/Anycubic/Motorola Edge 60 Neo, HardShell_V3_flat.stl):
+    // vano 71,4 × 154,4 × 7,9–8,1 mm, retro del telefono 3,8 mm sopra il piatto. Quote della cover meno il suo gioco (≈0,1–0,3 mm).
+    // Angoli: raggio ≈ 8,3 (la cover ha degli scarichi negli angoli, la curva vera è presa dove tocca il telefono).
+    // Tasti: volume e accensione a destra in un'unica apertura (y 30–69 nella cover): divisione tra i due tasti stimata.
+    { id: 'motorola-edge-60-neo', nome: 'Motorola Edge 60 Neo', marca: 'Motorola', W: 71.2, L: 154.1, T: 8.1,
+      misure: 'scheda tecnica per gli ingombri; contorno, fotocamera, lenti, tasti e aperture misurati su una cover HardShell già stampata; divisione tra volume e accensione e sporgenza del vetro delle lenti stimate',
+      a: A(0, 0.28, 1.11, 2.43, 4.15, 6.15, 8.3),
+      pf: [[3.1, 0], [3.5, 0.25], [3.8, 0.6], [4.05, 1.2]],
+      pr: [[3.2, 0], [3.6, 0.35], [3.9, 0.9], [4.05, 1.6]],
+      sx: [], dx: [vol(42.55, 10), side(61.45, 5)], w: 2.6,
+      // isola quadrata in alto a sinistra guardando il retro, con 4 lenti; tasca della cover profonda 2,4 mm (gioco compreso).
+      // L'isola si allarga scendendo verso il retro: alla base arriva fino al bordo del telefono in cima e sul fianco
+      // (anche nell'angolo) e verso il centro si allarga di 5 mm. Tasca della HardShell tagliata a fette ogni 0,2 mm
+      cam: { r: [3.8, 3.8, 43.2, 49.4, 7.5], h: 2.1, v: 2.3,
+        svasa: { f: [43.03, 49.34, 6.71], p: [[0, 0, 5.45], [0.6, 0, 5.33], [0.8, 0.1, 3.61], [1.0, 0.26, 2.89], [1.2, 0.46, 2.35],
+          [1.4, 0.72, 1.9], [1.6, 1.07, 1.53], [1.8, 1.5, 1.18], [2.0, 2.08, 0.89], [2.2, 2.93, 0.6], [2.4, 5.1, 0]] } },
+      usb: [35.6, 12.45, 6.60, 3.25], sp: [12, 59.2], cima: [[50.6, 1.5]], piano: 1.0,
+      lati: [[1, 79.55, 1.5]] },   // foro sul fianco destro sotto l'accensione (HardShell: Ø 2,2–3 mm; lo tengono anche le cover in commercio)
   ];
   // lenti, flash, microfono e sensore sul retro [x, y, Ø] (quote del disegno del retro): i fori della copertura della fotocamera
   const L16 = [[13.62, 13.62, 16.00], [13.62, 31.34, 16.00], [30.01, 22.48, 6.28], [20.54, 22.48, 1.00]];
@@ -181,6 +204,8 @@
     'iphone-12-mini': [[10.67, 10.67, 12.10], [10.67, 24.95, 12.10], [22.21, 10.22, 2.40], [22.21, 17.81, 5.66]],
     // in scala sulla foto ufficiale del retro, rispetto all'isola (±0,3 mm): diametro dell'anello attorno al vetro; flash a pillola 2,7 × 5,5
     'oneplus-nord': [[13.47, 12.55, 5.4], [13.47, 23.75, 6.0], [13.47, 34.5, 4.0], [13.47, 41.65, 4.0], [22.80, 12.40, 5.8]],
+    // fori della cover HardShell (Ø 17,6 e 12,4) meno 0,4 mm di gioco per lato
+    'motorola-edge-60-neo': [[15.6, 16.05, 16.8], [15.6, 35.55, 16.8], [31.8, 17.58, 11.6], [31.8, 34.02, 11.6]],
   };
   for (const t of T) if (LENTI[t.id]) t.lenti = LENTI[t.id];
   root.SP_TELEFONI = T;

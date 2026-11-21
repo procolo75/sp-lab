@@ -369,7 +369,7 @@
       artKey: 'disegno',
       params: [
         { sec: 'Telefono', id: 'modello', label: 'Modello', type: 'select', menu: true, def: 'iphone-16', options: PHONE_OPTS, onSet: (k) => (k === 'misure' ? null : phoneFields(k)),
-          help: 'iPhone: misure prese dai disegni quotati che Apple pubblica per chi fa accessori. OnePlus Nord: scheda tecnica e foto ufficiale in scala, alcune quote stimate. "Misure mie" parte dall\'ultimo modello scelto e lascia cambiare tutto.' },
+          help: 'iPhone: misure prese dai disegni quotati che Apple pubblica per chi fa accessori. OnePlus Nord: scheda tecnica e foto ufficiale in scala, alcune quote stimate. Motorola Edge 60 Neo: scheda tecnica e una cover già stampata, alcune quote stimate. "Misure mie" parte dall\'ultimo modello scelto e lascia cambiare tutto.' },
         ...PHONE_FIELDS.map(f => Object.assign({ sec: 'Telefono', type: 'num', step: 0.01, unit: 'mm', show: mine }, f)),
         { sec: 'Telefono', id: 'tipo', label: 'Tipo', type: 'select', def: 'completa', options: [['completa', 'Cover completa'], ['cavalletto', 'Con cavalletto']] },
         { sec: 'Materiale e gioco', id: 'materiale', label: 'Materiale', type: 'select', def: 'tpu', options: [['tpu', 'TPU (flessibile)'], ['pla', 'PLA o PETG (rigido)']],
@@ -416,8 +416,8 @@
           help: 'Sulla copertura delle lenti va tra i fori, sulla faccia esterna. Stesso stile della scritta del retro (a filo o inciso).' }]),
         ...colorsP(['Colore 1 · cover', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
         { sec: 'Colori', id: 'colTesto', label: 'Colore della scritta', type: 'select', def: 'auto', options: [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4']] },
-        { sec: 'Stampa', id: 'prova', label: 'Striscia di prova', type: 'select', def: 'nessuna', options: [['nessuna', 'No, la cover intera'], ['cima', 'Solo la cima (22 mm)'], ['fondo', 'Solo il fondo (22 mm)']],
-          help: 'Un pezzo della cover che si stampa in pochi minuti: provalo sul telefono e regola il gioco prima di stampare tutto.' },
+        { sec: 'Stampa', id: 'prova', label: 'Striscia di prova', type: 'select', def: 'nessuna', options: [['nessuna', 'No, la cover intera'], ['cima', 'Solo la cima, con tutta la fotocamera'], ['fondo', 'Solo il fondo (22 mm)']],
+          help: 'Un pezzo della cover che si stampa in pochi minuti, senza scritte, disegno e logo: provalo sul telefono e regola il gioco prima di stampare tutto.' },
       ],
     },
     vaso: {
@@ -1169,7 +1169,7 @@
     { id: 'gridfinity', title: 'Gridfinity', cat: 'Organizzazione', desc: 'Contenitori impilabili, cassettiere con cassetti e basi a griglia da 42 mm.', modes: ['bin', 'cab', 'base'], thumb: 'cab' },
     { id: 'lego', title: 'Cassetti modulari', cat: 'Organizzazione', desc: 'Mattoncini con cassetto che si impilano come i Lego: vaschetta e coperchio con i bottoncini, a scatto o incollato, cassetto con o senza guide e separatori estraibili. Poca plastica, tutto stampato dritto.', modes: ['lego'], thumb: 'lego' },
     { id: 'rack', title: 'Rack telefoni', cat: 'Organizzazione', desc: 'Rack a fessure per riporre telefoni e tablet, anche di spessori diversi.', modes: ['rack'], thumb: 'rack' },
-    { id: 'cover', title: 'Cover telefono', cat: 'Accessori', desc: 'Cover per iPhone dal 12 al 17 con le misure dei disegni Apple, OnePlus Nord, o per qualsiasi telefono con le tue misure. TPU o PLA/PETG a scatto, cornice per le lenti, cavalletto, scritta e il tuo SVG sul retro.', modes: ['cover'], thumb: 'cover' },
+    { id: 'cover', title: 'Cover telefono', cat: 'Accessori', desc: 'Cover per iPhone dal 12 al 17 con le misure dei disegni Apple, OnePlus Nord, Motorola Edge 60 Neo, o per qualsiasi telefono con le tue misure. TPU o PLA/PETG a scatto, cornice per le lenti, cavalletto, scritta e il tuo SVG sul retro.', modes: ['cover'], thumb: 'cover' },
     { id: 'animali', title: 'Animali', cat: 'Accessori', desc: 'Medagliette per i collari di cani e gatti: osso, cuore, tondo, tondo con la zampa e altre forme, nome davanti e telefono dietro, a filo colorati o incisi; foro per l\'anellino, asola o fessure per far passare il collare.', modes: ['collare'], thumb: 'collare' },
     { id: 'vasi', title: 'Vasi', cat: 'Casa e giardino', desc: 'Vasi e fioriere per aromatiche, normali con sottovaso o autoirriganti.', modes: ['vaso'], thumb: 'vaso' },
     { id: 'barattoli', title: 'Barattoli', cat: 'Casa e giardino', desc: 'Barattoli tondi con tappo a vite: filetto grosso che si chiude con un giro solo, cinque misure o le tue, scritta, loghi e il tuo SVG sul tappo. Senza supporti.', modes: ['barattolo'], thumb: 'barattolo' },
