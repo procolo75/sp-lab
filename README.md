@@ -188,7 +188,7 @@ In ogni scritta puoi mettere il **viso** e il **viso di Natale** (con cappello d
 ![Cover telefono](docs/img/cover.png)
 - **Modelli:** tutti gli iPhone dal 12 al 17: 12 mini, 12, 12 Pro, 12 Pro Max, 13 mini, 13, 13 Pro, 13 Pro Max, 14, 14 Plus, 14 Pro, 14 Pro Max, 15, 15 Plus, 15 Pro, 15 Pro Max, 16e, 16, 16 Plus, 16 Pro, 16 Pro Max, 17, 17 Pro, 17 Pro Max e Air. Le misure (corpo, curva degli angoli, profilo del bordo, tasti, fotocamera, connettore, altoparlanti) vengono dai disegni quotati che Apple pubblica per chi progetta accessori. Le poche quote che il disegno non scrive (il raggio del rialzo della fotocamera, dove finisce il rialzo largo dei 17 Pro e dell'Air) sono misurate in scala sul disegno.
 - **OnePlus Nord** (il primo, del 2020): OnePlus non pubblica disegni quotati. Ingombri dalla scheda tecnica (158,3 × 73,3 × 8,2 mm); curva degli angoli, isola della fotocamera, flash e tasti misurati in scala sulla foto ufficiale del retro (±0,2 mm); profilo dei bordi, finestra del flash e aperture sul fondo ripresi da una cover già provata sul telefono (con cui isola della fotocamera e tasti coincidono entro 0,3 mm); la sporgenza della fotocamera (1,2 mm) è una stima. Niente fori delle singole lenti: la copertura a parte è un anello attorno all'isola. Prima di stampare tutto conviene la striscia di prova.
-- **Motorola Edge 60 Neo** (2025): Motorola non pubblica disegni quotati. Ingombri dalla scheda tecnica (154,1 × 71,2 × 8,1 mm); contorno, isola della fotocamera, i quattro fori delle lenti, apertura dei tasti, foro del microfono in cima, forellino sul fianco destro sotto l'accensione e apertura sul fondo misurati su una cover HardShell già stampata per questo telefono (quote della cover meno il suo gioco). L'isola della fotocamera si allarga scendendo verso il retro e alla base arriva fino al bordo del telefono in cima e sul fianco: la cover e la copertura delle lenti seguono questa forma, presa tagliando a fette di 0,2 mm la tasca della HardShell. Stimati: dove finisce il volume e comincia l'accensione (stanno nella stessa apertura) e quanto sporge il vetro delle lenti. Prima di stampare tutto conviene la striscia di prova.
+- **Motorola Edge 60 Neo** (2025): la cover non è calcolata, è il file **HardShell V3** già provato su questo telefono (in `assets/`), con le sue pareti da 1,4 mm, il retro da 3,8 mm con la fotocamera in una tasca, i quattro fori delle lenti e le aperture. Rispetto agli ingombri della scheda tecnica (154,1 × 71,2 × 8,1 mm) il file ha 0,1 mm di gioco per lato sui fianchi, 0,15 mm in cima e in fondo e niente sullo spessore: il gioco scelto nel generatore sposta le pareti e alza il bordo sullo schermo di quanto manca (PLA: 0,3 e 0,3 mm). Si scelgono anche il *bordo sul vetro* e quanto *sporge sopra lo schermo*: il labbro del file (1,07 mm sul vetro, 0,95 mm sopra) si allunga o si accorcia verso il centro e si alza o si abbassa, senza toccare il telefono (sopra lo schermo almeno 0,6 mm, perché il labbro resti spesso). Restano scritta, disegno, logo, MagSafe, cavalletto e striscia di prova; spessore di pareti e retro e spigoli sono quelli del file. *Protezione lenti:* una copertura da incollare sopra il retro, con gli stessi fori della cover e lo spessore che scegli (2 mm di partenza): non va a incastro, si stampa con la faccia da incollare sul piatto.
 - **Misure mie:** per qualsiasi altro telefono. I campi partono dalle misure dell'ultimo modello scelto e puoi cambiare tutto: larghezza, altezza, spessore, raggi di angoli e bordo, tasti (centro dalla cima e lunghezza, per esempio `34/7, 48/11`), fotocamera, connettore e fori sul fondo.
 - **Materiale:**
   - *TPU:* il telefono entra a scatto sotto il bordo, che gira tutto attorno.
@@ -416,6 +416,7 @@ In tutto SP Lab il **gioco è sempre per lato**: è lo spazio su ogni lato tra d
 │   ├── supporti.js reggimensole e ganci
 │   ├── cover.js    cover per telefoni
 │   ├── telefoni.js misure dei telefoni per le cover
+│   ├── gusci.js    cover già fatte usate così come sono (generato da assets/)
 │   ├── powerbank.js scatola per powerbank: celle, schede e connettori
 │   ├── racchette.js antivibrazione per racchette da tennis e padel
 │   ├── collari.js  medagliette per i collari di cani e gatti
@@ -428,10 +429,11 @@ In tutto SP Lab il **gioco è sempre per lato**: è lo spazio su ogni lato tra d
 │   ├── logos.js    contorni dei loghi per le scritte (generato da assets/)
 │   ├── svg.js      lettore SVG (disegni caricati e libreria)
 │   └── emoji.js    disegni Fluent Emoji (generato)
-├── assets/         loghi: SVG per la pagina (li incorpora build.py) e STL originali
+├── assets/         loghi: SVG per la pagina (li incorpora build.py) e STL originali; STL delle cover già fatte
 ├── tools/
 │   ├── make-fonts.mjs  rigenera src/fonts.js dai caratteri
 │   ├── make-logos.mjs  rigenera src/logos.js dagli STL dei loghi
+│   ├── make-gusci.mjs  rigenera src/gusci.js dagli STL delle cover già fatte
 │   └── make-emoji.mjs  rigenera src/emoji.js dai Fluent Emoji
 └── docs/img/       immagini per questo README
 ```
@@ -445,7 +447,7 @@ python3 build.py
 
 Lo script incorpora three.js, Manifold (compreso il file WebAssembly), i caratteri e i sorgenti in un solo HTML da circa 1,8 MB, che funziona offline.
 
-Per cambiare i caratteri delle scritte modifica l'elenco in `tools/make-fonts.mjs` e lancia `npm run fonts`. Per cambiare i loghi sostituisci gli STL e gli SVG in `assets/` e lancia `npm run logos`. Per aggiungere o togliere disegni dalla libreria modifica l'elenco in `tools/make-emoji.mjs` e lancia `npm run emoji`.
+Per cambiare i caratteri delle scritte modifica l'elenco in `tools/make-fonts.mjs` e lancia `npm run fonts`. Per cambiare i loghi sostituisci gli STL e gli SVG in `assets/` e lancia `npm run logos`. Per le cover già fatte (oggi la HardShell del Motorola) l'elenco è in `tools/make-gusci.mjs`: `npm run gusci`. Per aggiungere o togliere disegni dalla libreria modifica l'elenco in `tools/make-emoji.mjs` e lancia `npm run emoji`.
 
 ### Come funziona
 - **Geometria:** [Manifold](https://github.com/elalish/manifold) (WebAssembly) costruisce solidi con operazioni booleane. I modelli escono sempre chiusi e senza errori.

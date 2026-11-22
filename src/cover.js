@@ -117,6 +117,53 @@
     }
     const phoneOf = (p) => (p.modello === 'misure' ? custom(p) : BY[p.modello] || DB[0]);
 
+    // ---------- cover già fatte (src/gusci.js) ----------
+    // il guscio salvato, con il gioco cambiato spostando le pareti: tutto quello che sta oltre ±30 mm dal centro (in larghezza) e
+    // oltre ±70 mm (in altezza) si sposta di ex / ey, la parte in mezzo si allarga di poco in proporzione. Sullo spessore il bordo
+    // sopra lo schermo (oltre z 10,4) sale di ez, il tratto dritto delle pareti tra z 4,6 e 10,4 si allunga; retro e fotocamera restano
+    const GUS = root.SP_GUSCI || {};
+    const b64 = (s) => (typeof atob === 'function' ? Uint8Array.from(atob(s), (c) => c.charCodeAt(0)) : Uint8Array.from(Buffer.from(s, 'base64'))).buffer;
+    // Il bordo sullo schermo (lb) e quanto sporge sopra il vetro (hs) si cambiano sul labbro del file, prima del gioco:
+    // - la parte del labbro che sta dentro il contorno del telefono (sopra il vetro) si allarga o si stringe in proporzione,
+    //   misurando dal contorno (ring: punti del contorno del telefono); vicino al piano dello schermo zs il labbro cresce solo
+    //   sopra il vetro (sotto c'è il bordo tondo del telefono), mentre si accorcia su tutta la curva;
+    // - sopra il piano dello schermo l'altezza si scala da quella del file a hs
+    function guscio(G, ex, ey, ez, lb, hs, zs, ring) {
+      if (!G._v) {
+        G._v = Float32Array.from(new Int16Array(b64(G.v)), (v) => v * G.q); G._t = Uint32Array.from(new Uint16Array(b64(G.t)));
+        G._top = G._v.reduce((a, v, i) => (i % 3 === 2 ? Math.max(a, v) : a), 0);
+      }
+      const m = reg(new Manifold(new H.Mesh({ numProp: 3, vertProperties: G._v.slice(), triVerts: G._t.slice() })));
+      const st = (u, e, a) => (Math.abs(u) <= a ? u * (1 + e / a) : u + Math.sign(u) * e), Z0 = 4.6, Z1 = 10.4;
+      // il labbro: dopo, il gioco lo sposta in fuori di circa (ex + ey) / 2, quindi qui va messo a lb + quello
+      const kL = (lb + (ex + ey) / 2) / G.bordo, kH = hs / (G._top - zs), n = ring.length;
+      const inside = (x, y) => { let c = false; for (let i = 0, j = n - 1; i < n; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
+      const near = (x, y) => {   // punto del contorno più vicino
+        let best = Infinity, bx = 0, by = 0;
+        for (let i = 0, j = n - 1; i < n; j = i++) {
+          const [ax, ay] = ring[j], [qx, qy] = ring[i], dx = qx - ax, dy = qy - ay, L = dx * dx + dy * dy;
+          const s = L ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / L)) : 0, px = ax + s * dx, py = ay + s * dy, d = (x - px) ** 2 + (y - py) ** 2;
+          if (d < best) { best = d; bx = px; by = py; }
+        }
+        return [bx, by, Math.sqrt(best)];
+      };
+      return reg(m.warp((v) => {
+        if (v[2] > zs - 0.6 && kL !== 1 && inside(v[0], v[1])) {
+          const w = kL < 1 ? Math.min(1, (v[2] - zs + 0.6) / 0.3) : Math.max(0, Math.min(1, (v[2] - zs + 0.12) / 0.12));
+          if (w > 0) { const [px, py, d] = near(v[0], v[1]); if (d > 1e-6) { const f = 1 + w * (kL - 1); v[0] = px + (v[0] - px) * f; v[1] = py + (v[1] - py) * f; } }
+        }
+        if (v[2] > zs) v[2] = zs + (v[2] - zs) * kH;
+        v[0] = st(v[0], ex, 30); v[1] = st(v[1], ey, 70); v[2] += v[2] <= Z0 ? 0 : v[2] >= Z1 ? ez : ez * (v[2] - Z0) / (Z1 - Z0);
+      }));
+    }
+    // il contorno più grande di una sezione, pieno (senza i buchi)
+    function fill(cs) {
+      const area = (q) => q.reduce((a, [x, y], i) => { const [x2, y2] = q[(i + 1) % q.length]; return a + x * y2 - x2 * y; }, 0) / 2;
+      let best = null, ba = 0;
+      for (const q of cs.toPolygons()) { const a = Math.abs(area(q)); if (a > ba) { ba = a; best = q; } }
+      return best ? P2(best) : null;
+    }
+
     // ================= COVER =================
     function cover(p) {
       // striscia di prova: senza scritte, disegno e logo, così si stampa in fretta
@@ -127,6 +174,7 @@
       const t = phoneOf(p), tpu = p.materiale !== 'pla';
       const g = p.gioco, gz = p.giocoZ, s = p.pareti, lip = p.sporgenza, hs = p.bordoSchermo, cb = p.giocoTasti, cw = p.giocoCam;
       const base = outline(t), cam = camera(t, base), C = t.cam;
+      const GS = !t.custom && GUS[t.id] ? GUS[t.id] : null;   // cover già fatta per questo telefono (src/gusci.js)
       const stand = p.tipo === 'cavalletto', vert = p.orientamento !== 'orizzontale';
       const DD = 1.2;                                   // profondità della guida del cavalletto
       // lenti: protette da una copertura a parte (consigliata; il valore si chiama ancora 'cornice') oppure da un retro spesso quanto sporgono
@@ -143,191 +191,231 @@
       if (prot === 'retro') tb = Math.max(tb, C.v + up);
       const ring = prot === 'cornice' && C.v + up > tb;
       if (ring) tb = Math.max(tb, TF + 0.6);
-      const zm = tb + t.T / 2, zf = tb + t.T + gz, zr = zf + hs;
-      const Wo = t.W + 2 * (g + s), Lo = t.L + 2 * (g + s);
-
-      // ---- guscio esterno, con il profilo scelto sugli spigoli ----
-      const out = OFF(base, g + s), rb = Math.max(0, Math.min(p.raggio, s + g + 0.3, zr / 2 - 0.2));
-      const secs = [];
-      if (p.profilo === 'dritto' || rb < 0.1) secs.push([out, 0], [out, zr]);
-      else if (p.profilo === 'smussato') secs.push([OFF(out, -rb), 0], [out, rb], [out, zr - rb], [OFF(out, -rb), zr]);
-      else {
-        // in basso il tondo parte da 45°: sul piatto non resta uno sbalzo
-        secs.push([OFF(out, -0.586 * rb), 0]);
-        for (let i = 0; i <= 4; i++) { const q = Math.PI / 4 + Math.PI / 4 * i / 4; secs.push([OFF(out, -(rb - rb * Math.sin(q))), rb - rb * Math.cos(q)]); }
-        for (let i = 0; i <= 6; i++) { const q = Math.PI / 2 * i / 6; secs.push([OFF(out, -(rb - rb * Math.cos(q))), zr - rb + rb * Math.sin(q)]); }
-      }
-      let shell = loft(secs);
+      if (GS) tb = GS.fondo;
+      const zm = tb + t.T / 2, zf = tb + t.T + gz;
+      let zr = zf + hs, Wo = t.W + 2 * (g + s), Lo = t.L + 2 * (g + s);
+      let out = null, rb = 0, shell = null, flatOut = null, winOut = null, camFoot = null;
+      let insert = null, ringOut = 0, FLinfo = 0, capFace = null, capZ = 0, covered = 0, opens = 0, ccSlot = false, glue = null;
       const adds = [], cuts = [];
 
-      // ---- vano del telefono e apertura sullo schermo ----
-      const body = phoneSolid(t, base, g, gz, tb);
-      const open = EXTZ(OFF(base, -lip), zm, zr + 1);
-      cuts.push(body, open);
-
-      // ---- fotocamera ----
-      // senza copertura: finestra passante con i fianchi a 45° (non entrano nel campo delle lenti).
-      // Con la copertura: la finestra è dritta e larga quanto la copertura, più il gioco.
-      const chamf = Math.min(tb, 2.5) * 0.8;
-      // con la copertura la finestra prende tutto il rialzo (largo o no); senza, solo lenti e flash
-      const camW = ring && C.tutto ? cam.plat : cam.win;
-      let W0 = ring ? I(OFF(camW, cw + RW), OFF(base, g - tolR)) : null;   // la copertura fuori dalla cover: mai dentro le pareti
-      // rialzo largo quanto il telefono: in alto la copertura segue gli angoli del telefono, in basso il rialzo finisce dritto.
-      // Arrotondo anche gli angoli in basso con raggio 5,75 mm, lasciando attorno al rialzo una parete di almeno RW: la copertura
-      // scende sotto il rialzo quanto basta (circa raggio − 1,8 mm). Con raggio 9 e parete libera di arrivare a zero
-      // negli angoli restava un buco. Se lo spazio non basta il raggio si riduce
-      // con la forma del rialzo nota la copertura è il rettangolo di riferimento rientrato come negli originali Anycubic
-      // (2,65 mm, più il gioco attorno alla fotocamera oltre gli 0,6 mm già compresi): angoli uguali sopra e sotto
-      if (ring && cam.B0) W0 = I(OFF(cam.B0, -2.65 + cw), OFF(base, g - tolR));
-      // isola che si allarga fino ai bordi: la copertura prende tutta la base dell'isola, più la parete RW verso il centro
-      else if (ring && cam.at) W0 = I(OFF(cam.at(0), cw + RW), OFF(base, g - tolR));
-      else if (ring && C.tutto) {
-        const keep = OFF(cam.plat, cw), cav = OFF(base, g - tolR), wall = I(OFF(keep, RW - 0.05), cav);
-        search: for (let R = 5.75; R >= 2; R -= 0.25) {
-          for (let ext = 0; ext <= 8; ext += 0.25) {
-            const s2 = I(R2(CrossSection.hull([W0, MV(W0, 0, -ext)])), cav), y0 = bounds(s2).y0;
-            const r = U([OFF(OFF(s2, -R), R), I(s2, RECT(-t.W, y0 + R, t.W, t.L))]);
-            if (empty(D(wall, r))) { W0 = r; break search; }
-          }
-        }
-      }
-      const winOut = ring ? OFF(W0, tolR) : OFF(cam.win, cw + chamf);
-      if (!ring) cuts.push(loft([[winOut, -0.01], [OFF(cam.win, cw), tb + 0.01]]));
-      if (thick) cuts.push(EXTZ(OFF(cam.plat, g), tb - C.h - 0.25, tb + 0.02));          // tasca per il rialzo largo
-      // fianchi arrotondati: dove il rialzo si allarga verso il retro del telefono la cover gli lascia posto (con il gioco)
-      if (C.svasa) cuts.push(cam.bump(tb, cw));
-      // copertura a parte: chiude la finestra lasciando aperti solo lenti, flash e sensori, e sporge oltre le lenti.
-      // Ha una flangia che sta in un incavo dentro la cover, sotto il telefono: la tiene ferma il telefono, senza colla.
-      // Senza le posizioni delle lenti (misure scritte a mano) è solo un anello attorno alla fotocamera.
-      let insert = null, ringOut = 0, FLinfo = 0, capFace = null, capZ = 0, camFoot = winOut;   // camFoot: ingombro della fotocamera nel retro (finestra e incavo); capFace: parte piatta della faccia esterna della copertura (a z = capZ)
-      if (ring) {
-        // si infila da dentro la cover prima del telefono: passa nella finestra e il suo bordo largo (flangia) resta
-        // in un incavo scavato nel retro, dalla parte del telefono. Fuori non esce perché la finestra è più stretta,
-        // dentro non rientra perché ci appoggia il telefono (sul rialzo della fotocamera)
-        const zTop = tb, ta = zTop - TF;                           // la flangia va da ta al piano del telefono
-        // si stampa con la faccia esterna sul piatto: la flangia si allarga a 55° (niente supporti) e poi è dritta per 0,3 mm
-        const hf = TF - 0.3, FL = Math.min(1.5, hf * Math.tan(55 * Math.PI / 180));
-        const room = OFF(base, g - tolR - 0.3);                     // l'incavo non tocca le pareti della cover
-        const inner = OFF(camW, cw), flange = I(OFF(W0, FL), room);
-        const zR = tb - C.v - up;                                // faccia esterna della copertura, fuori dal retro
-        ringOut = -zR; FLinfo = FL;
-        camFoot = OFF(flange, tolR);
-        cuts.push(EXTZ(OFF(W0, tolR), -0.01, ta + 0.01), loft([[OFF(W0, tolR), ta], [OFF(flange, tolR), ta + hf]]), EXTZ(OFF(flange, tolR), ta + hf - 0.01, zTop + 0.01));
-        const WMIN = 0.9;                                          // parete più sottile che si stampa bene (due passate da 0,4 mm)
-        const ch = Math.max(0, Math.min(RW - WMIN, 0.6));
-        const solid = U3([EXTZ(W0, zR, ta + 0.01), loft([[W0, ta], [flange, ta + hf]]), EXTZ(flange, ta + hf - 0.01, zTop)]);
-        let m;
-        if (t.lenti) {
-          // tasca per il rialzo e un foro svasato a 45° per ogni lente e sensore.
-          // La copertura si costruisce a fette orizzontali, dal piatto in su, e ogni fetta è "aperta": le parti più strette di
-          // WMIN (tra tasca e bordo quando la fotocamera è vicina al bordo del telefono, punte tra tasca e fori) spariscono,
-          // invece di diventare pareti di pochi decimi che lo slicer salta lasciando dei buchi. Lì la tasca arriva alla parete
-          // della cover. Ogni fetta sta sopra quella sotto (o sporge al massimo di un gradino della flangia): niente sbalzi
-          const zp = Math.max(zR + 0.4, zTop - C.h - 0.2);           // da qui in su c'è la tasca per il rialzo
-          // fori: 0,4 mm di gioco attorno al vetro, meno se due fori sono così vicini che il setto resterebbe sotto WMIN
-          const lens = t.lenti.map(([x, y, d], i) => {
-            let c = 0.4;
-            t.lenti.forEach(([x2, y2, d2], j) => { if (j !== i) c = Math.min(c, (Math.hypot(x2 - x, y2 - y) - d / 2 - d2 / 2 - WMIN) / 2); });
-            return [t.W / 2 - x, t.L / 2 - y, d / 2 + Math.max(0.1, c)];
+      if (GS) {
+        // ---- cover già fatta (HardShell V3): il guscio del file, con il gioco scelto ----
+        // il file ha già pareti, bordo, tasca della fotocamera, fori delle lenti e aperture: niente da calcolare
+        // bordo sul vetro e altezza sopra lo schermo: il labbro del file resta spesso almeno 0,5 mm
+        const lbG = Math.max(0.3, Math.min(2.5, lip)), hsG = Math.max(0.6, Math.min(2.5, hs));
+        if (hsG !== hs) notes.push(`~Altezza sopra lo schermo portata a ${fmt(hsG)} mm: più bassa il bordo del file diventa troppo sottile`);
+        if (lbG !== lip) notes.push(`~Bordo sul vetro portato a ${fmt(lbG)} mm`);
+        shell = guscio(GS, g - GS.gx, g - GS.gy, gz - GS.gz, lbG, hsG, tb + t.T, base.toPolygons()[0]);
+        const bb = shell.boundingBox();
+        Wo = bb.max[0] - bb.min[0]; Lo = bb.max[1] - bb.min[1]; zr = bb.max[2];
+        flatOut = fill(R2(shell.slice(0.02)));                                  // faccia piatta del retro (sul piatto)
+        const zp = GS.tasca + 0.1, pocket = D(fill(R2(shell.slice(zp))), R2(shell.slice(zp)));   // tasca della fotocamera, dentro
+        const holes = D(flatOut, R2(shell.slice(0.3)));                          // fori delle lenti nel retro
+        camFoot = U([pocket, holes]);
+        winOut = camFoot;
+        if (p.protezioneG !== 'nessuna' && !empty(holes)) {
+          // copertura da incollare sopra il retro: una piastra con gli stessi fori, attorno ai fori 3 mm sui fianchi e
+          // 4,2 mm sopra e sotto (come lo spessore da 2 mm già provato), che non arriva allo smusso del retro.
+          // Sta da z = −th (faccia esterna) a z = 0 (faccia incollata). Spigolo esterno smussato, fori svasati dove c'è posto
+          const th = p.spessoreCop, hb = bounds(holes), ch = Math.min(0.6, th / 3);
+          const plate = I(RR(hb.x0 - 3, hb.y0 - 4.2, hb.x1 + 3, hb.y1 + 4.2, 4), OFF(flatOut, -0.8));
+          let m = U3([loft([[OFF(plate, -ch), -th], [plate, -th + ch]]), EXTZ(plate, -th + ch - 0.01, 0)]);
+          const comps = holes.decompose().map(R2), cs = comps.map(c => { const b = bounds(c); return [(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, Math.max(b.w, b.h) / 2]; });
+          const hc = comps.map((c, i) => {
+            const [x, y, r] = cs[i];
+            let fl = Math.min(0.8, th - 0.4);
+            cs.forEach(([x2, y2, r2], j) => { if (j !== i) fl = Math.min(fl, (Math.hypot(x2 - x, y2 - y) - r - r2 - 1.2) / 2); });
+            const e = EXTZ(c, -th - 0.01, 0.01);
+            return fl > 0.05 ? U3([e, loft([[OFF(c, fl), -th - 0.01], [c, -th + fl]])]) : e;
           });
-          const holes2 = U(lens.map(([X, Y, r]) => C2(X, Y, r, 64))), P = U([OFF(cam.plat, cw), holes2]);
-          // tasca alla quota z (la fetta va fino a z1: prendo la tasca più larga, quella in alto)
-          const Pat = (z1) => (cam.at ? U([OFF(cam.at(zTop - z1), cw), holes2]) : P);
-          // semplifico il contorno: ogni fetta parte da quella sotto e senza semplificare i punti raddoppiano a ogni fetta (lentissimo)
-          const OPEN = (c) => (empty(c) ? null : R2(R2(R2(c.offset(-WMIN / 2, 'Round', 2, 48)).offset(WMIN / 2, 'Round', 2, 48)).simplify(0.01)));
-          // contorno esterno all'altezza z: W0 fino a ta, poi la flangia si allarga a gradini (stanno dentro l'incavo della cover)
-          // nella parte che si allarga ogni gradino sta dentro la flangia smussata sia sotto sia sopra: quindi anche nell'incavo
-          const NS = 3, flLoft = loft([[W0, ta], [flange, ta + hf]]);
-          const outerOf = (z0, z1) => (z1 <= ta + 1e-4 ? W0 : z0 >= ta + hf - 1e-4 ? flange : I(R2(flLoft.slice(Math.max(z0, ta) + 1e-3)), R2(flLoft.slice(Math.min(z1, ta + hf) - 1e-3))));
-          const cuts2 = [zR, zp, ta, ...Array.from({ length: NS }, (_, k) => ta + hf * (k + 1) / NS), zTop, ...(cam.at ? Array.from({ length: Math.ceil((zTop - zp) / 0.2) }, (_, k) => zp + 0.2 * k) : [])].filter((z) => z >= zR && z <= zTop);
-          const zz = [...new Set(cuts2.map(z => +z.toFixed(4)))].sort((u, v) => u - v);
-          const slabs = [];
-          let prev = null;
-          for (let i = 0; i < zz.length - 1; i++) {
-            const z0 = zz[i], z1 = zz[i + 1];
-            if (z1 - z0 < 0.02) continue;
-            const grow = z0 >= ta - 1e-4 && z0 < ta + hf - 1e-4 || Math.abs(z0 - ta - hf) < 1e-3;
-            let sec = OPEN(D(outerOf(z0, z1), z0 >= zp - 1e-4 ? Pat(z1) : holes2));
-            if (prev && sec) sec = OPEN(I(sec, grow ? OFF(prev, FL / NS + 0.01) : prev));   // non sporge oltre la fetta sotto
-            if (empty(sec)) break;
-            slabs.push(EXTZ(sec, z0 - (i ? 0.005 : 0), z1));
-            prev = sec;
-          }
-          m = U3(slabs);
-          // svasature sulla faccia esterna: non mangiano il setto tra due fori vicini (ne restano almeno 1,2 mm sul piatto)
-          // né il bordo della copertura (resta almeno WMIN)
-          const fl0 = Math.min(1.2, 0.6 * (zp - zR));
-          const flares = [];
-          for (const [X, Y, r] of lens) {
-            let fl = fl0;
-            for (const [X2, Y2, r2] of lens) if (X2 !== X || Y2 !== Y) fl = Math.min(fl, (Math.hypot(X2 - X, Y2 - Y) - r - r2 - 1.2) / 2);
-            let lo = 0, hi = r + fl0 + WMIN;                       // raggio del cerchio più grande attorno al foro che sta nella copertura
-            if (!empty(D(C2(X, Y, hi, 64), W0))) { for (let q = 0; q < 14; q++) { const mid = (lo + hi) / 2; if (empty(D(C2(X, Y, mid, 64), W0))) lo = mid; else hi = mid; } fl = Math.min(fl, lo - r - WMIN); }
-            if (fl > 0.05) flares.push(loft([[C2(X, Y, r + fl, 64), zR - 0.01], [C2(X, Y, r, 64), zR + fl]]));
-          }
-          if (flares.length) m = sub(m, U3(flares));
-          capFace = D(W0, OFF(holes2, fl0 + 0.3)); capZ = zR;
-        } else { m = sub(solid, U3([EXTZ(inner, zR - 1, zTop + 1), loft([[OFF(inner, ch), zR - 0.01], [inner, zR + ch]])])); capFace = D(W0, OFF(inner, ch + 0.3)); capZ = zR; }
-        insert = m;
-      }
-
-      // ---- tasti ----
-      const keys = [...t.sx.map(k => [-1, k]), ...t.dx.map(k => [1, k])].map(([sd, [c, len, tipo]]) => ({ sd, y: t.L / 2 - c, len, tipo, w: tipo === 'camera' ? (t.wcc || t.w) : t.w }));
-      const xs = (sd, a, b) => (sd < 0 ? [-b, -a] : [a, b]);
-      let covered = 0;
-      const bh = [];   // fori dei tasti
-      for (const k of keys) {
-        const always = k.tipo === 'camera' || k.tipo === 'silenzioso';
-        const hMax = t.T + gz - 0.5;
-        if (tpu && p.tasti === 'coperti' && !always) {
-          // tasto coperto: la parete si assottiglia a 0,8 mm sopra il tasto e fuori c'è un rilievo da premere
-          const [a0, a1] = xs(k.sd, t.W / 2 - 1, t.W / 2 + g + s - 0.8);
-          cuts.push(prismX(RR(k.y - k.len / 2 - 0.6, zm - Math.min(k.w + 1, hMax) / 2, k.y + k.len / 2 + 0.6, zm + Math.min(k.w + 1, hMax) / 2, 1), a0, a1));
-          const [b0, b1] = xs(k.sd, t.W / 2 + g + s - 0.05, t.W / 2 + g + s + 0.6);
-          adds.push(prismX(RR(k.y - k.len / 2 + 0.6, zm - (k.w - 0.4) / 2, k.y + k.len / 2 - 0.6, zm + (k.w - 0.4) / 2, (k.w - 0.4) / 2), b0, b1));
-          covered++;
-          continue;
+          m = sub(m, U3(hc));
+          insert = m; glue = th;
+          ringOut = th; capFace = D(OFF(plate, -ch), OFF(holes, 0.9)); capZ = -th;
+          winOut = U([camFoot, plate]);
         }
-        // il Camera Control vuole 25 × 4,2 mm liberi (linee guida Apple); gli altri tasti 2 mm in più per parte, la parete è aperta
-        const cc = k.tipo === 'camera', len = cc ? Math.max(k.len + 2 * cb, 25) : k.len + 2 * cb + 4;
-        bh.push({ sd: k.sd, y0: k.y - len / 2, y1: k.y + len / 2, w: cc ? Math.max(k.w + 2 * cb, 4.2) : k.w + 2 * cb, cc, n: 1 });
-      }
-      // i tasti vicini sullo stesso fianco (azione e volume, interruttore e volume) diventano un'unica apertura
-      bh.sort((a, b) => a.sd - b.sd || a.y0 - b.y0);
-      const slots = [];
-      for (const h of bh) {
-        const q = slots[slots.length - 1];
-        if (q && q.sd === h.sd && !q.cc && !h.cc && h.y0 - q.y1 < 10) { q.y1 = Math.max(q.y1, h.y1); q.w = Math.max(q.w, h.w); q.n++; }
-        else slots.push(Object.assign({}, h));
-      }
-      for (const h of slots) {
-        if (!h.cc) {
-          // parete aperta dal retro fino al bordo sullo schermo (come le cover in commercio): il dito arriva a tutto il tasto
-          const r = Math.min(2, (h.y1 - h.y0) / 2), [a0, a1] = xs(h.sd, t.W / 2 - 6, t.W / 2 + g + s + 1);
-          cuts.push(prismX(RR(h.y0, tb + 0.2, h.y1, zr + 2 * r + 1, r), a0, a1));
-          continue;
+      } else {
+        // ---- guscio esterno, con il profilo scelto sugli spigoli ----
+        out = OFF(base, g + s); rb = Math.max(0, Math.min(p.raggio, s + g + 0.3, zr / 2 - 0.2));
+        const secs = [];
+        if (p.profilo === 'dritto' || rb < 0.1) secs.push([out, 0], [out, zr]);
+        else if (p.profilo === 'smussato') secs.push([OFF(out, -rb), 0], [out, rb], [out, zr - rb], [OFF(out, -rb), zr]);
+        else {
+          // in basso il tondo parte da 45°: sul piatto non resta uno sbalzo
+          secs.push([OFF(out, -0.586 * rb), 0]);
+          for (let i = 0; i <= 4; i++) { const q = Math.PI / 4 + Math.PI / 4 * i / 4; secs.push([OFF(out, -(rb - rb * Math.sin(q))), rb - rb * Math.cos(q)]); }
+          for (let i = 0; i <= 6; i++) { const q = Math.PI / 2 * i / 6; secs.push([OFF(out, -(rb - rb * Math.cos(q))), zr - rb + rb * Math.sin(q)]); }
         }
-        // Camera Control: asola; con una cover rigida è più alta e svasata fuori, così il dito ci arriva
-        const hh = Math.min(tpu ? h.w : Math.max(h.w, 4.5), t.T + gz - 0.5), ch = tpu ? 0.4 : 0.8;
-        const sec = RR(h.y0, zm - hh / 2, h.y1, zm + hh / 2, hh / 2), xo = h.sd * (t.W / 2 + g + s);
-        const [a0, a1] = xs(h.sd, t.W / 2 - 1.5, t.W / 2 + g + s + 1);
-        cuts.push(prismX(sec, a0, a1), loftX([[sec, xo - h.sd * ch], [OFF(sec, ch + 0.01), xo + h.sd * 0.01]]));
-      }
-      const opens = slots.filter(h => !h.cc).length, ccSlot = slots.some(h => h.cc);
+        shell = loft(secs);
 
-      // ---- fondo: aperto dal retro al bordo per cavo, altoparlante e microfoni (non tocca gli angoli) ----
-      const X = (u) => -t.W / 2 + u, [uc, uw] = t.usb, sp = t.sp || [uc, uc];
-      const fx0 = Math.max(X(Math.min(sp[0], uc - uw / 2 - cb) - 3), -t.W / 2 + 9), fx1 = Math.min(X(Math.max(sp[1], uc + uw / 2 + cb) + 3), t.W / 2 - 9);
-      cuts.push(prismY(RR(fx0, tb + 0.2, fx1, zr + 6, 2.5), -t.L / 2 - g - s - 1, -t.L / 2 + 6));
-      // ---- cima: fori dei microfoni [centro x guardando lo schermo, larghezza], asole tonde a metà spessore ----
-      for (const [u, w] of (t.cima || [])) {
-        const a = w + 2 * cb, h = Math.min(a, t.T - 2);
-        cuts.push(prismY(RR(X(u) - a / 2, zm - h / 2, X(u) + a / 2, zm + h / 2, h / 2), t.L / 2 - 3, t.L / 2 + g + s + 1));
-      }
-      // ---- fori piccoli sui fianchi (microfoni): [lato −1 sinistra / 1 destra guardando lo schermo, centro dalla cima, larghezza] ----
-      for (const [sd, c, w] of (t.lati || [])) {
-        const a = w + 2 * cb, h = Math.min(a, t.T - 2), y = t.L / 2 - c, [a0, a1] = xs(sd, t.W / 2 - 3, t.W / 2 + g + s + 1);
-        cuts.push(prismX(RR(y - a / 2, zm - h / 2, y + a / 2, zm + h / 2, h / 2), a0, a1));
+        // ---- vano del telefono e apertura sullo schermo ----
+        const body = phoneSolid(t, base, g, gz, tb);
+        const open = EXTZ(OFF(base, -lip), zm, zr + 1);
+        cuts.push(body, open);
+
+        // ---- fotocamera ----
+        // senza copertura: finestra passante con i fianchi a 45° (non entrano nel campo delle lenti).
+        // Con la copertura: la finestra è dritta e larga quanto la copertura, più il gioco.
+        const chamf = Math.min(tb, 2.5) * 0.8;
+        // con la copertura la finestra prende tutto il rialzo (largo o no); senza, solo lenti e flash
+        const camW = ring && C.tutto ? cam.plat : cam.win;
+        let W0 = ring ? I(OFF(camW, cw + RW), OFF(base, g - tolR)) : null;   // la copertura fuori dalla cover: mai dentro le pareti
+        // rialzo largo quanto il telefono: in alto la copertura segue gli angoli del telefono, in basso il rialzo finisce dritto.
+        // Arrotondo anche gli angoli in basso con raggio 5,75 mm, lasciando attorno al rialzo una parete di almeno RW: la copertura
+        // scende sotto il rialzo quanto basta (circa raggio − 1,8 mm). Con raggio 9 e parete libera di arrivare a zero
+        // negli angoli restava un buco. Se lo spazio non basta il raggio si riduce
+        // con la forma del rialzo nota la copertura è il rettangolo di riferimento rientrato come negli originali Anycubic
+        // (2,65 mm, più il gioco attorno alla fotocamera oltre gli 0,6 mm già compresi): angoli uguali sopra e sotto
+        if (ring && cam.B0) W0 = I(OFF(cam.B0, -2.65 + cw), OFF(base, g - tolR));
+        // isola che si allarga fino ai bordi: la copertura prende tutta la base dell'isola, più la parete RW verso il centro
+        else if (ring && cam.at) W0 = I(OFF(cam.at(0), cw + RW), OFF(base, g - tolR));
+        else if (ring && C.tutto) {
+          const keep = OFF(cam.plat, cw), cav = OFF(base, g - tolR), wall = I(OFF(keep, RW - 0.05), cav);
+          search: for (let R = 5.75; R >= 2; R -= 0.25) {
+            for (let ext = 0; ext <= 8; ext += 0.25) {
+              const s2 = I(R2(CrossSection.hull([W0, MV(W0, 0, -ext)])), cav), y0 = bounds(s2).y0;
+              const r = U([OFF(OFF(s2, -R), R), I(s2, RECT(-t.W, y0 + R, t.W, t.L))]);
+              if (empty(D(wall, r))) { W0 = r; break search; }
+            }
+          }
+        }
+        winOut = ring ? OFF(W0, tolR) : OFF(cam.win, cw + chamf);
+        if (!ring) cuts.push(loft([[winOut, -0.01], [OFF(cam.win, cw), tb + 0.01]]));
+        if (thick) cuts.push(EXTZ(OFF(cam.plat, g), tb - C.h - 0.25, tb + 0.02));          // tasca per il rialzo largo
+        // fianchi arrotondati: dove il rialzo si allarga verso il retro del telefono la cover gli lascia posto (con il gioco)
+        if (C.svasa) cuts.push(cam.bump(tb, cw));
+        // copertura a parte: chiude la finestra lasciando aperti solo lenti, flash e sensori, e sporge oltre le lenti.
+        // Ha una flangia che sta in un incavo dentro la cover, sotto il telefono: la tiene ferma il telefono, senza colla.
+        // Senza le posizioni delle lenti (misure scritte a mano) è solo un anello attorno alla fotocamera.
+        camFoot = winOut;   // camFoot: ingombro della fotocamera nel retro (finestra e incavo); capFace: parte piatta della faccia esterna della copertura (a z = capZ)
+        if (ring) {
+          // si infila da dentro la cover prima del telefono: passa nella finestra e il suo bordo largo (flangia) resta
+          // in un incavo scavato nel retro, dalla parte del telefono. Fuori non esce perché la finestra è più stretta,
+          // dentro non rientra perché ci appoggia il telefono (sul rialzo della fotocamera)
+          const zTop = tb, ta = zTop - TF;                           // la flangia va da ta al piano del telefono
+          // si stampa con la faccia esterna sul piatto: la flangia si allarga a 55° (niente supporti) e poi è dritta per 0,3 mm
+          const hf = TF - 0.3, FL = Math.min(1.5, hf * Math.tan(55 * Math.PI / 180));
+          const room = OFF(base, g - tolR - 0.3);                     // l'incavo non tocca le pareti della cover
+          const inner = OFF(camW, cw), flange = I(OFF(W0, FL), room);
+          const zR = tb - C.v - up;                                // faccia esterna della copertura, fuori dal retro
+          ringOut = -zR; FLinfo = FL;
+          camFoot = OFF(flange, tolR);
+          cuts.push(EXTZ(OFF(W0, tolR), -0.01, ta + 0.01), loft([[OFF(W0, tolR), ta], [OFF(flange, tolR), ta + hf]]), EXTZ(OFF(flange, tolR), ta + hf - 0.01, zTop + 0.01));
+          const WMIN = 0.9;                                          // parete più sottile che si stampa bene (due passate da 0,4 mm)
+          const ch = Math.max(0, Math.min(RW - WMIN, 0.6));
+          const solid = U3([EXTZ(W0, zR, ta + 0.01), loft([[W0, ta], [flange, ta + hf]]), EXTZ(flange, ta + hf - 0.01, zTop)]);
+          let m;
+          if (t.lenti) {
+            // tasca per il rialzo e un foro svasato a 45° per ogni lente e sensore.
+            // La copertura si costruisce a fette orizzontali, dal piatto in su, e ogni fetta è "aperta": le parti più strette di
+            // WMIN (tra tasca e bordo quando la fotocamera è vicina al bordo del telefono, punte tra tasca e fori) spariscono,
+            // invece di diventare pareti di pochi decimi che lo slicer salta lasciando dei buchi. Lì la tasca arriva alla parete
+            // della cover. Ogni fetta sta sopra quella sotto (o sporge al massimo di un gradino della flangia): niente sbalzi
+            const zp = Math.max(zR + 0.4, zTop - C.h - 0.2);           // da qui in su c'è la tasca per il rialzo
+            // fori: 0,4 mm di gioco attorno al vetro, meno se due fori sono così vicini che il setto resterebbe sotto WMIN
+            const lens = t.lenti.map(([x, y, d], i) => {
+              let c = 0.4;
+              t.lenti.forEach(([x2, y2, d2], j) => { if (j !== i) c = Math.min(c, (Math.hypot(x2 - x, y2 - y) - d / 2 - d2 / 2 - WMIN) / 2); });
+              return [t.W / 2 - x, t.L / 2 - y, d / 2 + Math.max(0.1, c)];
+            });
+            const holes2 = U(lens.map(([X, Y, r]) => C2(X, Y, r, 64))), P = U([OFF(cam.plat, cw), holes2]);
+            // tasca alla quota z (la fetta va fino a z1: prendo la tasca più larga, quella in alto)
+            const Pat = (z1) => (cam.at ? U([OFF(cam.at(zTop - z1), cw), holes2]) : P);
+            // semplifico il contorno: ogni fetta parte da quella sotto e senza semplificare i punti raddoppiano a ogni fetta (lentissimo)
+            const OPEN = (c) => (empty(c) ? null : R2(R2(R2(c.offset(-WMIN / 2, 'Round', 2, 48)).offset(WMIN / 2, 'Round', 2, 48)).simplify(0.01)));
+            // contorno esterno all'altezza z: W0 fino a ta, poi la flangia si allarga a gradini (stanno dentro l'incavo della cover)
+            // nella parte che si allarga ogni gradino sta dentro la flangia smussata sia sotto sia sopra: quindi anche nell'incavo
+            const NS = 3, flLoft = loft([[W0, ta], [flange, ta + hf]]);
+            const outerOf = (z0, z1) => (z1 <= ta + 1e-4 ? W0 : z0 >= ta + hf - 1e-4 ? flange : I(R2(flLoft.slice(Math.max(z0, ta) + 1e-3)), R2(flLoft.slice(Math.min(z1, ta + hf) - 1e-3))));
+            const cuts2 = [zR, zp, ta, ...Array.from({ length: NS }, (_, k) => ta + hf * (k + 1) / NS), zTop, ...(cam.at ? Array.from({ length: Math.ceil((zTop - zp) / 0.2) }, (_, k) => zp + 0.2 * k) : [])].filter((z) => z >= zR && z <= zTop);
+            const zz = [...new Set(cuts2.map(z => +z.toFixed(4)))].sort((u, v) => u - v);
+            const slabs = [];
+            let prev = null;
+            for (let i = 0; i < zz.length - 1; i++) {
+              const z0 = zz[i], z1 = zz[i + 1];
+              if (z1 - z0 < 0.02) continue;
+              const grow = z0 >= ta - 1e-4 && z0 < ta + hf - 1e-4 || Math.abs(z0 - ta - hf) < 1e-3;
+              let sec = OPEN(D(outerOf(z0, z1), z0 >= zp - 1e-4 ? Pat(z1) : holes2));
+              if (prev && sec) sec = OPEN(I(sec, grow ? OFF(prev, FL / NS + 0.01) : prev));   // non sporge oltre la fetta sotto
+              if (empty(sec)) break;
+              slabs.push(EXTZ(sec, z0 - (i ? 0.005 : 0), z1));
+              prev = sec;
+            }
+            m = U3(slabs);
+            // svasature sulla faccia esterna: non mangiano il setto tra due fori vicini (ne restano almeno 1,2 mm sul piatto)
+            // né il bordo della copertura (resta almeno WMIN)
+            const fl0 = Math.min(1.2, 0.6 * (zp - zR));
+            const flares = [];
+            for (const [X, Y, r] of lens) {
+              let fl = fl0;
+              for (const [X2, Y2, r2] of lens) if (X2 !== X || Y2 !== Y) fl = Math.min(fl, (Math.hypot(X2 - X, Y2 - Y) - r - r2 - 1.2) / 2);
+              let lo = 0, hi = r + fl0 + WMIN;                       // raggio del cerchio più grande attorno al foro che sta nella copertura
+              if (!empty(D(C2(X, Y, hi, 64), W0))) { for (let q = 0; q < 14; q++) { const mid = (lo + hi) / 2; if (empty(D(C2(X, Y, mid, 64), W0))) lo = mid; else hi = mid; } fl = Math.min(fl, lo - r - WMIN); }
+              if (fl > 0.05) flares.push(loft([[C2(X, Y, r + fl, 64), zR - 0.01], [C2(X, Y, r, 64), zR + fl]]));
+            }
+            if (flares.length) m = sub(m, U3(flares));
+            capFace = D(W0, OFF(holes2, fl0 + 0.3)); capZ = zR;
+          } else { m = sub(solid, U3([EXTZ(inner, zR - 1, zTop + 1), loft([[OFF(inner, ch), zR - 0.01], [inner, zR + ch]])])); capFace = D(W0, OFF(inner, ch + 0.3)); capZ = zR; }
+          insert = m;
+        }
+
+        // ---- tasti ----
+        const keys = [...t.sx.map(k => [-1, k]), ...t.dx.map(k => [1, k])].map(([sd, [c, len, tipo]]) => ({ sd, y: t.L / 2 - c, len, tipo, w: tipo === 'camera' ? (t.wcc || t.w) : t.w }));
+        const xs = (sd, a, b) => (sd < 0 ? [-b, -a] : [a, b]);
+        covered = 0;
+        const bh = [];   // fori dei tasti
+        for (const k of keys) {
+          const always = k.tipo === 'camera' || k.tipo === 'silenzioso';
+          const hMax = t.T + gz - 0.5;
+          if (tpu && p.tasti === 'coperti' && !always) {
+            // tasto coperto: la parete si assottiglia a 0,8 mm sopra il tasto e fuori c'è un rilievo da premere
+            const [a0, a1] = xs(k.sd, t.W / 2 - 1, t.W / 2 + g + s - 0.8);
+            cuts.push(prismX(RR(k.y - k.len / 2 - 0.6, zm - Math.min(k.w + 1, hMax) / 2, k.y + k.len / 2 + 0.6, zm + Math.min(k.w + 1, hMax) / 2, 1), a0, a1));
+            const [b0, b1] = xs(k.sd, t.W / 2 + g + s - 0.05, t.W / 2 + g + s + 0.6);
+            adds.push(prismX(RR(k.y - k.len / 2 + 0.6, zm - (k.w - 0.4) / 2, k.y + k.len / 2 - 0.6, zm + (k.w - 0.4) / 2, (k.w - 0.4) / 2), b0, b1));
+            covered++;
+            continue;
+          }
+          // il Camera Control vuole 25 × 4,2 mm liberi (linee guida Apple); gli altri tasti 2 mm in più per parte, la parete è aperta
+          const cc = k.tipo === 'camera', len = cc ? Math.max(k.len + 2 * cb, 25) : k.len + 2 * cb + 4;
+          bh.push({ sd: k.sd, y0: k.y - len / 2, y1: k.y + len / 2, w: cc ? Math.max(k.w + 2 * cb, 4.2) : k.w + 2 * cb, cc, n: 1 });
+        }
+        // i tasti vicini sullo stesso fianco (azione e volume, interruttore e volume) diventano un'unica apertura
+        bh.sort((a, b) => a.sd - b.sd || a.y0 - b.y0);
+        const slots = [];
+        for (const h of bh) {
+          const q = slots[slots.length - 1];
+          if (q && q.sd === h.sd && !q.cc && !h.cc && h.y0 - q.y1 < 10) { q.y1 = Math.max(q.y1, h.y1); q.w = Math.max(q.w, h.w); q.n++; }
+          else slots.push(Object.assign({}, h));
+        }
+        for (const h of slots) {
+          if (!h.cc) {
+            // parete aperta dal retro fino al bordo sullo schermo (come le cover in commercio): il dito arriva a tutto il tasto
+            const r = Math.min(2, (h.y1 - h.y0) / 2), [a0, a1] = xs(h.sd, t.W / 2 - 6, t.W / 2 + g + s + 1);
+            cuts.push(prismX(RR(h.y0, tb + 0.2, h.y1, zr + 2 * r + 1, r), a0, a1));
+            continue;
+          }
+          // Camera Control: asola; con una cover rigida è più alta e svasata fuori, così il dito ci arriva
+          const hh = Math.min(tpu ? h.w : Math.max(h.w, 4.5), t.T + gz - 0.5), ch = tpu ? 0.4 : 0.8;
+          const sec = RR(h.y0, zm - hh / 2, h.y1, zm + hh / 2, hh / 2), xo = h.sd * (t.W / 2 + g + s);
+          const [a0, a1] = xs(h.sd, t.W / 2 - 1.5, t.W / 2 + g + s + 1);
+          cuts.push(prismX(sec, a0, a1), loftX([[sec, xo - h.sd * ch], [OFF(sec, ch + 0.01), xo + h.sd * 0.01]]));
+        }
+        opens = slots.filter(h => !h.cc).length; ccSlot = slots.some(h => h.cc);
+
+        // ---- fondo: aperto dal retro al bordo per cavo, altoparlante e microfoni (non tocca gli angoli) ----
+        const X = (u) => -t.W / 2 + u, [uc, uw] = t.usb, sp = t.sp || [uc, uc];
+        const fx0 = Math.max(X(Math.min(sp[0], uc - uw / 2 - cb) - 3), -t.W / 2 + 9), fx1 = Math.min(X(Math.max(sp[1], uc + uw / 2 + cb) + 3), t.W / 2 - 9);
+        cuts.push(prismY(RR(fx0, tb + 0.2, fx1, zr + 6, 2.5), -t.L / 2 - g - s - 1, -t.L / 2 + 6));
+        // ---- cima: fori dei microfoni [centro x guardando lo schermo, larghezza], asole tonde a metà spessore ----
+        for (const [u, w] of (t.cima || [])) {
+          const a = w + 2 * cb, h = Math.min(a, t.T - 2);
+          cuts.push(prismY(RR(X(u) - a / 2, zm - h / 2, X(u) + a / 2, zm + h / 2, h / 2), t.L / 2 - 3, t.L / 2 + g + s + 1));
+        }
+        // ---- fori piccoli sui fianchi (microfoni): [lato −1 sinistra / 1 destra guardando lo schermo, centro dalla cima, larghezza] ----
+        for (const [sd, c, w] of (t.lati || [])) {
+          const a = w + 2 * cb, h = Math.min(a, t.T - 2), y = t.L / 2 - c, [a0, a1] = xs(sd, t.W / 2 - 3, t.W / 2 + g + s + 1);
+          cuts.push(prismX(RR(y - a / 2, zm - h / 2, y + a / 2, zm + h / 2, h / 2), a0, a1));
+        }
       }
 
       // ---- MagSafe: incavo ad anello per un anello magnetico adesivo, centrato sul MagSafe del telefono ----
@@ -374,8 +462,8 @@
         const mir = (c) => (empty(c) ? null : R2(c.mirror([1, 0])));
         // zona libera: tutta la parte piatta del retro (dove finisce l'arrotondamento dello spigolo) meno 1,5 mm, senza la finestra
         // della fotocamera, la guida del cavalletto e il MagSafe scavato fuori. Vista da fuori, quindi a specchio
-        const flatOut = p.profilo === 'dritto' || rb < 0.1 ? out : OFF(out, -(p.profilo === 'smussato' ? rb : 0.586 * rb));
-        const zone = mir(D(OFF(flatOut, -1.5), U([OFF(winOut, 2), slotCS, magCS && p.magsafe === 'fuori' ? OFF(magCS, 0.6) : null])));
+        const flatB = flatOut || (p.profilo === 'dritto' || rb < 0.1 ? out : OFF(out, -(p.profilo === 'smussato' ? rb : 0.586 * rb)));
+        const zone = mir(D(OFF(flatB, -1.5), U([OFF(winOut, 2), slotCS, magCS && p.magsafe === 'fuori' ? OFF(magCS, 0.6) : null])));
         let artCS = null, txt = null;
         // colore della scritta (e del marchio SP): scelto, oppure quello che stacca di più dalla cover
         let ts = Math.min(4, Math.max(2, +p.colTesto || 3));
@@ -444,7 +532,7 @@
 
       // ---- montaggio ----
       if (adds.length) shell = union([shell, ...adds]);
-      let bodyM = sub(shell, U3(cuts));
+      let bodyM = cuts.length ? sub(shell, U3(cuts)) : shell;
       const colorM = {};
       for (const k of [2, 3, 4]) {
         let m = U3(deco[k]);
@@ -489,8 +577,10 @@
       }
       if (insert && p.prova !== 'fondo') {
         const k = Math.min(4, Math.max(1, +p.colCornice || 1));
-        parts.push({ name: 'Copertura fotocamera', m: flip(insert, zr), print: insert, role: 'body', color: F[k - 1], group: 'Copertura fotocamera' });
-        if (capMark) parts.push({ name: 'Copertura fotocamera · logo', m: flip(capMark, zr), print: capMark, role: 'body', color: F[capCol - 1], group: 'Copertura fotocamera' });
+        // la copertura da incollare si stampa con la faccia da incollare sul piatto: resta piana e i fori svasati non hanno sbalzi
+        const pr = (m) => (glue ? reg(m.rotate([0, 180, 0])) : m);
+        parts.push({ name: 'Copertura fotocamera', m: flip(insert, zr), print: pr(insert), role: 'body', color: F[k - 1], group: 'Copertura fotocamera' });
+        if (capMark) parts.push({ name: 'Copertura fotocamera · logo', m: flip(capMark, zr), print: pr(capMark), role: 'body', color: F[capCol - 1], group: 'Copertura fotocamera' });
         if (capMark && capCol === k) notes.push('Il logo sulla copertura ha lo stesso colore della copertura: a filo non si vede. Cambia il colore della scritta o della copertura');
       }
       // il telefono, per vedere come ci sta
@@ -499,16 +589,25 @@
 
       // ---- riquadro misure ----
       info.push(['Telefono', `${t.nome}: ${fmt(t.W)} × ${fmt(t.L)} × ${fmt(t.T)} mm` + (t.fonte ? ` (disegno Apple del ${t.fonte.split('-').reverse().join('/')})` : t.misure ? ` (${t.misure})` : '')]);
-      info.push(['Cover', `${fmt(Wo)} × ${fmt(Lo)} × ${fmt(zr)} mm · pareti ${fmt(s)} mm · retro ${fmt(tb)} mm`]);
+      if (GS) info.push(['Cover', `${fmt(Wo)} × ${fmt(Lo)} × ${fmt(zr)} mm · presa dal file ${GS.fonte}: pareti 1,4 mm, retro ${fmt(tb)} mm (${fmt(GS.tasca)} mm sotto la fotocamera)`]);
+      else info.push(['Cover', `${fmt(Wo)} × ${fmt(Lo)} × ${fmt(zr)} mm · pareti ${fmt(s)} mm · retro ${fmt(tb)} mm`]);
       info.push(['Materiale', tpu ? 'TPU: il telefono entra a scatto sotto il bordo' : 'PLA o PETG: rigida. Il telefono entra inclinato: prima la cima sotto il bordo, poi premi giù il fondo (le pareti si piegano un poco)']);
-      info.push(['Gioco', `${fmt(g)} mm sui lati, ${fmt(gz)} mm sullo spessore, ${fmt(cb)} mm attorno a tasti e connettore`]);
-      info.push(['Bordo sullo schermo', `copre ${fmt(lip)} mm di vetro e sporge ${fmt(hs)} mm sopra lo schermo`]);
+      if (GS) {
+        const f2 = (v) => String(+(+v).toFixed(2)).replace('.', ',');
+        info.push(['Gioco', `${f2(g)} mm per lato e ${f2(gz)} mm sullo spessore (il file originale ne ha ${f2(GS.gx)} sui fianchi, ${f2(GS.gy)} in cima e in fondo, ${f2(GS.gz)} sullo spessore)`]);
+        info.push(['Bordo sullo schermo', `copre ${fmt(Math.max(0.3, Math.min(2.5, lip)))} mm di vetro e sporge ${fmt(zr - zf)} mm sopra lo schermo (il file: ${fmt(GS.bordo)} e ${fmt(GS.alto)} mm)`]);
+      } else {
+        info.push(['Gioco', `${fmt(g)} mm sui lati, ${fmt(gz)} mm sullo spessore, ${fmt(cb)} mm attorno a tasti e connettore`]);
+        info.push(['Bordo sullo schermo', `copre ${fmt(lip)} mm di vetro e sporge ${fmt(hs)} mm sopra lo schermo`]);
+      }
       const lens = C.v - tb;
-      if (insert) info.push(['Fotocamera', `${t.lenti ? 'copertura a parte: chiude la finestra e lascia aperti solo lenti, flash e sensori' : 'cornice a parte attorno alla fotocamera'}; sporge ${fmt(ringOut)} mm dal retro, ${fmt(up)} mm oltre le lenti. Si infila da dentro la cover prima del telefono: il suo bordo largo ${fmt(FLinfo)} mm resta in un incavo del retro e il telefono la tiene ferma`]);
+      if (GS) info.push(['Fotocamera', `rialzo in una tasca dentro il retro, lenti circa ${fmt(tb - C.v)} mm sotto il retro della cover` + (glue ? `; copertura da incollare sopra, spessa ${fmt(glue)} mm: le lenti restano circa ${fmt(tb - C.v + glue)} mm sotto la sua faccia` : '')]);
+      else if (insert) info.push(['Fotocamera', `${t.lenti ? 'copertura a parte: chiude la finestra e lascia aperti solo lenti, flash e sensori' : 'cornice a parte attorno alla fotocamera'}; sporge ${fmt(ringOut)} mm dal retro, ${fmt(up)} mm oltre le lenti. Si infila da dentro la cover prima del telefono: il suo bordo largo ${fmt(FLinfo)} mm resta in un incavo del retro e il telefono la tiene ferma`]);
       else info.push(['Fotocamera', lens > 0.05 ? `le lenti sporgono ${fmt(lens)} mm dal retro della cover` : `lenti ${fmt(-lens)} mm dentro il retro: appoggiata sul tavolo la cover non le tocca`]);
       if (thick) info.push(['Retro', `${fmt(tb)} mm: il rialzo della fotocamera è largo quanto il telefono e sta in una tasca, così fuori il retro resta piatto`]);
       if (covered) info.push(['Tasti', `${covered} coperti: si premono attraverso la cover`]);
-      info.push(['Aperture', `${opens ? 'fianchi aperti dal retro al bordo dove ci sono i tasti' : 'tasti coperti'}${ccSlot ? ', asola per il Camera Control' : ''}; fondo aperto per cavo, altoparlante e microfoni${t.cima ? '; foro per il microfono in cima' : ''}${t.lati ? '; forellino sul fianco' : ''}`]);
+      if (GS) info.push(['Aperture', 'quelle del file: tasti a destra, fondo aperto per cavo, altoparlante e microfono, microfono in cima, forellino sul fianco']);
+      else info.push(['Aperture', `${opens ? 'fianchi aperti dal retro al bordo dove ci sono i tasti' : 'tasti coperti'}${ccSlot ? ', asola per il Camera Control' : ''}; fondo aperto per cavo, altoparlante e microfoni${t.cima ? '; foro per il microfono in cima' : ''}${t.lati ? '; forellino sul fianco' : ''}`]);
       if (decoInfo) info.push(['Decorazione', decoInfo]);
       if (standInfo) info.push(['Cavalletto', standInfo]);
       if (magInfo) {
@@ -519,12 +618,14 @@
       }
       if (strip) info.push(['Prova', p.prova === 'cima' ? `solo la cima (${fmt(hStrip)} mm), con tutta la finestra della fotocamera${insert ? ' e la copertura delle lenti' : ''}: stampala per controllare misure, gioco${insert ? ' e incastro della copertura' : ''}, poi spegni la prova. Senza scritte, disegno e logo: tornano con la cover intera` : 'solo il fondo (22 mm): stampalo per controllare misure e gioco, poi spegni la prova. Senza scritte, disegno e logo: tornano con la cover intera']);
       info.push(['Stampa', `retro sul piatto, senza supporti${tpu ? '; il TPU va stampato lento (20–30 mm/s)' : ''}`]);
-      if (!insert && lens > 0.15) notes.push('Le lenti sporgono dalla cover: scegli la copertura a parte per proteggerle');
-      if (insert) notes.push('~Stampa la copertura in PLA o PETG opaco, con la faccia esterna sul piatto come la cover: il TPU è troppo morbido e un materiale chiaro fa passare la luce del flash nelle foto');
+      if (!GS && !insert && lens > 0.15) notes.push('Le lenti sporgono dalla cover: scegli la copertura a parte per proteggerle');
+      if (glue) notes.push('~Copertura delle lenti: stampala in PLA o PETG opaco con la faccia da incollare sul piatto. Incollala sul retro con i fori sopra quelli della cover (colla cianoacrilica in gel, poca e lontana dai fori, o biadesivo sottile). Un materiale chiaro fa passare la luce del flash nelle foto');
+      else if (insert) notes.push('~Stampa la copertura in PLA o PETG opaco, con la faccia esterna sul piatto come la cover: il TPU è troppo morbido e un materiale chiaro fa passare la luce del flash nelle foto');
       if (t.fonte && tb > 2.1) notes.push(`Retro di ${fmt(tb)} mm: Apple indica al massimo 2,1 mm perché la ricarica MagSafe funzioni sempre: riduci lo spessore del retro`);
       if (!tpu && lip > 0.8) notes.push(`Bordo sul vetro di ${fmt(lip)} mm: con PLA o PETG il telefono rischia di non entrare o di rompere la cover. Meglio 0,6 mm o meno`);
       if (t.piano && lip > t.piano + 0.6) notes.push(`Il bordo arriva ${fmt(lip - t.piano)} mm dentro la parte piatta dello schermo: riduci il bordo sul vetro`);
-      if (t.misure) notes.push('~Misure non da un disegno ufficiale: stampa prima la striscia di prova (cima e fondo) per controllare fotocamera, tasti e gioco. Se il telefono balla anche con gioco 0, prova −0,1 e poi −0,2' + (tpu ? '' : '; con PLA o PETG tiene meglio anche un bordo sul vetro di 0,8 mm'));
+      if (GS) notes.push('~Cover presa dal file ' + GS.fonte + ': stampa prima la striscia di prova. Se il telefono entra duro aumenta il gioco, se balla diminuiscilo (anche sotto zero)');
+      else if (t.misure) notes.push('~Misure non da un disegno ufficiale: stampa prima la striscia di prova (cima e fondo) per controllare fotocamera, tasti e gioco. Se il telefono balla anche con gioco 0, prova −0,1 e poi −0,2' + (tpu ? '' : '; con PLA o PETG tiene meglio anche un bordo sul vetro di 0,8 mm'));
       for (const n of notes) info.push(['Nota', n]);
       if (DEC) { for (const n of DEC.NOTES) info.push(['Nota', n]); DEC.NOTES.clear(); }
       return { parts: parts.filter(Boolean), info, view: [0.55, -0.9, 0.75] };

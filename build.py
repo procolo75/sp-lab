@@ -18,6 +18,7 @@ parts = [
   rd('src/svg.js'),
   rd('src/emoji.js'),
   rd('src/telefoni.js'),
+  rd('src/gusci.js'),
   rd('src/geom.js'),
   rd('src/natale.js'),
   rd('src/collari.js'),

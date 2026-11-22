@@ -221,6 +221,10 @@
   const gruppo = (t) => (t.marca ? t.marca : serie(t) === '17' ? 'iPhone 17 e Air' : 'iPhone ' + serie(t));
   const PHONE_OPTS = [...PHONES.map(t => [t.id, t.nome, gruppo(t)]), ['misure', 'Misure mie', 'Altro']];
   const mine = (p) => p.modello === 'misure';
+  // telefoni con una cover già fatta (src/gusci.js): pareti, bordo, fotocamera e aperture vengono dal file, non si scelgono
+  const gus = (p) => !mine(p) && !!(window.SP_GUSCI || {})[p.modello];
+  const calc = (p) => !gus(p);
+  const lensCap = (p) => (gus(p) ? p.protezioneG !== 'nessuna' : p.protezione === 'cornice');
   const PHONE_FIELDS = [
     { id: 'larghezza', label: 'Larghezza', min: 40, max: 120, def: 71.63 },
     { id: 'altezza', label: 'Altezza', min: 90, max: 220, def: 147.64 },
@@ -369,7 +373,7 @@
       artKey: 'disegno',
       params: [
         { sec: 'Telefono', id: 'modello', label: 'Modello', type: 'select', menu: true, def: 'iphone-16', options: PHONE_OPTS, onSet: (k) => (k === 'misure' ? null : phoneFields(k)),
-          help: 'iPhone: misure prese dai disegni quotati che Apple pubblica per chi fa accessori. OnePlus Nord: scheda tecnica e foto ufficiale in scala, alcune quote stimate. Motorola Edge 60 Neo: scheda tecnica e una cover già stampata, alcune quote stimate. "Misure mie" parte dall\'ultimo modello scelto e lascia cambiare tutto.' },
+          help: 'iPhone: misure prese dai disegni quotati che Apple pubblica per chi fa accessori. OnePlus Nord: scheda tecnica e foto ufficiale in scala, alcune quote stimate. Motorola Edge 60 Neo: la cover è il file HardShell V3, con il gioco che scegli. "Misure mie" parte dall\'ultimo modello scelto e lascia cambiare tutto.' },
         ...PHONE_FIELDS.map(f => Object.assign({ sec: 'Telefono', type: 'num', step: 0.01, unit: 'mm', show: mine }, f)),
         { sec: 'Telefono', id: 'tipo', label: 'Tipo', type: 'select', def: 'completa', options: [['completa', 'Cover completa'], ['cavalletto', 'Con cavalletto']] },
         { sec: 'Materiale e gioco', id: 'materiale', label: 'Materiale', type: 'select', def: 'tpu', options: [['tpu', 'TPU (flessibile)'], ['pla', 'PLA o PETG (rigido)']],
@@ -377,20 +381,23 @@
           help: 'TPU: il telefono entra a scatto sotto il bordo, come una cover comprata. PLA o PETG sono rigidi: il bordo sul vetro è più stretto e il telefono entra inclinato, prima la cima e poi il fondo, mentre le pareti si piegano un poco. Il PETG si piega meglio del PLA.' },
         { sec: 'Materiale e gioco', id: 'gioco', label: 'Gioco sui lati (per lato)', type: 'num', min: -0.4, max: 1, step: 0.05, def: 0.15, unit: 'mm', help: 'Spazio tra telefono e pareti. Stampa la striscia di prova: se entra stretto aumentalo, se balla diminuiscilo. Se balla anche a 0 scendi sotto zero: il telefono è un po\' più piccolo delle misure dichiarate.' },
         { sec: 'Materiale e gioco', id: 'giocoZ', label: 'Gioco sullo spessore', type: 'num', min: -0.4, max: 1, step: 0.05, def: 0.2, unit: 'mm', help: 'Sotto zero se il telefono balla avanti e indietro anche a 0.' },
-        { sec: 'Materiale e gioco', id: 'giocoTasti', label: 'Gioco attorno ai fori (per lato)', type: 'num', min: 0.2, max: 2, step: 0.1, def: 0.5, unit: 'mm', help: 'Margine attorno a tasti, connettore e altoparlanti.' },
-        { sec: 'Materiale e gioco', id: 'giocoCam', label: 'Gioco attorno alla fotocamera (per lato)', type: 'num', min: 0, max: 3, step: 0.1, def: 0.6, unit: 'mm' },
-        { sec: 'Bordi', id: 'pareti', label: 'Spessore pareti', type: 'num', min: 1, max: 3, step: 0.1, def: 1.6, unit: 'mm' },
-        { sec: 'Bordi', id: 'retro', label: 'Spessore retro', type: 'num', min: 1, max: 3, step: 0.1, def: 1.6, unit: 'mm', help: 'Il retro diventa più spesso da solo se servono la tasca per la fotocamera, la guida del cavalletto o il retro più spesso per le lenti.' },
+        { sec: 'Materiale e gioco', id: 'giocoTasti', show: calc, label: 'Gioco attorno ai fori (per lato)', type: 'num', min: 0.2, max: 2, step: 0.1, def: 0.5, unit: 'mm', help: 'Margine attorno a tasti, connettore e altoparlanti.' },
+        { sec: 'Materiale e gioco', id: 'giocoCam', show: calc, label: 'Gioco attorno alla fotocamera (per lato)', type: 'num', min: 0, max: 3, step: 0.1, def: 0.6, unit: 'mm' },
+        { sec: 'Bordi', id: 'pareti', show: calc, label: 'Spessore pareti', type: 'num', min: 1, max: 3, step: 0.1, def: 1.6, unit: 'mm' },
+        { sec: 'Bordi', id: 'retro', show: calc, label: 'Spessore retro', type: 'num', min: 1, max: 3, step: 0.1, def: 1.6, unit: 'mm', help: 'Il retro diventa più spesso da solo se servono la tasca per la fotocamera, la guida del cavalletto o il retro più spesso per le lenti.' },
         { sec: 'Bordi', id: 'sporgenza', label: 'Bordo sul vetro', type: 'num', min: 0.4, max: 3, step: 0.1, def: 1, unit: 'mm', help: 'Quanto il bordo copre il vetro dello schermo, dal contorno del telefono verso l\'interno. Più largo tiene meglio il telefono.' },
         { sec: 'Bordi', id: 'bordoSchermo', label: 'Altezza sopra lo schermo', type: 'num', min: 0, max: 3, step: 0.1, def: 0.8, unit: 'mm', help: 'Quanto il bordo sporge sopra il vetro: appoggiato a faccia in giù, lo schermo non tocca il tavolo.' },
-        { sec: 'Bordi', id: 'profilo', label: 'Spigoli', type: 'select', def: 'arrotondato', options: [['arrotondato', 'Arrotondati'], ['smussato', 'Smussati'], ['dritto', 'Vivi']] },
-        { sec: 'Bordi', id: 'raggio', label: 'Misura spigoli', type: 'num', min: 0.2, max: 3, step: 0.1, def: 1.2, unit: 'mm', show: p => p.profilo !== 'dritto' },
-        { sec: 'Fotocamera e tasti', id: 'protezione', label: 'Protezione lenti', type: 'select', def: 'cornice', options: [['cornice', 'Copertura a parte'], ['retro', 'Retro più spesso'], ['nessuna', 'Nessuna']],
+        { sec: 'Bordi', id: 'profilo', show: calc, label: 'Spigoli', type: 'select', def: 'arrotondato', options: [['arrotondato', 'Arrotondati'], ['smussato', 'Smussati'], ['dritto', 'Vivi']] },
+        { sec: 'Bordi', id: 'raggio', label: 'Misura spigoli', type: 'num', min: 0.2, max: 3, step: 0.1, def: 1.2, unit: 'mm', show: p => calc(p) && p.profilo !== 'dritto' },
+        { sec: 'Fotocamera e tasti', id: 'protezioneG', label: 'Protezione lenti', type: 'select', def: 'incollata', options: [['incollata', 'Copertura da incollare sopra'], ['nessuna', 'Nessuna']], show: gus,
+          help: 'Una piastra stampata a parte, con gli stessi fori della cover, da incollare sul retro attorno alle lenti: alza il bordo attorno alla fotocamera. Non va a incastro.' },
+        { sec: 'Fotocamera e tasti', id: 'spessoreCop', label: 'Spessore copertura', type: 'num', min: 0.6, max: 4, step: 0.2, def: 2, unit: 'mm', show: p => gus(p) && p.protezioneG !== 'nessuna', help: 'Quanto la copertura sporge dal retro della cover.' },
+        { sec: 'Fotocamera e tasti', id: 'protezione', show: calc, label: 'Protezione lenti', type: 'select', def: 'cornice', options: [['cornice', 'Copertura a parte'], ['retro', 'Retro più spesso'], ['nessuna', 'Nessuna']],
           help: 'Copertura a parte: un pezzo stampato a parte (in PLA o PETG) che chiude la finestra della fotocamera, lascia aperti solo lenti, flash e sensori e sporge oltre le lenti. Si mette dentro la cover e la tiene ferma il telefono. Retro più spesso: niente pezzi in più, ma la cover diventa più spessa e pesante.' },
-        { sec: 'Fotocamera e tasti', id: 'alzoCornice', label: 'Oltre le lenti', type: 'num', min: 0.2, max: 2, step: 0.1, def: 0.5, unit: 'mm', show: p => p.protezione !== 'nessuna', help: 'Quanto la protezione sporge oltre il vetro delle lenti.' },
-        { sec: 'Fotocamera e tasti', id: 'giocoCornice', label: 'Gioco della copertura per lato', type: 'num', min: 0, max: 0.5, step: 0.05, def: 0.15, unit: 'mm', show: p => p.protezione === 'cornice', help: 'Tra la copertura e la finestra della cover. Se entra dura aumentalo.' },
-        { sec: 'Fotocamera e tasti', id: 'colCornice', label: 'Colore della copertura', type: 'select', def: '1', options: [['1', '1'], ['2', '2'], ['3', '3'], ['4', '4']], show: p => p.protezione === 'cornice' },
-        { sec: 'Fotocamera e tasti', id: 'tasti', label: 'Tasti', type: 'select', def: 'fori', options: [['fori', 'Scoperti (fianco aperto)'], ['coperti', 'Coperti (solo TPU)']], show: p => p.materiale !== 'pla',
+        { sec: 'Fotocamera e tasti', id: 'alzoCornice', label: 'Oltre le lenti', type: 'num', min: 0.2, max: 2, step: 0.1, def: 0.5, unit: 'mm', show: p => calc(p) && p.protezione !== 'nessuna', help: 'Quanto la protezione sporge oltre il vetro delle lenti.' },
+        { sec: 'Fotocamera e tasti', id: 'giocoCornice', label: 'Gioco della copertura per lato', type: 'num', min: 0, max: 0.5, step: 0.05, def: 0.15, unit: 'mm', show: p => calc(p) && p.protezione === 'cornice', help: 'Tra la copertura e la finestra della cover. Se entra dura aumentalo.' },
+        { sec: 'Fotocamera e tasti', id: 'colCornice', label: 'Colore della copertura', type: 'select', def: '1', options: [['1', '1'], ['2', '2'], ['3', '3'], ['4', '4']], show: lensCap },
+        { sec: 'Fotocamera e tasti', id: 'tasti', label: 'Tasti', type: 'select', def: 'fori', options: [['fori', 'Scoperti (fianco aperto)'], ['coperti', 'Coperti (solo TPU)']], show: p => calc(p) && p.materiale !== 'pla',
           help: 'Scoperti: il fianco è aperto dal retro al bordo dove ci sono i tasti. Coperti: la parete si assottiglia sopra il tasto e fuori c\'è un rilievo da premere. Camera Control e interruttore restano sempre scoperti.' },
         { sec: 'MagSafe', id: 'magsafe', label: 'Incavo per anello magnetico', type: 'select', def: 'no', options: [['no', 'No'], ['dentro', 'Dentro la cover'], ['fuori', 'Sul retro']],
           help: 'Un incavo ad anello, centrato sul MagSafe, per un anello magnetico adesivo: così caricatori, supporti e accessori MagSafe si attaccano anche attraverso la cover. Dentro: l\'anello resta nascosto tra cover e telefono. Sul retro: resta a vista.' },
@@ -412,7 +419,7 @@
         ...linesP('Scritta', '', '', 8, null, 60, 'Se la scritta non ci sta viene ridotta da sola.'),
         { sec: 'Scritta', id: 'carattere', label: 'Carattere', type: 'select', def: 'tondo', options: FONT_OPTS },
         Object.assign(nozzleP('Scritta'), { show: p => hasLogo(p) || isArtId(p.disegno) }),
-        ...markP(true, null, [{ id: 'doveMarchio', label: 'Dove', type: 'select', def: 'retro', options: [['retro', 'Retro della cover'], ['lenti', 'Copertura delle lenti']], show: p => p.protezione === 'cornice',
+        ...markP(true, null, [{ id: 'doveMarchio', label: 'Dove', type: 'select', def: 'retro', options: [['retro', 'Retro della cover'], ['lenti', 'Copertura delle lenti']], show: lensCap,
           help: 'Sulla copertura delle lenti va tra i fori, sulla faccia esterna. Stesso stile della scritta del retro (a filo o inciso).' }]),
         ...colorsP(['Colore 1 · cover', 'Colore 2', 'Colore 3', 'Colore 4'], 'disegno'),
         { sec: 'Colori', id: 'colTesto', label: 'Colore della scritta', type: 'select', def: 'auto', options: [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4']] },
@@ -1169,7 +1176,7 @@
     { id: 'gridfinity', title: 'Gridfinity', cat: 'Organizzazione', desc: 'Contenitori impilabili, cassettiere con cassetti e basi a griglia da 42 mm.', modes: ['bin', 'cab', 'base'], thumb: 'cab' },
     { id: 'lego', title: 'Cassetti modulari', cat: 'Organizzazione', desc: 'Mattoncini con cassetto che si impilano come i Lego: vaschetta e coperchio con i bottoncini, a scatto o incollato, cassetto con o senza guide e separatori estraibili. Poca plastica, tutto stampato dritto.', modes: ['lego'], thumb: 'lego' },
     { id: 'rack', title: 'Rack telefoni', cat: 'Organizzazione', desc: 'Rack a fessure per riporre telefoni e tablet, anche di spessori diversi.', modes: ['rack'], thumb: 'rack' },
-    { id: 'cover', title: 'Cover telefono', cat: 'Accessori', desc: 'Cover per iPhone dal 12 al 17 con le misure dei disegni Apple, OnePlus Nord, Motorola Edge 60 Neo, o per qualsiasi telefono con le tue misure. TPU o PLA/PETG a scatto, cornice per le lenti, cavalletto, scritta e il tuo SVG sul retro.', modes: ['cover'], thumb: 'cover' },
+    { id: 'cover', title: 'Cover telefono', cat: 'Accessori', desc: 'Cover per iPhone dal 12 al 17 con le misure dei disegni Apple, OnePlus Nord, Motorola Edge 60 Neo (dalla HardShell V3), o per qualsiasi telefono con le tue misure. TPU o PLA/PETG a scatto, cornice per le lenti, cavalletto, scritta e il tuo SVG sul retro.', modes: ['cover'], thumb: 'cover' },
     { id: 'animali', title: 'Animali', cat: 'Accessori', desc: 'Medagliette per i collari di cani e gatti: osso, cuore, tondo, tondo con la zampa e altre forme, nome davanti e telefono dietro, a filo colorati o incisi; foro per l\'anellino, asola o fessure per far passare il collare.', modes: ['collare'], thumb: 'collare' },
     { id: 'vasi', title: 'Vasi', cat: 'Casa e giardino', desc: 'Vasi e fioriere per aromatiche, normali con sottovaso o autoirriganti.', modes: ['vaso'], thumb: 'vaso' },
     { id: 'barattoli', title: 'Barattoli', cat: 'Casa e giardino', desc: 'Barattoli tondi con tappo a vite: filetto grosso che si chiude con un giro solo, cinque misure o le tue, scritta, loghi e il tuo SVG sul tappo. Senza supporti.', modes: ['barattolo'], thumb: 'barattolo' },

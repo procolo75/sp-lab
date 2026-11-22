@@ -157,7 +157,8 @@
       // prospettiva), 42,8 nella cover di riferimento. Asola larga che li comprende tutti e due
       usb: [36.65, 12.45, 6.60, 3.25], sp: [25.6, 64.6], cima: [[41.6, 5]], piano: 1.0 },   // fondo come la cover di riferimento: microfono e USB, altoparlante
     // Motorola Edge 60 Neo (2025). 154,1 × 71,2 × 8,1 mm dalla scheda tecnica (GSMArena, GSMChoice 154,11 × 71,24 × 8,09).
-    // Tutto il resto misurato sulla cover HardShell V3 già stampata (Documenti/Anycubic/Motorola Edge 60 Neo, HardShell_V3_flat.stl):
+    // La cover del generatore è il file HardShell V3 stesso (src/gusci.js): queste misure servono al telefono in anteprima,
+    // a "Misure mie" e alla zona libera del retro. Tutto il resto misurato sulla cover HardShell V3 già stampata (Documenti/Anycubic/Motorola Edge 60 Neo, HardShell_V3_flat.stl):
     // vano 71,4 × 154,4 × 7,9–8,1 mm, retro del telefono 3,8 mm sopra il piatto. Quote della cover meno il suo gioco (≈0,1–0,3 mm).
     // Angoli: raggio ≈ 8,3 (la cover ha degli scarichi negli angoli, la curva vera è presa dove tocca il telefono).
     // Tasti: volume e accensione a destra in un'unica apertura (y 30–69 nella cover): divisione tra i due tasti stimata.
